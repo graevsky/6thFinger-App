@@ -49,6 +49,9 @@ class BleClient(private val context: Context) {
     private val _state = MutableStateFlow(Telemetry(status = "Idle"))
     val state = _state.asStateFlow()
 
+    private val _devices = MutableStateFlow<List<BleDeviceUi>>(emptyList())
+    val devices = _devices.asStateFlow()
+
     private val scanning = AtomicBoolean(false)
     private val connecting = AtomicBoolean(false)
 
@@ -60,7 +63,6 @@ class BleClient(private val context: Context) {
 
     fun stop() {
         stopScan()
-        disconnect()
     }
 
     fun isBleReady(): Boolean = adapter?.isEnabled == true
@@ -106,6 +108,7 @@ class BleClient(private val context: Context) {
             return
         }
 
+        _devices.value = emptyList()
         _state.value = _state.value.copy(status = "Scanning")
 
         val settings = ScanSettings.Builder()
@@ -120,8 +123,10 @@ class BleClient(private val context: Context) {
                     kotlinx.coroutines.delay(10_000)
                     if (scanning.get()) {
                         stopScan()
-                        _state.value =
-                            _state.value.copy(status = "Not found (timeout). Enable Location?")
+                        if (_devices.value.isEmpty()) {
+                            _state.value =
+                                _state.value.copy(status = "Not found (timeout). Enable Location?")
+                        }
                     }
                     scanStopPosted = false
                 }
@@ -146,17 +151,18 @@ class BleClient(private val context: Context) {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val advName = result.scanRecord?.deviceName
             val devName = result.device.name
-            val name = advName ?: devName ?: ""
+            val name = (advName ?: devName ?: "Unnamed").ifBlank { "Unnamed" }
 
             val hasOurService = result.scanRecord?.serviceUuids?.any {
                 it?.uuid == BleConstants.SERVICE_UUID
             } == true
 
-            if (name == BleConstants.DEVICE_NAME || hasOurService) {
-                stopScan()
-                _state.value =
-                    _state.value.copy(status = "Device found: ${name.ifEmpty { "Unnamed" }}")
-                connect(result.device)
+            if (!hasOurService) return
+
+            val addr = result.device.address
+            val curr = _devices.value
+            if (curr.none { it.address == addr }) {
+                _devices.value = curr + BleDeviceUi(name = name, address = addr)
             }
         }
 
@@ -170,6 +176,14 @@ class BleClient(private val context: Context) {
         }
     }
 
+
+    fun connectByAddress(address: String) {
+        val dev = adapter?.getRemoteDevice(address) ?: run {
+            _state.value = _state.value.copy(status = "Device not found")
+            return
+        }
+        connect(dev)
+    }
 
     private fun connect(device: BluetoothDevice) {
         if (connecting.getAndSet(true)) return
@@ -200,9 +214,7 @@ class BleClient(private val context: Context) {
         subscribeQueue.clear()
         subscribeInProgress = false
         try {
-            if (hasConnectPermission()) {
-                gatt?.disconnect()
-            }
+            if (hasConnectPermission()) gatt?.disconnect()
         } catch (_: SecurityException) {
         }
         try {
@@ -224,7 +236,6 @@ class BleClient(private val context: Context) {
                     g.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
                 } catch (_: SecurityException) {
                 }
-
                 scope.launch { _state.value = _state.value.copy(status = "Discovering") }
                 try {
                     g.discoverServices()
@@ -235,7 +246,6 @@ class BleClient(private val context: Context) {
             } else {
                 scope.launch { _state.value = _state.value.copy(status = "Disconnected") }
                 disconnect()
-
                 if (!reconnectAttempted && status != BluetoothGatt.GATT_SUCCESS) {
                     reconnectAttempted = true
                     scope.launch {
@@ -251,13 +261,11 @@ class BleClient(private val context: Context) {
                 scope.launch {
                     _state.value = _state.value.copy(status = "Service discovery failed")
                 }
-                disconnect()
-                return
+                disconnect(); return
             }
             if (!hasConnectPermission()) {
                 scope.launch { _state.value = _state.value.copy(status = "No connect permission") }
-                disconnect()
-                return
+                disconnect(); return
             }
 
             val service = try {
@@ -272,8 +280,7 @@ class BleClient(private val context: Context) {
                 scope.launch {
                     _state.value = _state.value.copy(status = "Characteristics not found")
                 }
-                disconnect()
-                return
+                disconnect(); return
             }
 
             subscribeQueue.clear()
@@ -316,13 +323,13 @@ class BleClient(private val context: Context) {
         val next = subscribeQueue.pollFirst()
         if (next == null) {
             scope.launch { _state.value = _state.value.copy(status = "Subscribed") }
+            connecting.set(false)
             return
         }
 
         if (!hasConnectPermission()) {
             scope.launch { _state.value = _state.value.copy(status = "No connect permission") }
-            disconnect()
-            return
+            disconnect(); return
         }
 
         subscribeInProgress = true
