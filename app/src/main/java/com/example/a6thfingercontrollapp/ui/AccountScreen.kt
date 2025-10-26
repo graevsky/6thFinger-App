@@ -34,10 +34,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.BleViewModel
+import com.example.a6thfingercontrollapp.MainActivity
 import com.example.a6thfingercontrollapp.R
 
 @Composable
@@ -59,11 +62,11 @@ fun AccountScreen(vm: BleViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Аккаунт", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.account), style = MaterialTheme.typography.titleLarge)
                 IconButton(onClick = { showSettings = true }) {
                     Icon(
                         Icons.Default.Build,
-                        contentDescription = "Настройки"
+                        contentDescription = stringResource(R.string.settings)
                     )
                 }
             }
@@ -87,21 +90,16 @@ fun AccountScreen(vm: BleViewModel) {
                 Spacer(Modifier.height(16.dp))
 
                 Text(
-                    text = "Гость",
+                    text = stringResource(R.string.guest),
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
                 )
 
                 Spacer(Modifier.height(12.dp))
 
                 Button(onClick = { /* TODO логика входа позже */ }) {
-                    Text("Войти")
+                    Text(stringResource(R.string.sign_in))
                 }
 
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "Русский",
-                    style = MaterialTheme.typography.bodySmall
-                )
             }
 
             Spacer(Modifier.height(8.dp))
@@ -109,12 +107,15 @@ fun AccountScreen(vm: BleViewModel) {
     }
 
     if (showSettings) {
+        val activity = LocalContext.current as? MainActivity
+
         SettingsDialog(
             currentLang = lang,
             onDismiss = { showSettings = false },
             onSelect = { newLang ->
                 vm.setAppLanguage(newLang)
                 showSettings = false
+                activity?.recreateApp()
             }
         )
     }
@@ -128,29 +129,29 @@ private fun SettingsDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Настройки приложения") },
+        title = { Text(stringResource(R.string.app_settings)) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Выбор языка:")
+                Text("${stringResource(R.string.lang_select)}:")
 
                 LanguageOption(
-                    title = "Русский",
+                    title = stringResource(R.string.rus),
                     selected = currentLang == "ru",
                     onClick = { onSelect("ru") }
                 )
 
                 LanguageOption(
-                    title = "English",
+                    title = stringResource(R.string.eng),
                     selected = currentLang == "en",
                     onClick = { onSelect("en") }
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Закрыть") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
         }
     )
 }

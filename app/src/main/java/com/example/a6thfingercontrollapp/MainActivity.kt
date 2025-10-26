@@ -1,6 +1,7 @@
 package com.example.a6thfingercontrollapp
 
 import android.Manifest
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -20,37 +21,47 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.a6thfingercontrollapp.data.AppSettingsStore
 import com.example.a6thfingercontrollapp.ui.AccountScreen
 import com.example.a6thfingercontrollapp.ui.ConnectScreen
 import com.example.a6thfingercontrollapp.ui.ControlScreen
 import com.example.a6thfingercontrollapp.ui.NavRoute
 import com.example.a6thfingercontrollapp.ui.theme._6thFingerControllAppTheme
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
+
 
 class MainActivity : ComponentActivity() {
     private val vm by viewModels<BleViewModel>()
 
+    override fun attachBaseContext(newBase: Context) {
+        val prefs = AppSettingsStore(newBase)
+        val lang = runBlocking { prefs.getLanguage().first() }
+        val ctx = LocaleManager.setLocale(newBase, lang)
+        super.attachBaseContext(ctx)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         setContent {
             _6thFingerControllAppTheme {
                 val nav = rememberNavController()
+
                 val permissions = remember { requiredPermissions() }
                 var granted by remember { mutableStateOf(false) }
                 val launcher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()
                 ) { res -> granted = res.all { it.value } }
+
                 LaunchedEffect(Unit) { launcher.launch(permissions) }
 
                 val routes = listOf(
@@ -70,7 +81,7 @@ class MainActivity : ComponentActivity() {
                             routes.forEach { r ->
                                 val enabled = when (r) {
                                     NavRoute.Connect -> true
-                                    NavRoute.Account -> true // аккаунт всегда доступен
+                                    NavRoute.Account -> true // доступен всегда
                                     else -> state.status.contains("Subscribed") ||
                                             state.status.contains("Connected")
                                 }
@@ -96,7 +107,7 @@ class MainActivity : ComponentActivity() {
                                             NavRoute.Account -> Icon(Icons.Default.Person, null)
                                         }
                                     },
-                                    label = { Text(r.label) },
+                                    label = { Text(stringResource(r.labelRes)) },
                                     enabled = enabled
                                 )
                             }
@@ -115,7 +126,7 @@ class MainActivity : ComponentActivity() {
                             ControlScreen(vm = vm)
                         }
                         composable(NavRoute.Sim.route) {
-                            Text("Симуляция (пока пусто)")
+                            Text(stringResource(R.string.simulation))
                         }
                         composable(NavRoute.Account.route) {
                             AccountScreen(vm = vm)
@@ -124,6 +135,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    fun recreateApp() {
+        recreate()
     }
 
     override fun onStart() {

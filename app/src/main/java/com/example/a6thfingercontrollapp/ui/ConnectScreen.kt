@@ -1,28 +1,17 @@
 package com.example.a6thfingercontrollapp.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.BleViewModel
+import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.BleDeviceUi
 import com.example.a6thfingercontrollapp.data.LastDevice
 
@@ -35,23 +24,24 @@ fun ConnectScreen(
     val devices by vm.devices.collectAsState()
     val last by vm.lastDevice.collectAsState()
 
-    val uiStatus = remember(status.status) {
-        when {
-            status.status.contains("discover", ignoreCase = true) -> "Connecting"
-            status.status.contains("subscribed", ignoreCase = true) -> "Connected"
-            else -> status.status
-        }
+    val connectingText = stringResource(R.string.connecting)
+    val connectedText = stringResource(R.string.connected)
+
+
+    val uiStatus = when {
+        status.status.contains("discover", ignoreCase = true) -> connectingText
+        status.status.contains("subscribed", ignoreCase = true) -> connectedText
+        else -> status.status
     }
 
-    val isConnected = remember(uiStatus) {
-        uiStatus.contains("Connected", ignoreCase = true)
-    }
+
+    val isConnected = uiStatus.contains(connectedText, ignoreCase = true)
+
 
     val lastAlias: String? = when (val ld = last) {
         null -> null
         else -> vm.aliasFlow(ld.address).collectAsState(initial = null).value
     }
-
 
     Scaffold { inner ->
         Column(
@@ -61,7 +51,10 @@ fun ConnectScreen(
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Статус: $uiStatus", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "${stringResource(R.string.status)}: $uiStatus",
+                style = MaterialTheme.typography.titleMedium
+            )
 
             LastDeviceCard(
                 last = last,
@@ -78,11 +71,16 @@ fun ConnectScreen(
                 Button(
                     onClick = { if (permissionsGranted && vm.isBleReady()) vm.scan() },
                     enabled = permissionsGranted && !isConnected
-                ) { Text("Сканировать") }
-                if (!permissionsGranted) Text("Разрешения не выданы")
+                ) {
+                    Text(stringResource(R.string.scan))
+                }
+                if (!permissionsGranted) Text(stringResource(R.string.access_not_granted))
             }
 
-            Text("Доступные устройства", style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.available_devices),
+                style = MaterialTheme.typography.titleMedium
+            )
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -103,7 +101,7 @@ fun ConnectScreen(
             }
 
             if (devices.isEmpty()) {
-                Text("Press scan to scan :P")
+                Text(stringResource(R.string.press_to_scan))
             }
         }
     }
@@ -118,13 +116,16 @@ private fun LastDeviceCard(
     onDisconnect: () -> Unit
 ) {
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Последнее устройство", style = MaterialTheme.typography.titleMedium)
+        Column(
+            Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(stringResource(R.string.last_device), style = MaterialTheme.typography.titleMedium)
             if (last == null) {
-                Text("Нет сохранённых устройств")
+                Text(stringResource(R.string.no_stored_devices))
             } else {
                 val title = (alias ?: last.name).ifBlank { alias ?: last.name }
-                Text(title.ifBlank { "Unnamed" })
+                Text(title.ifBlank { stringResource(R.string.no_device_name) })
                 Text(last.address, style = MaterialTheme.typography.bodySmall)
                 Row(
                     Modifier.fillMaxWidth(),
@@ -132,16 +133,19 @@ private fun LastDeviceCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isConnected) {
-                        OutlinedButton(onClick = onDisconnect) { Text("Отключиться") }
+                        OutlinedButton(onClick = onDisconnect) {
+                            Text(stringResource(R.string.disconnect))
+                        }
                     } else {
-                        Button(onClick = { onConnect(last.address) }) { Text("Подключиться") }
+                        Button(onClick = { onConnect(last.address) }) {
+                            Text(stringResource(R.string.connect))
+                        }
                     }
                 }
             }
         }
     }
 }
-
 
 @Composable
 private fun DeviceItem(
@@ -156,10 +160,11 @@ private fun DeviceItem(
             .then(if (!isConnected) Modifier.clickable { onClick() } else Modifier)
     ) {
         Column(Modifier.padding(12.dp)) {
-            Text(title.ifBlank { "Unnamed" }, style = MaterialTheme.typography.titleMedium)
+            Text(title.ifBlank { stringResource(R.string.no_device_name) },
+                style = MaterialTheme.typography.titleMedium)
             Text(address, style = MaterialTheme.typography.bodySmall)
             if (isConnected) {
-                Text("Уже подключено", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.already_connected), style = MaterialTheme.typography.bodySmall)
             }
         }
     }

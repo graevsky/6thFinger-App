@@ -37,6 +37,9 @@ import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.ble.DeviceSettings
 import kotlin.math.max
+import androidx.compose.ui.res.stringResource
+import com.example.a6thfingercontrollapp.R
+
 
 private enum class VibMode { Constant, Pulse }
 
@@ -76,7 +79,8 @@ fun ControlScreen(vm: BleViewModel) {
                         containerColor = if (dirty) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.primary
                     )
-                ) { Text("Сохранить") }
+                ) { Text(stringResource(R.string.save))
+                }
             }
         }
     ) { inner ->
@@ -94,29 +98,28 @@ fun ControlScreen(vm: BleViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Имя платы", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.device_name), style = MaterialTheme.typography.labelLarge)
                         Text(
-                            if (alias.isBlank()) "Без имени" else alias,
+                            if (alias.isBlank()) {stringResource(R.string.no_device_name)} else alias,
                             style = MaterialTheme.typography.titleMedium
                         )
-                        Text("Статус: ${t.status}", style = MaterialTheme.typography.bodySmall)
                     }
                     Spacer(Modifier.width(12.dp))
                     OutlinedButton(onClick = { renameOpen = true }, enabled = connected) {
-                        Text("Переименовать")
+                        Text(stringResource(R.string.rename))
                     }
                 }
             }
 
-            Text("Настройки", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.settings), style = MaterialTheme.typography.titleMedium)
 
-            SettingItem("FSR", "Чувствительность и подтяжка") { fsrOpen = true }
-            SettingItem("Flex", "Калибровка сопротивлений") { flexOpen = true }
-            SettingItem("Вибро", "Режим и параметры отклика") { vibroOpen = true }
-            SettingItem("Серва", "Пределы и ручной режим") { servoOpen = true }
+            SettingItem("FSR", stringResource(R.string.sens_and_pullup)) { fsrOpen = true }
+            SettingItem("Flex", stringResource(R.string.res_cal)) { flexOpen = true }
+            SettingItem(stringResource(R.string.vibro), stringResource(R.string.mode_and_resp)) { vibroOpen = true }
+            SettingItem(stringResource(R.string.servo), stringResource(R.string.lims_manual)) { servoOpen = true }
 
             Divider(Modifier.padding(vertical = 8.dp))
-            Text("Диагностика", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.diagnostic), style = MaterialTheme.typography.titleMedium)
             DiagnosticRow("FSR, Ω", pretty(t.fsrOhm))
             DiagnosticRow("Flex, Ω", pretty(t.flexOhm))
             DiagnosticRow("Servo, °", pretty(t.servoDeg))
@@ -178,7 +181,7 @@ private fun SettingItem(title: String, subtitle: String, onClick: () -> Unit) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall)
             }
-            OutlinedButton(onClick = onClick) { Text("Открыть") }
+            OutlinedButton(onClick = onClick) { Text(stringResource(R.string.open)) }
         }
     }
 }
@@ -206,20 +209,20 @@ private fun RenameDialog(
     var text by remember { mutableStateOf(TextFieldValue(current)) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Переименовать плату") },
+        title = { Text(stringResource(R.string.rename)) },
         text = {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
                 singleLine = true,
-                label = { Text("Имя") }
+                label = { Text(stringResource(R.string.device_name)) }
             )
         },
         confirmButton = {
-            Button(onClick = { onSave(text.text) }) { Text("Сохранить") }
+            Button(onClick = { onSave(text.text) }) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.canc)) }
         }
     )
 }
@@ -235,11 +238,11 @@ private fun FsrDialog(
     var start by remember { mutableStateOf(s.fsrStartOhm.toString()) }
     var max by remember { mutableStateOf(s.fsrMaxOhm.toString()) }
 
-    BaseDialog("FSR настройки", onDismiss) {
-        NumberField("Пин FSR", pin) { pin = it }
-        NumberField("Подтяжка, Ом", pull) { pull = it }
-        NumberField("Порог начала (Rstart, Ом)", start) { start = it }
-        NumberField("Жёсткий нажим (Rmax, Ом)", max) { max = it }
+    BaseDialog(stringResource(R.string.fsr_settings), onDismiss) {
+        NumberField(stringResource(R.string.fsr_pin), pin) { pin = it }
+        NumberField(stringResource(R.string.pullup), pull) { pull = it }
+        NumberField(stringResource(R.string.start_thr), start) { start = it }
+        NumberField(stringResource(R.string.max_vibro), max) { max = it }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
@@ -268,14 +271,14 @@ private fun FlexDialog(
     var bend by remember { mutableStateOf(s.flexBendOhm.toString()) }
     var flat by remember { mutableStateOf(s.flexFlatOhm.toString()) }
 
-    BaseDialog("Flex настройки", onDismiss) {
+    BaseDialog(stringResource(R.string.flex_settings), onDismiss) {
         Text(
-            "Текущее сопротивление: ${pretty(currentFlexOhm)} Ω",
+            "${stringResource(R.string.cur_res)}: ${pretty(currentFlexOhm)} Ω",
             style = MaterialTheme.typography.bodyMedium
         )
-        NumberField("Пин Flex", pin) { pin = it }
-        NumberField("Разогнутый, Ω", bend) { bend = it }
-        NumberField("Согнутый, Ω", flat) { flat = it }
+        NumberField(stringResource(R.string.flex_pin), pin) { pin = it }
+        NumberField(stringResource(R.string.unfolded), bend) { bend = it }
+        NumberField(stringResource(R.string.folded), flat) { flat = it }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
@@ -319,27 +322,27 @@ private fun VibroDialog(
         }
     }
 
-    BaseDialog("Вибромотор", onDismiss) {
-        NumberField("Пин вибромотора", pin) { pin = it }
+    BaseDialog(stringResource(R.string.vibro), onDismiss) {
+        NumberField(stringResource(R.string.vibro_pin), pin) { pin = it }
 
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Режим")
+            Text(stringResource(R.string.mode))
             SegmentedButtons(
-                items = listOf("Постоянный", "Пульсирующий"),
+                items = listOf(stringResource(R.string.cont), stringResource(R.string.pulse)),
                 selectedIndex = if (mode == VibMode.Constant) 0 else 1,
                 onSelect = { idx -> mode = if (idx == 0) VibMode.Constant else VibMode.Pulse }
             )
         }
 
-        NumberField("Интенсивность, %", intensity) { intensity = it }
+        NumberField("${stringResource(R.string.intensiv)}, %", intensity) { intensity = it }
 
         if (mode == VibMode.Pulse) {
-            NumberField("Работа, мс", onMs) { onMs = it }
-            NumberField("Пауза, мс", offMs) { offMs = it }
+            NumberField(stringResource(R.string.work_time_ms), onMs) { onMs = it }
+            NumberField(stringResource(R.string.pause_time_ms), offMs) { offMs = it }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -395,17 +398,17 @@ private fun ServoDialog(
         )
     }
 
-    BaseDialog("Серво", onDismiss) {
+    BaseDialog(stringResource(R.string.servo), onDismiss) {
         Text(
-            "Текущий угол: ${pretty(currentServoDeg)} °",
+            "${stringResource(R.string.curr_angle)}: ${pretty(currentServoDeg)} °",
             style = MaterialTheme.typography.bodyMedium
         )
-        NumberField("Пин серво", pin) { pin = it }
-        NumberField("Мин. угол", min) {
+        NumberField(stringResource(R.string.servo_pin), pin) { pin = it }
+        NumberField(stringResource(R.string.min_angle), min) {
             min = it
             if (manual) pushImmediate(slider.toInt())
         }
-        NumberField("Макс. угол", max) {
+        NumberField(stringResource(R.string.max_angle), max) {
             max = it
             if (manual) pushImmediate(slider.toInt())
         }
@@ -414,7 +417,7 @@ private fun ServoDialog(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Ручное управление")
+            Text(stringResource(R.string.manual_control))
             Switch(checked = manual, onCheckedChange = {
                 manual = it
                 pushImmediate(slider.toInt())
@@ -435,7 +438,7 @@ private fun ServoDialog(
                     (max.toIntOrNull() ?: s.servoMaxDeg) - (min.toIntOrNull() ?: s.servoMinDeg)
                 )
             )
-            Text("Угол вручную: ${slider.toInt()}°", style = MaterialTheme.typography.bodySmall)
+            Text("${stringResource(R.string.man_control_angle)}: ${slider.toInt()}°", style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
@@ -461,7 +464,7 @@ private fun BaseDialog(
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.canc)) } }
     )
 }
 
