@@ -8,6 +8,7 @@ import com.example.a6thfingercontrollapp.ble.BleRepository
 import com.example.a6thfingercontrollapp.ble.DeviceSettings
 import com.example.a6thfingercontrollapp.ble.Telemetry
 import com.example.a6thfingercontrollapp.data.AliasStore
+import com.example.a6thfingercontrollapp.data.AppSettingsStore
 import com.example.a6thfingercontrollapp.data.DeviceSettingsStore
 import com.example.a6thfingercontrollapp.data.LastDevice
 import com.example.a6thfingercontrollapp.data.LastDeviceStore
@@ -99,5 +100,15 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         val addr = activeAddress.value
         if (addr.isEmpty()) return false
         return client.applySettings(addr, activeSettings.value)
+    }
+
+
+    private val appSettings = AppSettingsStore(app)
+
+    val appLanguage: StateFlow<String> =
+        appSettings.getLanguage().stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
+
+    fun setAppLanguage(language: String) {
+        viewModelScope.launch { appSettings.setLanguage(language) }
     }
 }

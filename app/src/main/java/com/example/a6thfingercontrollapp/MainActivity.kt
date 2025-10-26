@@ -31,6 +31,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.a6thfingercontrollapp.ui.AccountScreen
 import com.example.a6thfingercontrollapp.ui.ConnectScreen
 import com.example.a6thfingercontrollapp.ui.ControlScreen
 import com.example.a6thfingercontrollapp.ui.NavRoute
@@ -52,10 +53,16 @@ class MainActivity : ComponentActivity() {
                 ) { res -> granted = res.all { it.value } }
                 LaunchedEffect(Unit) { launcher.launch(permissions) }
 
-                val routes =
-                    listOf(NavRoute.Connect, NavRoute.Control, NavRoute.Sim, NavRoute.Account)
+                val routes = listOf(
+                    NavRoute.Connect,
+                    NavRoute.Control,
+                    NavRoute.Sim,
+                    NavRoute.Account
+                )
+
                 val backStack by nav.currentBackStackEntryAsState()
                 val current = backStack?.destination?.route ?: NavRoute.Connect.route
+                val state by vm.state.collectAsState()
 
                 Scaffold(
                     bottomBar = {
@@ -63,17 +70,21 @@ class MainActivity : ComponentActivity() {
                             routes.forEach { r ->
                                 val enabled = when (r) {
                                     NavRoute.Connect -> true
-                                    else -> vm.state.collectAsState().value.status.contains("Subscribed") ||
-                                            vm.state.collectAsState().value.status.contains("Connected")
+                                    NavRoute.Account -> true // аккаунт всегда доступен
+                                    else -> state.status.contains("Subscribed") ||
+                                            state.status.contains("Connected")
                                 }
+
                                 NavigationBarItem(
                                     selected = current == r.route,
                                     onClick = {
-                                        if (enabled) nav.navigate(r.route) {
-                                            launchSingleTop = true
-                                            restoreState = true
-                                            popUpTo(nav.graph.startDestinationId) {
-                                                saveState = true
+                                        if (enabled) {
+                                            nav.navigate(r.route) {
+                                                launchSingleTop = true
+                                                restoreState = true
+                                                popUpTo(nav.graph.startDestinationId) {
+                                                    saveState = true
+                                                }
                                             }
                                         }
                                     },
@@ -107,7 +118,7 @@ class MainActivity : ComponentActivity() {
                             Text("Симуляция (пока пусто)")
                         }
                         composable(NavRoute.Account.route) {
-                            Text("Аккаунт (пока пусто)")
+                            AccountScreen(vm = vm)
                         }
                     }
                 }
@@ -123,7 +134,10 @@ class MainActivity : ComponentActivity() {
 
 private fun requiredPermissions(): Array<String> {
     return if (Build.VERSION.SDK_INT >= 31) {
-        arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+        arrayOf(
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT
+        )
     } else {
         arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
     }
