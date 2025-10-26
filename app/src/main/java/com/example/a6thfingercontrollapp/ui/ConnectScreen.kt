@@ -35,9 +35,16 @@ fun ConnectScreen(
     val devices by vm.devices.collectAsState()
     val last by vm.lastDevice.collectAsState()
 
-    val isConnected = remember(status.status) {
-        status.status.contains("Subscribed", ignoreCase = true) ||
-                status.status.contains("Connected", ignoreCase = true)
+    val uiStatus = remember(status.status) {
+        when {
+            status.status.contains("discover", ignoreCase = true) -> "Connecting"
+            status.status.contains("subscribed", ignoreCase = true) -> "Connected"
+            else -> status.status
+        }
+    }
+
+    val isConnected = remember(uiStatus) {
+        uiStatus.contains("Connected", ignoreCase = true)
     }
 
     val lastAlias: String? = when (val ld = last) {
@@ -54,12 +61,11 @@ fun ConnectScreen(
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Статус: ${status.status}", style = MaterialTheme.typography.titleMedium)
+            Text("Статус: $uiStatus", style = MaterialTheme.typography.titleMedium)
 
             LastDeviceCard(
                 last = last,
                 alias = lastAlias,
-                statusText = status.status,
                 isConnected = isConnected,
                 onConnect = { addr -> vm.connect(addr) },
                 onDisconnect = { vm.disconnect() }
@@ -107,7 +113,6 @@ fun ConnectScreen(
 private fun LastDeviceCard(
     last: LastDevice?,
     alias: String?,
-    statusText: String,
     isConnected: Boolean,
     onConnect: (String) -> Unit,
     onDisconnect: () -> Unit
@@ -123,10 +128,9 @@ private fun LastDeviceCard(
                 Text(last.address, style = MaterialTheme.typography.bodySmall)
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Статус: $statusText", style = MaterialTheme.typography.bodyMedium)
                     if (isConnected) {
                         OutlinedButton(onClick = onDisconnect) { Text("Отключиться") }
                     } else {
@@ -137,6 +141,7 @@ private fun LastDeviceCard(
         }
     }
 }
+
 
 @Composable
 private fun DeviceItem(

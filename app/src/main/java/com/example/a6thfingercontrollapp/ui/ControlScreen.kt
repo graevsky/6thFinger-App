@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Divider
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -34,6 +36,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.ble.DeviceSettings
+import kotlin.math.max
+
+private enum class VibMode { Constant, Pulse }
 
 @Composable
 fun ControlScreen(vm: BleViewModel) {
@@ -49,6 +54,9 @@ fun ControlScreen(vm: BleViewModel) {
 
     val connected = t.status.contains("Subscribed", true) || t.status.contains("Connected", true)
 
+    var savedSnapshot by remember { mutableStateOf(s) }
+    val dirty = s != savedSnapshot
+
     Scaffold(
         bottomBar = {
             Row(
@@ -58,8 +66,16 @@ fun ControlScreen(vm: BleViewModel) {
                 horizontalArrangement = Arrangement.End
             ) {
                 Button(
-                    onClick = { vm.applyAndSaveToBoard() },
-                    enabled = connected
+                    onClick = {
+                        if (vm.applyAndSaveToBoard()) {
+                            savedSnapshot = s
+                        }
+                    },
+                    enabled = connected,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (dirty) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary
+                    )
                 ) { Text("Сохранить") }
             }
         }
@@ -96,7 +112,7 @@ fun ControlScreen(vm: BleViewModel) {
 
             SettingItem("FSR", "Чувствительность и подтяжка") { fsrOpen = true }
             SettingItem("Flex", "Калибровка сопротивлений") { flexOpen = true }
-            SettingItem("Вибро", "Порог/частота/мощность") { vibroOpen = true }
+            SettingItem("Вибро", "Режим и параметры отклика") { vibroOpen = true }
             SettingItem("Серва", "Пределы и ручной режим") { servoOpen = true }
 
             Divider(Modifier.padding(vertical = 8.dp))
@@ -104,7 +120,6 @@ fun ControlScreen(vm: BleViewModel) {
             DiagnosticRow("FSR, Ω", pretty(t.fsrOhm))
             DiagnosticRow("Flex, Ω", pretty(t.flexOhm))
             DiagnosticRow("Servo, °", pretty(t.servoDeg))
-
         }
     }
 
@@ -120,6 +135,7 @@ fun ControlScreen(vm: BleViewModel) {
     if (fsrOpen) FsrDialog(s, onDismiss = { fsrOpen = false }) { next ->
         vm.updateActiveSettings { next }
     }
+
     if (flexOpen) FlexDialog(
         s,
         currentFlexOhm = t.flexOhm,
@@ -127,9 +143,14 @@ fun ControlScreen(vm: BleViewModel) {
     ) { next ->
         vm.updateActiveSettings { next }
     }
-    if (vibroOpen) VibroDialog(s, onDismiss = { vibroOpen = false }) { next ->
+
+    if (vibroOpen) VibroDialog(
+        s,
+        onDismiss = { vibroOpen = false }
+    ) { next ->
         vm.updateActiveSettings { next }
     }
+
     if (servoOpen) ServoDialog(
         s,
         currentServoDeg = t.servoDeg,
@@ -236,7 +257,6 @@ private fun FsrDialog(
     }
 }
 
-
 @Composable
 private fun FlexDialog(
     s: DeviceSettings,
@@ -245,8 +265,8 @@ private fun FlexDialog(
     onChange: (DeviceSettings) -> Unit
 ) {
     var pin by remember { mutableStateOf(s.flexPin.toString()) }
-    var flat by remember { mutableStateOf(s.flexFlatOhm.toString()) }
     var bend by remember { mutableStateOf(s.flexBendOhm.toString()) }
+    var flat by remember { mutableStateOf(s.flexFlatOhm.toString()) }
 
     BaseDialog("Flex настройки", onDismiss) {
         Text(
@@ -254,8 +274,8 @@ private fun FlexDialog(
             style = MaterialTheme.typography.bodyMedium
         )
         NumberField("Пин Flex", pin) { pin = it }
-        NumberField("Разогнутый, Ω", flat) { flat = it }
-        NumberField("Согнутый, Ω", bend) { bend = it }
+        NumberField("Разогнутый, Ω", bend) { bend = it }
+        NumberField("Согнутый, Ω", flat) { flat = it }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
@@ -272,32 +292,65 @@ private fun FlexDialog(
     }
 }
 
-
 @Composable
 private fun VibroDialog(
     s: DeviceSettings,
     onDismiss: () -> Unit,
     onChange: (DeviceSettings) -> Unit
 ) {
+    var mode by remember { mutableStateOf(VibMode.Pulse) }
+
     var pin by remember { mutableStateOf(s.vibroPin.toString()) }
-    var freq by remember { mutableStateOf(s.vibroPulseFreqHz.toString()) }
-    var thr by remember { mutableStateOf(s.vibroThreshold.toString()) }
-    var pwr by remember { mutableStateOf(s.vibroPowerPct.toString()) }
+    var intensity by remember { mutableStateOf(s.vibroPowerPct.coerceIn(0, 100).toString()) }
+    var onMs by remember { mutableStateOf("150") }
+    var offMs by remember { mutableStateOf("150") }
+
+    fun toDeviceValues(): Pair<Int, Int> {
+        return if (mode == VibMode.Constant) {
+            val pwr = intensity.toIntOrNull()?.coerceIn(0, 100) ?: s.vibroPowerPct
+            200 to pwr
+        } else {
+            val on = max(1, onMs.toIntOrNull() ?: 150)
+            val off = max(1, offMs.toIntOrNull() ?: 150)
+            val period = (on + off).coerceAtLeast(2)
+            val freq = (1000f / period).toInt().coerceAtLeast(1)
+            val dutyPct = ((on * 100f) / period).toInt().coerceIn(1, 99)
+            freq to dutyPct
+        }
+    }
 
     BaseDialog("Вибромотор", onDismiss) {
         NumberField("Пин вибромотора", pin) { pin = it }
-        NumberField("Частота, Гц", freq) { freq = it }
-        NumberField("Порог", thr) { thr = it }
-        NumberField("Мощность, %", pwr) { pwr = it }
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Режим")
+            SegmentedButtons(
+                items = listOf("Постоянный", "Пульсирующий"),
+                selectedIndex = if (mode == VibMode.Constant) 0 else 1,
+                onSelect = { idx -> mode = if (idx == 0) VibMode.Constant else VibMode.Pulse }
+            )
+        }
+
+        NumberField("Интенсивность, %", intensity) { intensity = it }
+
+        if (mode == VibMode.Pulse) {
+            NumberField("Работа, мс", onMs) { onMs = it }
+            NumberField("Пауза, мс", offMs) { offMs = it }
+        }
+
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
+                val (freq, pwrPct) = toDeviceValues()
                 onChange(
                     s.copy(
                         vibroPin = pin.toIntOrNull() ?: s.vibroPin,
-                        vibroPulseFreqHz = freq.toIntOrNull() ?: s.vibroPulseFreqHz,
-                        vibroThreshold = thr.toIntOrNull() ?: s.vibroThreshold,
-                        vibroPowerPct = pwr.toIntOrNull() ?: s.vibroPowerPct
+                        vibroPulseFreqHz = freq,
+                        vibroPowerPct = pwrPct
                     )
                 )
                 onDismiss()
@@ -323,10 +376,22 @@ private fun ServoDialog(
     val maxV = max.toIntOrNull() ?: s.servoMaxDeg
     var slider by remember {
         mutableStateOf(
-            (deg.toIntOrNull() ?: s.servoManualDeg).coerceIn(
-                minV,
-                maxV
-            ).toFloat()
+            (deg.toIntOrNull() ?: s.servoManualDeg).coerceIn(minV, maxV).toFloat()
+        )
+    }
+
+    fun pushImmediate(value: Int) {
+        val minAngle = min.toIntOrNull() ?: s.servoMinDeg
+        val maxAngle = max.toIntOrNull() ?: s.servoMaxDeg
+        val clamped = value.coerceIn(minAngle, maxAngle)
+        onChange(
+            s.copy(
+                servoPin = pin.toIntOrNull() ?: s.servoPin,
+                servoMinDeg = minAngle,
+                servoMaxDeg = maxAngle,
+                servoManualMode = manual,
+                servoManualDeg = clamped
+            )
         )
     }
 
@@ -336,41 +401,45 @@ private fun ServoDialog(
             style = MaterialTheme.typography.bodyMedium
         )
         NumberField("Пин серво", pin) { pin = it }
-        NumberField("Мин. угол", min) { min = it }
-        NumberField("Макс. угол", max) { max = it }
+        NumberField("Мин. угол", min) {
+            min = it
+            if (manual) pushImmediate(slider.toInt())
+        }
+        NumberField("Макс. угол", max) {
+            max = it
+            if (manual) pushImmediate(slider.toInt())
+        }
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Ручное управление")
-            Switch(checked = manual, onCheckedChange = { manual = it })
+            Switch(checked = manual, onCheckedChange = {
+                manual = it
+                pushImmediate(slider.toInt())
+            })
         }
         if (manual) {
             Slider(
                 value = slider,
-                onValueChange = { slider = it },
-                valueRange = minV.toFloat()..maxV.toFloat(),
-                steps = (maxV - minV).coerceAtLeast(0)
+                onValueChange = {
+                    slider = it
+                    deg = it.toInt().toString()
+                    pushImmediate(it.toInt())
+                },
+                valueRange = (min.toIntOrNull() ?: s.servoMinDeg).toFloat()..
+                        (max.toIntOrNull() ?: s.servoMaxDeg).toFloat(),
+                steps = max(
+                    0,
+                    (max.toIntOrNull() ?: s.servoMaxDeg) - (min.toIntOrNull() ?: s.servoMinDeg)
+                )
             )
             Text("Угол вручную: ${slider.toInt()}°", style = MaterialTheme.typography.bodySmall)
-            deg = slider.toInt().toString()
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
-                val minAngle = min.toIntOrNull() ?: s.servoMinDeg
-                val maxAngle = max.toIntOrNull() ?: s.servoMaxDeg
-                val clamped = (deg.toIntOrNull() ?: s.servoManualDeg).coerceIn(minAngle, maxAngle)
-                onChange(
-                    s.copy(
-                        servoPin = pin.toIntOrNull() ?: s.servoPin,
-                        servoMinDeg = minAngle,
-                        servoMaxDeg = maxAngle,
-                        servoManualMode = manual,
-                        servoManualDeg = clamped
-                    )
-                )
                 onDismiss()
             }) { Text("OK") }
         }
@@ -392,9 +461,7 @@ private fun BaseDialog(
             }
         },
         confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
 
@@ -406,4 +473,25 @@ private fun NumberField(label: String, value: String, onValue: (String) -> Unit)
         singleLine = true,
         label = { Text(label) }
     )
+}
+
+@Composable
+private fun SegmentedButtons(
+    items: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit
+) {
+    require(items.size >= 2)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.forEachIndexed { i, label ->
+            val selected = i == selectedIndex
+            val colors = if (selected) ButtonDefaults.filledTonalButtonColors()
+            else ButtonDefaults.outlinedButtonColors()
+            if (selected) {
+                FilledTonalButton(onClick = { onSelect(i) }, content = { Text(label) })
+            } else {
+                OutlinedButton(onClick = { onSelect(i) }, content = { Text(label) })
+            }
+        }
+    }
 }
