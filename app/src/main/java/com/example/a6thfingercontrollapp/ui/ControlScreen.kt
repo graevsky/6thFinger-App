@@ -116,7 +116,10 @@ fun ControlScreen(vm: BleViewModel) {
                 }
             }
 
-            Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.settings_title),
+                style = MaterialTheme.typography.titleMedium
+            )
 
             SettingItem(
                 title = stringResource(R.string.fsr_settings),

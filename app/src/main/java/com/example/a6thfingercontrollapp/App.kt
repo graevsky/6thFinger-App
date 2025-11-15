@@ -2,8 +2,8 @@ package com.example.a6thfingercontrollapp
 
 import android.app.Application
 import com.example.a6thfingercontrollapp.data.AppSettingsStore
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 class App : Application() {
     override fun onCreate() {

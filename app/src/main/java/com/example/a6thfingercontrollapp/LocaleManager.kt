@@ -2,7 +2,7 @@ package com.example.a6thfingercontrollapp
 
 import android.content.Context
 import android.content.res.Configuration
-import java.util.*
+import java.util.Locale
 
 object LocaleManager {
     fun setLocale(context: Context, lang: String): Context {
