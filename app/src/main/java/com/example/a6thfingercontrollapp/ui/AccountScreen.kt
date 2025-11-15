@@ -21,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -39,14 +40,25 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.a6thfingercontrollapp.AuthViewModel
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.MainActivity
 import com.example.a6thfingercontrollapp.R
+import com.example.a6thfingercontrollapp.UiAuthState
 
 @Composable
-fun AccountScreen(vm: BleViewModel) {
+fun AccountScreen(
+    vm: BleViewModel,
+    authVm: AuthViewModel
+) {
     var showSettings by remember { mutableStateOf(false) }
     val lang by vm.appLanguage.collectAsState()
+    val authState by authVm.auth.collectAsState()
+
+    val username: String? = when (authState) {
+        is UiAuthState.LoggedIn -> (authState as UiAuthState.LoggedIn).username
+        else -> null
+    }
 
     Scaffold { inner ->
         Column(
@@ -62,7 +74,10 @@ fun AccountScreen(vm: BleViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(stringResource(R.string.account), style = MaterialTheme.typography.titleLarge)
+                Text(
+                    stringResource(R.string.account),
+                    style = MaterialTheme.typography.titleLarge
+                )
                 IconButton(onClick = { showSettings = true }) {
                     Icon(
                         Icons.Default.Build,
@@ -83,23 +98,107 @@ fun AccountScreen(vm: BleViewModel) {
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_avatar_placeholder),
-                        contentDescription = "Avatar"
+                        contentDescription = stringResource(R.string.avatar)
                     )
                 }
 
                 Spacer(Modifier.height(16.dp))
 
                 Text(
-                    text = stringResource(R.string.guest),
+                    text = username ?: stringResource(R.string.guest),
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
                 )
 
                 Spacer(Modifier.height(12.dp))
 
-                Button(onClick = { /* TODO логика входа позже */ }) {
-                    Text(stringResource(R.string.sign_in))
+                if (username == null) {
+                    Text(
+                        text = stringResource(R.string.guest_hint),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.sign_in),
+                        modifier = Modifier,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    Button(onClick = { authVm.logout() }) {
+                        Text(stringResource(R.string.logout))
+                    }
                 }
 
+                Spacer(Modifier.height(24.dp))
+
+                Text(
+                    stringResource(R.string.app_settings),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(Modifier.height(8.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = {
+                            if (username != null) {
+                                authVm.pullAppSettings { payload ->
+                                    // TODO: fix later
+                                }
+                            }
+                        },
+                        enabled = username != null
+                    ) {
+                        Text(stringResource(R.string.pull_app_settings))
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            if (username != null) {
+                                authVm.pushAppSettings(
+                                    mapOf(
+                                        "language" to lang
+                                    )
+                                )
+                            }
+                        },
+                        enabled = username != null
+                    ) {
+                        Text(stringResource(R.string.push_app_settings))
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Text(
+                    stringResource(R.string.prosthesis_settings),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(Modifier.height(8.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            // TODO: app settings
+                        },
+                        enabled = username != null
+                    ) {
+                        Text(stringResource(R.string.pull_device_settings))
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            // TODO: send prothesis settings
+                        },
+                        enabled = username != null
+                    ) {
+                        Text(stringResource(R.string.push_device_settings))
+                    }
+                }
             }
 
             Spacer(Modifier.height(8.dp))
@@ -112,7 +211,7 @@ fun AccountScreen(vm: BleViewModel) {
         SettingsDialog(
             currentLang = lang,
             onDismiss = { showSettings = false },
-            onSelect = { newLang ->
+            onSelect = { newLang: String ->
                 vm.setAppLanguage(newLang)
                 showSettings = false
                 activity?.recreateApp()
@@ -137,13 +236,13 @@ private fun SettingsDialog(
             ) {
                 Text("${stringResource(R.string.lang_select)}:")
 
-                LanguageOption(
+                LanguageOptionRow(
                     title = stringResource(R.string.rus),
                     selected = currentLang == "ru",
                     onClick = { onSelect("ru") }
                 )
 
-                LanguageOption(
+                LanguageOptionRow(
                     title = stringResource(R.string.eng),
                     selected = currentLang == "en",
                     onClick = { onSelect("en") }
@@ -157,7 +256,11 @@ private fun SettingsDialog(
 }
 
 @Composable
-private fun LanguageOption(title: String, selected: Boolean, onClick: () -> Unit) {
+private fun LanguageOptionRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
     Row(
         Modifier
             .fillMaxWidth()

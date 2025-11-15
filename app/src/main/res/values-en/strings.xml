@@ -62,4 +62,16 @@
     <string name="connectivity">Connectivity</string>
     <string name="controls">Controls</string>
     <string name="simulation">Simulation</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="login">Log in</string>
+    <string name="register">Register</string>
+    <string name="continue_as_guest">Continue as guest</string>
+    <string name="logout">Log out</string>
+    <string name="guest_hint">You are using the app as a guest. Sign in to sync settings.</string>
+    <string name="pull_app_settings">Load app settings</string>
+    <string name="push_app_settings">Upload app settings</string>
+    <string name="prosthesis_settings">Prosthesis settings</string>
+    <string name="pull_device_settings">Load device settings</string>
+    <string name="push_device_settings">Upload device settings</string>
 </resources>

@@ -62,4 +62,16 @@
     <string name="connectivity">Подключение</string>
     <string name="controls">Управление</string>
     <string name="simulation">Симуляция</string>
+    <string name="username">Логин</string>
+    <string name="password">Пароль</string>
+    <string name="login">Войти</string>
+    <string name="register">Зарегистрироваться</string>
+    <string name="continue_as_guest">Продолжить как гость</string>
+    <string name="logout">Выйти</string>
+    <string name="guest_hint">Вы используете приложение как гость. Войдите, чтобы синхронизировать настройки.</string>
+    <string name="pull_app_settings">Получить настройки приложения</string>
+    <string name="push_app_settings">Отправить настройки приложения</string>
+    <string name="prosthesis_settings">Настройки протеза</string>
+    <string name="pull_device_settings">Получить настройки протеза</string>
+    <string name="push_device_settings">Отправить настройки протеза</string>
 </resources>

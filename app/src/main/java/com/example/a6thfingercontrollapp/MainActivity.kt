@@ -10,18 +10,26 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.NavHost
@@ -30,16 +38,18 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.a6thfingercontrollapp.data.AppSettingsStore
 import com.example.a6thfingercontrollapp.ui.AccountScreen
+import com.example.a6thfingercontrollapp.ui.AuthScreen
 import com.example.a6thfingercontrollapp.ui.ConnectScreen
 import com.example.a6thfingercontrollapp.ui.ControlScreen
 import com.example.a6thfingercontrollapp.ui.NavRoute
 import com.example.a6thfingercontrollapp.ui.theme._6thFingerControllAppTheme
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 
 class MainActivity : ComponentActivity() {
     private val vm by viewModels<BleViewModel>()
+    private val authVm by viewModels<AuthViewModel>()
 
     override fun attachBaseContext(newBase: Context) {
         val prefs = AppSettingsStore(newBase)
@@ -64,72 +74,107 @@ class MainActivity : ComponentActivity() {
 
                 LaunchedEffect(Unit) { launcher.launch(permissions) }
 
-                val routes = listOf(
-                    NavRoute.Connect,
-                    NavRoute.Control,
-                    NavRoute.Sim,
-                    NavRoute.Account
-                )
+                val authState by authVm.auth.collectAsState()
 
-                val backStack by nav.currentBackStackEntryAsState()
-                val current = backStack?.destination?.route ?: NavRoute.Connect.route
-                val state by vm.state.collectAsState()
-
-                Scaffold(
-                    bottomBar = {
-                        NavigationBar {
-                            routes.forEach { r ->
-                                val enabled = when (r) {
-                                    NavRoute.Connect -> true
-                                    NavRoute.Account -> true // доступен всегда
-                                    else -> state.status.contains("Subscribed") ||
-                                            state.status.contains("Connected")
-                                }
-
-                                NavigationBarItem(
-                                    selected = current == r.route,
-                                    onClick = {
-                                        if (enabled) {
-                                            nav.navigate(r.route) {
-                                                launchSingleTop = true
-                                                restoreState = true
-                                                popUpTo(nav.graph.startDestinationId) {
-                                                    saveState = true
-                                                }
-                                            }
-                                        }
-                                    },
-                                    icon = {
-                                        when (r) {
-                                            NavRoute.Connect -> Icon(Icons.Default.Bluetooth, null)
-                                            NavRoute.Control -> Icon(Icons.Default.Settings, null)
-                                            NavRoute.Sim -> Icon(Icons.Default.PlayArrow, null)
-                                            NavRoute.Account -> Icon(Icons.Default.Person, null)
-                                        }
-                                    },
-                                    label = { Text(stringResource(r.labelRes)) },
-                                    enabled = enabled
-                                )
-                            }
+                when (authState) {
+                    is UiAuthState.Loading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = androidx.compose.ui.Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
                         }
                     }
-                ) { innerPadding ->
-                    NavHost(
-                        navController = nav,
-                        startDestination = NavRoute.Connect.route,
-                        modifier = Modifier.padding(innerPadding)
-                    ) {
-                        composable(NavRoute.Connect.route) {
-                            ConnectScreen(vm = vm, permissionsGranted = granted)
-                        }
-                        composable(NavRoute.Control.route) {
-                            ControlScreen(vm = vm)
-                        }
-                        composable(NavRoute.Sim.route) {
-                            Text(stringResource(R.string.simulation))
-                        }
-                        composable(NavRoute.Account.route) {
-                            AccountScreen(vm = vm)
+
+                    is UiAuthState.Unauthenticated -> {
+                        AuthScreen(vm = authVm)
+                    }
+
+                    is UiAuthState.Guest,
+                    is UiAuthState.LoggedIn -> {
+                        val routes = listOf(
+                            NavRoute.Connect,
+                            NavRoute.Control,
+                            NavRoute.Sim,
+                            NavRoute.Account
+                        )
+
+                        val backStack by nav.currentBackStackEntryAsState()
+                        val current = backStack?.destination?.route ?: NavRoute.Connect.route
+                        val state by vm.state.collectAsState()
+
+                        Scaffold(
+                            bottomBar = {
+                                NavigationBar {
+                                    routes.forEach { r ->
+                                        val enabled = when (r) {
+                                            NavRoute.Connect -> true
+                                            NavRoute.Account -> true
+                                            else -> state.status.contains("Subscribed") ||
+                                                    state.status.contains("Connected")
+                                        }
+
+                                        NavigationBarItem(
+                                            selected = current == r.route,
+                                            onClick = {
+                                                if (enabled) {
+                                                    nav.navigate(r.route) {
+                                                        launchSingleTop = true
+                                                        restoreState = true
+                                                        popUpTo(nav.graph.startDestinationId) {
+                                                            saveState = true
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            icon = {
+                                                when (r) {
+                                                    NavRoute.Connect -> Icon(
+                                                        Icons.Default.Bluetooth,
+                                                        null
+                                                    )
+
+                                                    NavRoute.Control -> Icon(
+                                                        Icons.Default.Settings,
+                                                        null
+                                                    )
+
+                                                    NavRoute.Sim -> Icon(
+                                                        Icons.Default.PlayArrow,
+                                                        null
+                                                    )
+
+                                                    NavRoute.Account -> Icon(
+                                                        Icons.Default.Person,
+                                                        null
+                                                    )
+                                                }
+                                            },
+                                            label = { Text(stringResource(r.labelRes)) },
+                                            enabled = enabled
+                                        )
+                                    }
+                                }
+                            }
+                        ) { innerPadding ->
+                            NavHost(
+                                navController = nav,
+                                startDestination = NavRoute.Connect.route,
+                                modifier = Modifier.padding(innerPadding)
+                            ) {
+                                composable(NavRoute.Connect.route) {
+                                    ConnectScreen(vm = vm, permissionsGranted = granted)
+                                }
+                                composable(NavRoute.Control.route) {
+                                    ControlScreen(vm = vm)
+                                }
+                                composable(NavRoute.Sim.route) {
+                                    Text(stringResource(R.string.simulation))
+                                }
+                                composable(NavRoute.Account.route) {
+                                    AccountScreen(vm = vm, authVm = authVm)
+                                }
+                            }
                         }
                     }
                 }
