@@ -24,8 +24,8 @@ fun ConnectScreen(
     val devices by vm.devices.collectAsState()
     val last by vm.lastDevice.collectAsState()
 
-    val connectingText = stringResource(R.string.connecting)
-    val connectedText = stringResource(R.string.connected)
+    val connectingText = stringResource(R.string.ble_connecting)
+    val connectedText = stringResource(R.string.ble_connected)
 
 
     val uiStatus = when {
@@ -52,7 +52,7 @@ fun ConnectScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                "${stringResource(R.string.status)}: $uiStatus",
+                "${stringResource(R.string.ble_status)}: $uiStatus",
                 style = MaterialTheme.typography.titleMedium
             )
 
@@ -72,13 +72,13 @@ fun ConnectScreen(
                     onClick = { if (permissionsGranted && vm.isBleReady()) vm.scan() },
                     enabled = permissionsGranted && !isConnected
                 ) {
-                    Text(stringResource(R.string.scan))
+                    Text(stringResource(R.string.ble_scan))
                 }
-                if (!permissionsGranted) Text(stringResource(R.string.access_not_granted))
+                if (!permissionsGranted) Text(stringResource(R.string.ble_access_denied))
             }
 
             Text(
-                stringResource(R.string.available_devices),
+                stringResource(R.string.ble_available_devices),
                 style = MaterialTheme.typography.titleMedium
             )
 
@@ -101,7 +101,7 @@ fun ConnectScreen(
             }
 
             if (devices.isEmpty()) {
-                Text(stringResource(R.string.press_to_scan))
+                Text(stringResource(R.string.ble_press_to_scan))
             }
         }
     }
@@ -120,12 +120,12 @@ private fun LastDeviceCard(
             Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(stringResource(R.string.last_device), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.device_last), style = MaterialTheme.typography.titleMedium)
             if (last == null) {
-                Text(stringResource(R.string.no_stored_devices))
+                Text(stringResource(R.string.device_no_stored))
             } else {
                 val title = (alias ?: last.name).ifBlank { alias ?: last.name }
-                Text(title.ifBlank { stringResource(R.string.no_device_name) })
+                Text(title.ifBlank { stringResource(R.string.device_no_name) })
                 Text(last.address, style = MaterialTheme.typography.bodySmall)
                 Row(
                     Modifier.fillMaxWidth(),
@@ -134,11 +134,11 @@ private fun LastDeviceCard(
                 ) {
                     if (isConnected) {
                         OutlinedButton(onClick = onDisconnect) {
-                            Text(stringResource(R.string.disconnect))
+                            Text(stringResource(R.string.device_disconnect))
                         }
                     } else {
                         Button(onClick = { onConnect(last.address) }) {
-                            Text(stringResource(R.string.connect))
+                            Text(stringResource(R.string.device_connect))
                         }
                     }
                 }
@@ -160,11 +160,11 @@ private fun DeviceItem(
             .then(if (!isConnected) Modifier.clickable { onClick() } else Modifier)
     ) {
         Column(Modifier.padding(12.dp)) {
-            Text(title.ifBlank { stringResource(R.string.no_device_name) },
+            Text(title.ifBlank { stringResource(R.string.device_no_name) },
                 style = MaterialTheme.typography.titleMedium)
             Text(address, style = MaterialTheme.typography.bodySmall)
             if (isConnected) {
-                Text(stringResource(R.string.already_connected), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.device_already_connected), style = MaterialTheme.typography.bodySmall)
             }
         }
     }

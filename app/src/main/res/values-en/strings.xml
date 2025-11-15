@@ -1,77 +1,104 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">6th finger control app</string>
-    <string name="account">Account</string>
-    <string name="settings">Settings</string>
-    <string name="avatar">Avatar</string>
-    <string name="guest">Guest</string>
-    <string name="sign_in">Sign In</string>
-    <string name="app_settings">App settings</string>
-    <string name="lang_select">Language</string>
-    <string name="rus">Russian</string>
-    <string name="eng">English</string>
-    <string name="close">Close</string>
-    <string name="connecting">Connecting</string>
-    <string name="connected">Connected</string>
-    <string name="status">Status</string>
-    <string name="scan">Scan</string>
-    <string name="access_not_granted">Access not granted</string>
-    <string name="available_devices">Available devices</string>
-    <string name="press_to_scan">Press to scan if the device is missing</string>
-    <string name="last_device">Last device</string>
-    <string name="no_stored_devices">No stored devices</string>
-    <string name="disconnect">Disconnect</string>
-    <string name="connect">Connect</string>
-    <string name="already_connected">Already connected</string>
-    <string name="save">Save</string>
-    <string name="device_name">Device name</string>
-    <string name="no_device_name">No device name</string>
-    <string name="rename">Rename</string>
-    <string name="sens_and_pullup">Sensitivity and pull-up</string>
-    <string name="res_cal">Resistance calibration</string>
-    <string name="mode_and_resp">Mode and response</string>
-    <string name="lims_manual">Limits and manual mode</string>
-    <string name="diagnostic">Diagnostics</string>
-    <string name="open">Open</string>
-    <string name="canc">Cancel</string>
-    <string name="fsr_settings">FSR settings</string>
-    <string name="fsr_pin">FSR pin</string>
-    <string name="pullup">Pull-up, Ohm</string>
-    <string name="start_thr">Start threshold</string>
-    <string name="max_vibro">Max vibration</string>
-    <string name="flex_settings">Flex sensor settings</string>
-    <string name="cur_res">Current resistance</string>
-    <string name="flex_pin">Flex pin</string>
-    <string name="unfolded">Unfolded</string>
-    <string name="folded">Folded</string>
-    <string name="vibro">Vibration</string>
-    <string name="vibro_pin">Vibration pin</string>
-    <string name="mode">Mode</string>
-    <string name="cont">Continuous</string>
-    <string name="pulse">Pulse</string>
-    <string name="intensiv">Intensity</string>
-    <string name="work_time_ms">Vibration time, ms</string>
-    <string name="pause_time_ms">Pause time, ms</string>
-    <string name="servo">Servo</string>
-    <string name="curr_angle">Current angle</string>
-    <string name="servo_pin">Servo pin</string>
-    <string name="min_angle">Min angle</string>
-    <string name="max_angle">Max angle</string>
-    <string name="manual_control">Manual control</string>
-    <string name="man_control_angle">Manual control angle</string>
-    <string name="connectivity">Connectivity</string>
-    <string name="controls">Controls</string>
-    <string name="simulation">Simulation</string>
-    <string name="username">Username</string>
-    <string name="password">Password</string>
-    <string name="login">Log in</string>
-    <string name="register">Register</string>
-    <string name="continue_as_guest">Continue as guest</string>
-    <string name="logout">Log out</string>
-    <string name="guest_hint">You are using the app as a guest. Sign in to sync settings.</string>
-    <string name="pull_app_settings">Load app settings</string>
-    <string name="push_app_settings">Upload app settings</string>
-    <string name="prosthesis_settings">Prosthesis settings</string>
-    <string name="pull_device_settings">Load device settings</string>
-    <string name="push_device_settings">Upload device settings</string>
+
+    <!-- App -->
+    <string name="app_name">6th Finger Control App</string>
+
+    <!-- Navigation -->
+    <string name="nav_connectivity">Connectivity</string>
+    <string name="nav_controls">Controls</string>
+    <string name="nav_simulation">Simulation</string>
+    <string name="nav_account">Account</string>
+
+    <!-- Auth -->
+    <string name="auth_sign_in">Sign In</string>
+    <string name="auth_register">Register</string>
+    <string name="auth_login">Log In</string>
+    <string name="auth_logout">Log Out</string>
+    <string name="auth_continue_guest">Continue as Guest</string>
+    <string name="auth_guest">Guest</string>
+    <string name="auth_guest_hint">You are using the app as a guest. Sign in to sync settings.</string>
+    <string name="auth_username">Username</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_back">Back</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_app">App Settings</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_russian">Russian</string>
+    <string name="settings_english">English</string>
+    <string name="settings_close">Close</string>
+
+    <!-- Account -->
+    <string name="account_avatar">Avatar</string>
+
+    <!-- BLE / Connectivity -->
+    <string name="ble_connecting">Connecting</string>
+    <string name="ble_connected">Connected</string>
+    <string name="ble_status">Status</string>
+    <string name="ble_scan">Scan</string>
+    <string name="ble_access_denied">Access not granted</string>
+    <string name="ble_available_devices">Available Devices</string>
+    <string name="ble_press_to_scan">Press to scan</string>
+
+    <!-- Device list -->
+    <string name="device_last">Last Device</string>
+    <string name="device_no_stored">No stored devices</string>
+    <string name="device_disconnect">Disconnect</string>
+    <string name="device_connect">Connect</string>
+    <string name="device_already_connected">Already connected</string>
+    <string name="device_name">Device Name</string>
+    <string name="device_no_name">No name</string>
+    <string name="device_rename">Rename</string>
+    <string name="device_save">Save</string>
+    <string name="device_open">Open</string>
+    <string name="device_cancel">Cancel</string>
+
+    <!-- Control Screen -->
+    <string name="control_sensitivity_pullup">Sensitivity and pull-up</string>
+    <string name="control_resistance_cal">Resistance calibration</string>
+    <string name="control_vibro_mode">Mode and response</string>
+    <string name="control_servo_manual">Limits and manual mode</string>
+    <string name="control_diagnostic">Diagnostic</string>
+
+    <!-- FSR -->
+    <string name="fsr_settings">FSR Settings</string>
+    <string name="fsr_pin">FSR Pin</string>
+    <string name="fsr_pullup">Pull-up, Ω</string>
+    <string name="fsr_start_threshold">Start threshold</string>
+    <string name="fsr_max_vibro">Max vibro</string>
+
+    <!-- Flex -->
+    <string name="flex_settings">Flex Sensor Settings</string>
+    <string name="flex_current_resistance">Current resistance</string>
+    <string name="flex_pin">Flex Pin</string>
+    <string name="flex_unfolded">Unfolded</string>
+    <string name="flex_folded">Folded</string>
+
+    <!-- Vibro -->
+    <string name="vibro_settings">Vibro</string>
+    <string name="vibro_pin">Vibro Pin</string>
+    <string name="vibro_mode">Mode</string>
+    <string name="vibro_continuous">Continuous</string>
+    <string name="vibro_pulse">Pulse</string>
+    <string name="vibro_intensity">Intensity</string>
+    <string name="vibro_work_time">Vibration time, ms</string>
+    <string name="vibro_pause_time">Pause time, ms</string>
+
+    <!-- Servo -->
+    <string name="servo_settings">Servo</string>
+    <string name="servo_current_angle">Current angle</string>
+    <string name="servo_pin">Servo Pin</string>
+    <string name="servo_min_angle">Min angle</string>
+    <string name="servo_max_angle">Max angle</string>
+    <string name="servo_manual_control">Manual control</string>
+    <string name="servo_manual_angle">Manual control angle</string>
+
+    <!-- Prosthesis cloud sync -->
+    <string name="prosthesis_settings">Prosthesis Settings</string>
+    <string name="prosthesis_settings_descr">Settings for your prosthesis</string>
+    <string name="prosthesis_settings_dialog_hint">Sync prosthesis settings</string>
+    <string name="prosthesis_pull">Load device settings</string>
+    <string name="prosthesis_push">Upload device settings</string>
+
 </resources>

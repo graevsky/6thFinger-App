@@ -32,14 +32,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.BleViewModel
+import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.DeviceSettings
 import kotlin.math.max
-import androidx.compose.ui.res.stringResource
-import com.example.a6thfingercontrollapp.R
-
 
 private enum class VibMode { Constant, Pulse }
 
@@ -79,7 +78,8 @@ fun ControlScreen(vm: BleViewModel) {
                         containerColor = if (dirty) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.primary
                     )
-                ) { Text(stringResource(R.string.save))
+                ) {
+                    Text(stringResource(R.string.device_save))
                 }
             }
         }
@@ -98,28 +98,51 @@ fun ControlScreen(vm: BleViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.device_name), style = MaterialTheme.typography.labelLarge)
                         Text(
-                            if (alias.isBlank()) {stringResource(R.string.no_device_name)} else alias,
+                            stringResource(R.string.device_name),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Text(
+                            if (alias.isBlank()) {
+                                stringResource(R.string.device_no_name)
+                            } else alias,
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
                     Spacer(Modifier.width(12.dp))
                     OutlinedButton(onClick = { renameOpen = true }, enabled = connected) {
-                        Text(stringResource(R.string.rename))
+                        Text(stringResource(R.string.device_rename))
                     }
                 }
             }
 
-            Text(stringResource(R.string.settings), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleMedium)
 
-            SettingItem("FSR", stringResource(R.string.sens_and_pullup)) { fsrOpen = true }
-            SettingItem("Flex", stringResource(R.string.res_cal)) { flexOpen = true }
-            SettingItem(stringResource(R.string.vibro), stringResource(R.string.mode_and_resp)) { vibroOpen = true }
-            SettingItem(stringResource(R.string.servo), stringResource(R.string.lims_manual)) { servoOpen = true }
+            SettingItem(
+                title = stringResource(R.string.fsr_settings),
+                subtitle = stringResource(R.string.control_sensitivity_pullup)
+            ) { fsrOpen = true }
+
+            SettingItem(
+                title = stringResource(R.string.flex_settings),
+                subtitle = stringResource(R.string.control_resistance_cal)
+            ) { flexOpen = true }
+
+            SettingItem(
+                title = stringResource(R.string.vibro_settings),
+                subtitle = stringResource(R.string.control_vibro_mode)
+            ) { vibroOpen = true }
+
+            SettingItem(
+                title = stringResource(R.string.servo_settings),
+                subtitle = stringResource(R.string.control_servo_manual)
+            ) { servoOpen = true }
 
             Divider(Modifier.padding(vertical = 8.dp))
-            Text(stringResource(R.string.diagnostic), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.control_diagnostic),
+                style = MaterialTheme.typography.titleMedium
+            )
             DiagnosticRow("FSR, Ω", pretty(t.fsrOhm))
             DiagnosticRow("Flex, Ω", pretty(t.flexOhm))
             DiagnosticRow("Servo, °", pretty(t.servoDeg))
@@ -181,7 +204,9 @@ private fun SettingItem(title: String, subtitle: String, onClick: () -> Unit) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall)
             }
-            OutlinedButton(onClick = onClick) { Text(stringResource(R.string.open)) }
+            OutlinedButton(onClick = onClick) {
+                Text(stringResource(R.string.device_open))
+            }
         }
     }
 }
@@ -199,7 +224,6 @@ private fun DiagnosticRow(name: String, value: String) {
 
 private fun pretty(v: Float) = if (v.isFinite()) String.format("%.1f", v) else "--"
 
-
 @Composable
 private fun RenameDialog(
     current: String,
@@ -209,7 +233,7 @@ private fun RenameDialog(
     var text by remember { mutableStateOf(TextFieldValue(current)) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.rename)) },
+        title = { Text(stringResource(R.string.device_rename)) },
         text = {
             OutlinedTextField(
                 value = text,
@@ -219,10 +243,14 @@ private fun RenameDialog(
             )
         },
         confirmButton = {
-            Button(onClick = { onSave(text.text) }) { Text(stringResource(R.string.save)) }
+            Button(onClick = { onSave(text.text) }) {
+                Text(stringResource(R.string.device_save))
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.canc)) }
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.device_cancel))
+            }
         }
     )
 }
@@ -240,9 +268,9 @@ private fun FsrDialog(
 
     BaseDialog(stringResource(R.string.fsr_settings), onDismiss) {
         NumberField(stringResource(R.string.fsr_pin), pin) { pin = it }
-        NumberField(stringResource(R.string.pullup), pull) { pull = it }
-        NumberField(stringResource(R.string.start_thr), start) { start = it }
-        NumberField(stringResource(R.string.max_vibro), max) { max = it }
+        NumberField(stringResource(R.string.fsr_pullup), pull) { pull = it }
+        NumberField(stringResource(R.string.fsr_start_threshold), start) { start = it }
+        NumberField(stringResource(R.string.fsr_max_vibro), max) { max = it }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
@@ -273,12 +301,12 @@ private fun FlexDialog(
 
     BaseDialog(stringResource(R.string.flex_settings), onDismiss) {
         Text(
-            "${stringResource(R.string.cur_res)}: ${pretty(currentFlexOhm)} Ω",
+            "${stringResource(R.string.flex_current_resistance)}: ${pretty(currentFlexOhm)} Ω",
             style = MaterialTheme.typography.bodyMedium
         )
         NumberField(stringResource(R.string.flex_pin), pin) { pin = it }
-        NumberField(stringResource(R.string.unfolded), bend) { bend = it }
-        NumberField(stringResource(R.string.folded), flat) { flat = it }
+        NumberField(stringResource(R.string.flex_unfolded), bend) { bend = it }
+        NumberField(stringResource(R.string.flex_folded), flat) { flat = it }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
@@ -322,7 +350,7 @@ private fun VibroDialog(
         }
     }
 
-    BaseDialog(stringResource(R.string.vibro), onDismiss) {
+    BaseDialog(stringResource(R.string.vibro_settings), onDismiss) {
         NumberField(stringResource(R.string.vibro_pin), pin) { pin = it }
 
         Row(
@@ -330,19 +358,22 @@ private fun VibroDialog(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(stringResource(R.string.mode))
+            Text(stringResource(R.string.vibro_mode))
             SegmentedButtons(
-                items = listOf(stringResource(R.string.cont), stringResource(R.string.pulse)),
+                items = listOf(
+                    stringResource(R.string.vibro_continuous),
+                    stringResource(R.string.vibro_pulse)
+                ),
                 selectedIndex = if (mode == VibMode.Constant) 0 else 1,
                 onSelect = { idx -> mode = if (idx == 0) VibMode.Constant else VibMode.Pulse }
             )
         }
 
-        NumberField("${stringResource(R.string.intensiv)}, %", intensity) { intensity = it }
+        NumberField("${stringResource(R.string.vibro_intensity)}, %", intensity) { intensity = it }
 
         if (mode == VibMode.Pulse) {
-            NumberField(stringResource(R.string.work_time_ms), onMs) { onMs = it }
-            NumberField(stringResource(R.string.pause_time_ms), offMs) { offMs = it }
+            NumberField(stringResource(R.string.vibro_work_time), onMs) { onMs = it }
+            NumberField(stringResource(R.string.vibro_pause_time), offMs) { offMs = it }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -398,17 +429,17 @@ private fun ServoDialog(
         )
     }
 
-    BaseDialog(stringResource(R.string.servo), onDismiss) {
+    BaseDialog(stringResource(R.string.servo_settings), onDismiss) {
         Text(
-            "${stringResource(R.string.curr_angle)}: ${pretty(currentServoDeg)} °",
+            "${stringResource(R.string.servo_current_angle)}: ${pretty(currentServoDeg)} °",
             style = MaterialTheme.typography.bodyMedium
         )
         NumberField(stringResource(R.string.servo_pin), pin) { pin = it }
-        NumberField(stringResource(R.string.min_angle), min) {
+        NumberField(stringResource(R.string.servo_min_angle), min) {
             min = it
             if (manual) pushImmediate(slider.toInt())
         }
-        NumberField(stringResource(R.string.max_angle), max) {
+        NumberField(stringResource(R.string.servo_max_angle), max) {
             max = it
             if (manual) pushImmediate(slider.toInt())
         }
@@ -417,7 +448,7 @@ private fun ServoDialog(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(stringResource(R.string.manual_control))
+            Text(stringResource(R.string.servo_manual_control))
             Switch(checked = manual, onCheckedChange = {
                 manual = it
                 pushImmediate(slider.toInt())
@@ -438,13 +469,14 @@ private fun ServoDialog(
                     (max.toIntOrNull() ?: s.servoMaxDeg) - (min.toIntOrNull() ?: s.servoMinDeg)
                 )
             )
-            Text("${stringResource(R.string.man_control_angle)}: ${slider.toInt()}°", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "${stringResource(R.string.servo_manual_angle)}: ${slider.toInt()}°",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = {
-                onDismiss()
-            }) { Text("OK") }
+            Button(onClick = { onDismiss() }) { Text("OK") }
         }
     }
 }
@@ -464,7 +496,11 @@ private fun BaseDialog(
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.canc)) } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.device_cancel))
+            }
+        }
     )
 }
 
@@ -488,12 +524,10 @@ private fun SegmentedButtons(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items.forEachIndexed { i, label ->
             val selected = i == selectedIndex
-            val colors = if (selected) ButtonDefaults.filledTonalButtonColors()
-            else ButtonDefaults.outlinedButtonColors()
             if (selected) {
-                FilledTonalButton(onClick = { onSelect(i) }, content = { Text(label) })
+                FilledTonalButton(onClick = { onSelect(i) }) { Text(label) }
             } else {
-                OutlinedButton(onClick = { onSelect(i) }, content = { Text(label) })
+                OutlinedButton(onClick = { onSelect(i) }) { Text(label) }
             }
         }
     }

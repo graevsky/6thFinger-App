@@ -1,77 +1,104 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Приложение для протеза</string>
-    <string name="account">Аккаунт</string>
-    <string name="settings">Настройки</string>
-    <string name="avatar">Аватар</string>
-    <string name="guest">Гость</string>
-    <string name="sign_in">Войти</string>
-    <string name="app_settings">Настройки приложения</string>
-    <string name="lang_select">Язык</string>
-    <string name="rus">Русский</string>
-    <string name="eng">Английский</string>
-    <string name="close">Закрыть</string>
-    <string name="connecting">Подключение</string>
-    <string name="connected">Подключено</string>
-    <string name="status">Статус</string>
-    <string name="scan">Сканировать</string>
-    <string name="access_not_granted">Доступ не предоставлен</string>
-    <string name="available_devices">Доступные устройства</string>
-    <string name="press_to_scan">Нажмите для сканирования, если устройство не отображается</string>
-    <string name="last_device">Последнее устройство</string>
-    <string name="no_stored_devices">Нет сохранённых устройств</string>
-    <string name="disconnect">Отключить</string>
-    <string name="connect">Подключить</string>
-    <string name="already_connected">Уже подключено</string>
-    <string name="save">Сохранить</string>
+
+    <!-- App -->
+    <string name="app_name">6th Finger Control App</string>
+
+    <!-- Navigation -->
+    <string name="nav_connectivity">Подключение</string>
+    <string name="nav_controls">Управление</string>
+    <string name="nav_simulation">Симуляция</string>
+    <string name="nav_account">Аккаунт</string>
+
+    <!-- Auth -->
+    <string name="auth_sign_in">Войти</string>
+    <string name="auth_register">Регистрация</string>
+    <string name="auth_login">Вход</string>
+    <string name="auth_logout">Выйти</string>
+    <string name="auth_continue_guest">Продолжить как гость</string>
+    <string name="auth_guest">Гость</string>
+    <string name="auth_guest_hint">Вы используете приложение как гость. Войдите, чтобы синхронизировать настройки.</string>
+    <string name="auth_username">Имя пользователя</string>
+    <string name="auth_password">Пароль</string>
+    <string name="auth_back">Назад</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_app">Настройки приложения</string>
+    <string name="settings_language">Язык</string>
+    <string name="settings_russian">Русский</string>
+    <string name="settings_english">Английский</string>
+    <string name="settings_close">Закрыть</string>
+
+    <!-- Account -->
+    <string name="account_avatar">Аватар</string>
+
+    <!-- BLE / Connectivity -->
+    <string name="ble_connecting">Подключение</string>
+    <string name="ble_connected">Подключено</string>
+    <string name="ble_status">Статус</string>
+    <string name="ble_scan">Сканировать</string>
+    <string name="ble_access_denied">Доступ не предоставлен</string>
+    <string name="ble_available_devices">Доступные устройства</string>
+    <string name="ble_press_to_scan">Нажмите для сканирования</string>
+
+    <!-- Device list -->
+    <string name="device_last">Последнее устройство</string>
+    <string name="device_no_stored">Нет сохранённых устройств</string>
+    <string name="device_disconnect">Отключить</string>
+    <string name="device_connect">Подключить</string>
+    <string name="device_already_connected">Уже подключено</string>
     <string name="device_name">Имя устройства</string>
-    <string name="no_device_name">Имя устройства отсутствует</string>
-    <string name="rename">Переименовать</string>
-    <string name="sens_and_pullup">Чувствительность и подтяжка</string>
-    <string name="res_cal">Калибровка сопротивления</string>
-    <string name="mode_and_resp">Режим и отклик</string>
-    <string name="lims_manual">Ограничения и ручной режим</string>
-    <string name="diagnostic">Диагностика</string>
-    <string name="open">Открыть</string>
-    <string name="canc">Отмена</string>
+    <string name="device_no_name">Без имени</string>
+    <string name="device_rename">Переименовать</string>
+    <string name="device_save">Сохранить</string>
+    <string name="device_open">Открыть</string>
+    <string name="device_cancel">Отмена</string>
+
+    <!-- Control Screen -->
+    <string name="control_sensitivity_pullup">Чувствительность и подтяжка</string>
+    <string name="control_resistance_cal">Калибровка сопротивления</string>
+    <string name="control_vibro_mode">Режим и отклик</string>
+    <string name="control_servo_manual">Пределы и ручной режим</string>
+    <string name="control_diagnostic">Диагностика</string>
+
+    <!-- FSR -->
     <string name="fsr_settings">Настройки FSR</string>
-    <string name="fsr_pin">Пин FSR</string>
-    <string name="pullup">Подтяжка, Ом</string>
-    <string name="start_thr">Порог срабатывания</string>
-    <string name="max_vibro">Макс. вибрация</string>
-    <string name="flex_settings">Настройки гибкого сенсора</string>
-    <string name="cur_res">Текущее сопротивление</string>
-    <string name="flex_pin">Пин гибкого сенсора</string>
-    <string name="unfolded">Разогнуто</string>
-    <string name="folded">Согнуто</string>
-    <string name="vibro">Вибрация</string>
-    <string name="vibro_pin">Пин вибрации</string>
-    <string name="mode">Режим</string>
-    <string name="cont">Непрерывный</string>
-    <string name="pulse">Импульсный</string>
-    <string name="intensiv">Интенсивность</string>
-    <string name="work_time_ms">Время вибрации, мс</string>
-    <string name="pause_time_ms">Пауза, мс</string>
-    <string name="servo">Сервопривод</string>
-    <string name="curr_angle">Текущий угол</string>
+    <string name="fsr_pin">FSR пин</string>
+    <string name="fsr_pullup">Подтяжка, Ω</string>
+    <string name="fsr_start_threshold">Порог старта</string>
+    <string name="fsr_max_vibro">Макс. вибро</string>
+
+    <!-- Flex -->
+    <string name="flex_settings">Настройки гибкого датчика</string>
+    <string name="flex_current_resistance">Текущее сопротивление</string>
+    <string name="flex_pin">Пин флекса</string>
+    <string name="flex_unfolded">Разогнут</string>
+    <string name="flex_folded">Согнут</string>
+
+    <!-- Vibro -->
+    <string name="vibro_settings">Вибро</string>
+    <string name="vibro_pin">Пин вибро</string>
+    <string name="vibro_mode">Режим</string>
+    <string name="vibro_continuous">Постоянный</string>
+    <string name="vibro_pulse">Импульсный</string>
+    <string name="vibro_intensity">Интенсивность</string>
+    <string name="vibro_work_time">Длительность вибрации, мс</string>
+    <string name="vibro_pause_time">Пауза, мс</string>
+
+    <!-- Servo -->
+    <string name="servo_settings">Сервопривод</string>
+    <string name="servo_current_angle">Текущий угол</string>
     <string name="servo_pin">Пин серво</string>
-    <string name="min_angle">Минимальный угол</string>
-    <string name="max_angle">Максимальный угол</string>
-    <string name="manual_control">Ручное управление</string>
-    <string name="man_control_angle">Угол ручного управления</string>
-    <string name="connectivity">Подключение</string>
-    <string name="controls">Управление</string>
-    <string name="simulation">Симуляция</string>
-    <string name="username">Логин</string>
-    <string name="password">Пароль</string>
-    <string name="login">Войти</string>
-    <string name="register">Зарегистрироваться</string>
-    <string name="continue_as_guest">Продолжить как гость</string>
-    <string name="logout">Выйти</string>
-    <string name="guest_hint">Вы используете приложение как гость. Войдите, чтобы синхронизировать настройки.</string>
-    <string name="pull_app_settings">Получить настройки приложения</string>
-    <string name="push_app_settings">Отправить настройки приложения</string>
+    <string name="servo_min_angle">Мин. угол</string>
+    <string name="servo_max_angle">Макс. угол</string>
+    <string name="servo_manual_control">Ручное управление</string>
+    <string name="servo_manual_angle">Ручной угол</string>
+
+    <!-- Prosthesis cloud sync -->
     <string name="prosthesis_settings">Настройки протеза</string>
-    <string name="pull_device_settings">Получить настройки протеза</string>
-    <string name="push_device_settings">Отправить настройки протеза</string>
+    <string name="prosthesis_settings_descr">Настройки вашего протеза</string>
+    <string name="prosthesis_settings_dialog_hint">Синхронизация настроек протеза</string>
+    <string name="prosthesis_pull">Загрузить настройки</string>
+    <string name="prosthesis_push">Отправить настройки</string>
+
 </resources>

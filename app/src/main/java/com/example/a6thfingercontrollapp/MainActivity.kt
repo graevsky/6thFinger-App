@@ -24,12 +24,8 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.NavHost
@@ -38,14 +34,21 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.a6thfingercontrollapp.data.AppSettingsStore
 import com.example.a6thfingercontrollapp.ui.AccountScreen
-import com.example.a6thfingercontrollapp.ui.AuthScreen
 import com.example.a6thfingercontrollapp.ui.ConnectScreen
 import com.example.a6thfingercontrollapp.ui.ControlScreen
+import com.example.a6thfingercontrollapp.ui.LoginScreen
 import com.example.a6thfingercontrollapp.ui.NavRoute
+import com.example.a6thfingercontrollapp.ui.RegisterScreen
+import com.example.a6thfingercontrollapp.ui.StartScreen
 import com.example.a6thfingercontrollapp.ui.theme._6thFingerControllAppTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
+private enum class AuthFlowScreen {
+    Start,
+    Login,
+    Register
+}
 
 class MainActivity : ComponentActivity() {
     private val vm by viewModels<BleViewModel>()
@@ -76,6 +79,9 @@ class MainActivity : ComponentActivity() {
 
                 val authState by authVm.auth.collectAsState()
 
+                var authFlowScreen by rememberSaveable { mutableStateOf(AuthFlowScreen.Start) }
+                var prefillUsername by rememberSaveable { mutableStateOf("") }
+
                 when (authState) {
                     is UiAuthState.Loading -> {
                         Box(
@@ -87,7 +93,36 @@ class MainActivity : ComponentActivity() {
                     }
 
                     is UiAuthState.Unauthenticated -> {
-                        AuthScreen(vm = authVm)
+                        when (authFlowScreen) {
+                            AuthFlowScreen.Start -> {
+                                StartScreen(
+                                    bleVm = vm,
+                                    authVm = authVm,
+                                    onLoginClick = { authFlowScreen = AuthFlowScreen.Login },
+                                    onRegisterClick = { authFlowScreen = AuthFlowScreen.Register },
+                                    onContinueAsGuest = { authVm.continueAsGuest() }
+                                )
+                            }
+
+                            AuthFlowScreen.Login -> {
+                                LoginScreen(
+                                    vm = authVm,
+                                    initialUsername = prefillUsername,
+                                    onBack = { authFlowScreen = AuthFlowScreen.Start }
+                                )
+                            }
+
+                            AuthFlowScreen.Register -> {
+                                RegisterScreen(
+                                    vm = authVm,
+                                    onBack = { authFlowScreen = AuthFlowScreen.Start },
+                                    onRegistered = { username ->
+                                        prefillUsername = username
+                                        authFlowScreen = AuthFlowScreen.Login
+                                    }
+                                )
+                            }
+                        }
                     }
 
                     is UiAuthState.Guest,
@@ -110,8 +145,8 @@ class MainActivity : ComponentActivity() {
                                         val enabled = when (r) {
                                             NavRoute.Connect -> true
                                             NavRoute.Account -> true
-                                            else -> state.status.contains("Subscribed") ||
-                                                    state.status.contains("Connected")
+                                            else -> state.status.contains("Subscribed", true) ||
+                                                    state.status.contains("Connected", true)
                                         }
 
                                         NavigationBarItem(
@@ -169,10 +204,21 @@ class MainActivity : ComponentActivity() {
                                     ControlScreen(vm = vm)
                                 }
                                 composable(NavRoute.Sim.route) {
-                                    Text(stringResource(R.string.simulation))
+                                    Text(stringResource(R.string.nav_simulation))
                                 }
                                 composable(NavRoute.Account.route) {
-                                    AccountScreen(vm = vm, authVm = authVm)
+                                    AccountScreen(
+                                        vm = vm,
+                                        authVm = authVm,
+                                        onLoginClick = {
+                                            authFlowScreen = AuthFlowScreen.Login
+                                            authVm.logout()
+                                        },
+                                        onRegisterClick = {
+                                            authFlowScreen = AuthFlowScreen.Register
+                                            authVm.logout()
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -183,7 +229,9 @@ class MainActivity : ComponentActivity() {
     }
 
     fun recreateApp() {
-        recreate()
+        val intent = intent
+        finish()
+        startActivity(intent)
     }
 
     override fun onStart() {
@@ -196,7 +244,8 @@ private fun requiredPermissions(): Array<String> {
     return if (Build.VERSION.SDK_INT >= 31) {
         arrayOf(
             Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.BLUETOOTH_CONNECT
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.ACCESS_FINE_LOCATION
         )
     } else {
         arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
