@@ -82,7 +82,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                 _error.value = null
                 onSuccess?.invoke()
             } catch (e: Exception) {
-                _error.value = extractErrorMessage(e) ?: "Registration failed"
+                _error.value = e.message
             }
         }
     }
@@ -95,13 +95,10 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                 if (st is AuthState.LoggedIn) {
                     _auth.value = UiAuthState.LoggedIn(st.username)
                     _error.value = null
-
                     syncAppSettingsOnLogin(st.username)
-                } else {
-                    _error.value = "Login failed"
                 }
             } catch (e: Exception) {
-                _error.value = extractErrorMessage(e) ?: "Login failed"
+                _error.value = e.message
             }
         }
     }
@@ -190,26 +187,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             } catch (_: Exception) {
                 delay(retryDelayMs)
             }
-        }
-    }
-
-    private fun extractErrorMessage(e: Throwable): String? {
-        return when (e) {
-            is HttpException -> {
-                val body = e.response()?.errorBody()?.string()
-                if (!body.isNullOrBlank()) {
-                    try {
-                        val json = JSONObject(body)
-                        json.optString("detail", null)
-                    } catch (_: Exception) {
-                        "HTTP ${e.code()}"
-                    }
-                } else {
-                    "HTTP ${e.code()}"
-                }
-            }
-
-            else -> e.message
         }
     }
 }

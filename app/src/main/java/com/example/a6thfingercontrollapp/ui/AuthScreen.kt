@@ -38,6 +38,15 @@ import com.example.a6thfingercontrollapp.MainActivity
 import com.example.a6thfingercontrollapp.R
 
 @Composable
+private fun localizedError(key: String?, get: @Composable (Int) -> String): String {
+    return when (key) {
+        "username_taken" -> get(R.string.err_username_taken)
+        "wrong_password" -> get(R.string.err_wrong_password)
+        "user_not_found" -> get(R.string.err_user_not_found)
+        else -> get(R.string.err_unknown)
+    }
+}
+@Composable
 fun StartScreen(
     bleVm: BleViewModel,
     authVm: AuthViewModel,
@@ -137,7 +146,8 @@ fun LoginScreen(
     initialUsername: String,
     onBack: () -> Unit
 ) {
-    val error by vm.error.collectAsState()
+    val rawError by vm.error.collectAsState()
+    val error = rawError?.let { localizedError(it) { id -> stringResource(id) } }
 
     var username by remember { mutableStateOf(initialUsername) }
     var password by remember { mutableStateOf("") }
@@ -180,11 +190,7 @@ fun LoginScreen(
                 )
 
                 if (!error.isNullOrBlank()) {
-                    Text(
-                        text = error ?: "",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text(error, color = MaterialTheme.colorScheme.error)
                 }
 
                 Spacer(Modifier.height(8.dp))
@@ -217,7 +223,8 @@ fun RegisterScreen(
     onBack: () -> Unit,
     onRegistered: (String) -> Unit
 ) {
-    val error by vm.error.collectAsState()
+    val rawError by vm.error.collectAsState()
+    val error = rawError?.let { localizedError(it) { id -> stringResource(id) } }
 
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -260,11 +267,7 @@ fun RegisterScreen(
                 )
 
                 if (!error.isNullOrBlank()) {
-                    Text(
-                        text = error ?: "",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text(error, color = MaterialTheme.colorScheme.error)
                 }
 
                 Spacer(Modifier.height(8.dp))

@@ -8,6 +8,7 @@ import com.example.a6thfingercontrollapp.network.LoginStartIn
 import com.example.a6thfingercontrollapp.network.RegisterIn
 import com.example.a6thfingercontrollapp.security.srp.SrpLogin
 import com.example.a6thfingercontrollapp.security.srp.SrpRegister
+import com.example.a6thfingercontrollapp.utils.parseBackendError
 import kotlinx.coroutines.flow.first
 
 sealed class AuthState {
@@ -41,57 +42,65 @@ class AuthRepository(context: Context) {
     }
 
     suspend fun register(username: String, password: String) {
-        val normalized = username.trim().lowercase()
+        try {
+            val normalized = username.trim().lowercase()
 
-        val params = api.getSrpParams()
-        val Nhex = params.N.replace("\\s+".toRegex(), "")
-        val ghex = params.g.trim()
+            val params = api.getSrpParams()
+            val Nhex = params.N.replace("\\s+".toRegex(), "")
+            val ghex = params.g.trim()
 
-        val reg = SrpRegister.generateVerifier(
-            username = normalized,
-            password = password,
-            primeHex = Nhex,
-            generatorHex = ghex
-        )
-
-        api.register(
-            RegisterIn(
+            val reg = SrpRegister.generateVerifier(
                 username = normalized,
-                salt = reg.saltHex,
-                verifier = reg.verifierHex
+                password = password,
+                primeHex = Nhex,
+                generatorHex = ghex
             )
-        )
+
+            api.register(
+                RegisterIn(
+                    username = normalized,
+                    salt = reg.saltHex,
+                    verifier = reg.verifierHex
+                )
+            )
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
     }
 
 
     suspend fun login(username: String, password: String): AuthState {
-        val normalized = username.trim().lowercase()
+        try {
+            val normalized = username.trim().lowercase()
 
-        val start = api.loginStart(LoginStartIn(normalized))
+            val start = api.loginStart(LoginStartIn(normalized))
 
-        val Nhex = start.N.replace("\\s+".toRegex(), "")
-        val ghex = start.g.trim()
+            val Nhex = start.N.replace("\\s+".toRegex(), "")
+            val ghex = start.g.trim()
 
-        val loginRes = SrpLogin.clientLogin(
-            username = normalized,
-            password = password,
-            saltHex = start.salt,
-            BHex = start.B,
-            primeHex = Nhex,
-            generatorHex = ghex
-        )
-
-        val finish = api.loginFinish(
-            LoginFinishIn(
+            val loginRes = SrpLogin.clientLogin(
                 username = normalized,
-                A = loginRes.A,
-                M1 = loginRes.M1,
-                salt = start.salt
+                password = password,
+                saltHex = start.salt,
+                BHex = start.B,
+                primeHex = Nhex,
+                generatorHex = ghex
             )
-        )
 
-        store.saveTokens(normalized, finish.access_token, finish.refresh_token)
-        return AuthState.LoggedIn(normalized, finish.access_token, finish.refresh_token)
+            val finish = api.loginFinish(
+                LoginFinishIn(
+                    username = normalized,
+                    A = loginRes.A,
+                    M1 = loginRes.M1,
+                    salt = start.salt
+                )
+            )
+
+            store.saveTokens(normalized, finish.access_token, finish.refresh_token)
+            return AuthState.LoggedIn(normalized, finish.access_token, finish.refresh_token)
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
     }
 
     suspend fun logout(): AuthState {

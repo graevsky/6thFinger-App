@@ -101,4 +101,9 @@
     <string name="prosthesis_pull">Load device settings</string>
     <string name="prosthesis_push">Upload device settings</string>
 
+    <!-- Errors -->
+    <string name="err_username_taken">This username is already taken</string>
+    <string name="err_wrong_password">Wrong password</string>
+    <string name="err_user_not_found">User does not exist</string>
+    <string name="err_unknown">Something went wrong</string>
 </resources>

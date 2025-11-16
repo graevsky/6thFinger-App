@@ -101,4 +101,9 @@
     <string name="prosthesis_pull">Загрузить настройки</string>
     <string name="prosthesis_push">Отправить настройки</string>
 
+    <!-- Errors -->
+    <string name="err_username_taken">Имя пользователя уже занято</string>
+    <string name="err_wrong_password">Неверный пароль</string>
+    <string name="err_user_not_found">Пользователь не найден</string>
+    <string name="err_unknown">Произошла ошибка</string>
 </resources>
