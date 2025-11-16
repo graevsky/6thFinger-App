@@ -44,6 +44,7 @@ import com.example.a6thfingercontrollapp.ui.ControlScreen
 import com.example.a6thfingercontrollapp.ui.LoginScreen
 import com.example.a6thfingercontrollapp.ui.NavRoute
 import com.example.a6thfingercontrollapp.ui.RegisterScreen
+import com.example.a6thfingercontrollapp.ui.SimulationScreen
 import com.example.a6thfingercontrollapp.ui.StartScreen
 import com.example.a6thfingercontrollapp.ui.theme._6thFingerControllAppTheme
 import kotlinx.coroutines.flow.first
@@ -209,7 +210,7 @@ class MainActivity : ComponentActivity() {
                                     ControlScreen(vm = vm)
                                 }
                                 composable(NavRoute.Sim.route) {
-                                    Text(stringResource(R.string.nav_simulation))
+                                    SimulationScreen(vm = vm)
                                 }
                                 composable(NavRoute.Account.route) {
                                     AccountScreen(

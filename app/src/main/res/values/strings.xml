@@ -67,6 +67,8 @@
     <string name="fsr_pullup">Pull-up, Ω</string>
     <string name="fsr_start_threshold">Start threshold</string>
     <string name="fsr_max_vibro">Max vibro</string>
+    <string name="sim_fsr_pressed">FSR pressed</string>
+    <string name="sim_fsr_idle">FSR idle</string>
 
     <!-- Flex -->
     <string name="flex_settings">Flex Sensor Settings</string>
@@ -74,6 +76,8 @@
     <string name="flex_pin">Flex Pin</string>
     <string name="flex_unfolded">Unfolded</string>
     <string name="flex_folded">Folded</string>
+    <string name="sim_angle">Angle: %1$s°</string>
+    <string name="sim_flex">Flex: %1$s Ω</string>
 
     <!-- Vibro -->
     <string name="vibro_settings">Vibro</string>

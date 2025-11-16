@@ -67,6 +67,8 @@
     <string name="fsr_pullup">Подтяжка, Ω</string>
     <string name="fsr_start_threshold">Порог старта</string>
     <string name="fsr_max_vibro">Макс. вибро</string>
+    <string name="sim_fsr_pressed">Нажат</string>
+    <string name="sim_fsr_idle">Отжат</string>
 
     <!-- Flex -->
     <string name="flex_settings">Настройки гибкого датчика</string>
@@ -74,6 +76,8 @@
     <string name="flex_pin">Пин флекса</string>
     <string name="flex_unfolded">Разогнут</string>
     <string name="flex_folded">Согнут</string>
+    <string name="sim_angle">Угол: %1$s°</string>
+    <string name="sim_flex">Сопротивление: %1$s Ω</string>
 
     <!-- Vibro -->
     <string name="vibro_settings">Вибро</string>
