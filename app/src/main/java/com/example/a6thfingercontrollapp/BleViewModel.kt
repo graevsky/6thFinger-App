@@ -5,7 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.a6thfingercontrollapp.ble.BleDeviceUi
 import com.example.a6thfingercontrollapp.ble.BleRepository
-import com.example.a6thfingercontrollapp.ble.DeviceSettings
+import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.ble.Telemetry
 import com.example.a6thfingercontrollapp.data.AliasStore
 import com.example.a6thfingercontrollapp.data.AppSettingsStore
@@ -26,89 +26,134 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     private val lastStore = LastDeviceStore(app)
     private val aliasStore = AliasStore(app)
     private val settingsStore = DeviceSettingsStore(app)
+    private val appSettings = AppSettingsStore(app)
 
     val state: StateFlow<Telemetry> =
-        client.state.stateIn(viewModelScope, SharingStarted.Eagerly, Telemetry())
+        client.state.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            Telemetry()
+        )
+
 
     val devices: StateFlow<List<BleDeviceUi>> =
-        client.devices.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        client.devices.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            emptyList()
+        )
+
 
     val lastDevice: StateFlow<LastDevice?> =
-        lastStore.lastDevice.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        lastStore.lastDevice.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            null
+        )
 
-    private val activeAddress = lastDevice.map { it?.address.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    private val activeAddress: StateFlow<String> =
+        lastDevice.map { it?.address.orEmpty() }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                ""
+            )
 
     val activeAlias: StateFlow<String> =
         activeAddress.flatMapLatest { addr ->
-            if (addr.isEmpty()) flowOf("") else aliasStore.alias(addr).map { it ?: "" }
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+            if (addr.isEmpty()) {
+                flowOf("")
+            } else {
+                aliasStore.alias(addr).map { it ?: "" }
+            }
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            ""
+        )
 
-    val activeSettings: StateFlow<DeviceSettings> =
+    val activeSettings: StateFlow<EspSettings> =
         activeAddress.flatMapLatest { addr ->
-            if (addr.isEmpty()) flowOf(DeviceSettings())
-            else settingsStore.get(addr).map { it ?: DeviceSettings() }
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, DeviceSettings())
+            if (addr.isEmpty()) {
+                flowOf(EspSettings())
+            } else {
+                settingsStore.get(addr).map { it ?: EspSettings() }
+            }
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            EspSettings()
+        )
+
+    val appLanguage: StateFlow<String> =
+        appSettings.getLanguage()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
 
     init {
         viewModelScope.launch {
-            client.boardSettings.collect { fromBoard ->
+            client.settings.collect { fromBoard ->
                 val addr = activeAddress.value
                 if (addr.isNotEmpty() && fromBoard != null) {
                     settingsStore.set(addr, fromBoard)
                 }
             }
         }
-        viewModelScope.launch {
-            activeSettings.collect { s ->
-                val addr = activeAddress.value
-                if (addr.isNotEmpty()) {
-                    client.applySettings(addr, s)
-                }
-            }
-        }
     }
 
     fun start() = client.start()
+
     fun stop() = client.stop()
+
     fun scan() = client.scan()
+
     fun connect(address: String) = client.connectByAddress(address)
-    fun isBleReady() = client.isBleReady()
+
+    fun isBleReady(): Boolean = client.isBleReady()
+
     fun disconnect() = client.disconnectNow()
+
 
     fun aliasFlow(address: String): Flow<String?> = aliasStore.alias(address)
 
-
     fun saveLastDevice(name: String, address: String) {
-        viewModelScope.launch { lastStore.save(name, address) }
+        viewModelScope.launch {
+            lastStore.save(name, address)
+        }
     }
 
     fun renameActive(newAlias: String) {
         val addr = activeAddress.value
         if (addr.isEmpty()) return
-        viewModelScope.launch { aliasStore.setAlias(addr, newAlias.trim()) }
+
+        viewModelScope.launch {
+            aliasStore.setAlias(addr, newAlias.trim())
+        }
     }
 
-    fun updateActiveSettings(update: (DeviceSettings) -> DeviceSettings) {
+    fun updateActiveSettings(update: (EspSettings) -> EspSettings) {
         val addr = activeAddress.value
         if (addr.isEmpty()) return
-        val next = update(activeSettings.value)
-        viewModelScope.launch { settingsStore.set(addr, next) }
+
+        val current = activeSettings.value
+        val next = update(current)
+
+        viewModelScope.launch {
+            settingsStore.set(addr, next)
+        }
     }
+
 
     fun applyAndSaveToBoard(): Boolean {
         val addr = activeAddress.value
         if (addr.isEmpty()) return false
-        return client.applySettings(addr, activeSettings.value)
+
+        val cfg = activeSettings.value
+        return client.applySettings(cfg)
     }
 
-
-    private val appSettings = AppSettingsStore(app)
-
-    val appLanguage: StateFlow<String> =
-        appSettings.getLanguage().stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
-
     fun setAppLanguage(language: String) {
-        viewModelScope.launch { appSettings.setLanguage(language) }
+        viewModelScope.launch {
+            appSettings.setLanguage(language)
+        }
     }
 }

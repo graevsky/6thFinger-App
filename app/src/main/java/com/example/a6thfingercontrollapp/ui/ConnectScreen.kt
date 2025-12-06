@@ -39,16 +39,13 @@ fun ConnectScreen(
     val connectingText = stringResource(R.string.ble_connecting)
     val connectedText = stringResource(R.string.ble_connected)
 
-
     val uiStatus = when {
         status.status.contains("discover", ignoreCase = true) -> connectingText
         status.status.contains("subscribed", ignoreCase = true) -> connectedText
         else -> status.status
     }
 
-
     val isConnected = uiStatus.contains(connectedText, ignoreCase = true)
-
 
     val lastAlias: String? = when (val ld = last) {
         null -> null
@@ -86,7 +83,9 @@ fun ConnectScreen(
                 ) {
                     Text(stringResource(R.string.ble_scan))
                 }
-                if (!permissionsGranted) Text(stringResource(R.string.ble_access_denied))
+                if (!permissionsGranted) {
+                    Text(stringResource(R.string.ble_access_denied))
+                }
             }
 
             Text(

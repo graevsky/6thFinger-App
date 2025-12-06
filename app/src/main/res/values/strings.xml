@@ -110,4 +110,13 @@
     <string name="err_wrong_password">Wrong password</string>
     <string name="err_user_not_found">User does not exist</string>
     <string name="err_unknown">Something went wrong</string>
+
+    <string name="control_diag_fsr_ohm">FSR, Ω</string>
+    <string name="control_diag_flex_ohm">Flex, Ω</string>
+    <string name="control_diag_servo_deg">Servo, °</string>
+    <string name="control_diag_force_n">Force, N</string>
+
+    <string name="generic_ok">OK</string>
+
+    <string name="sim_force">Force: %1$s N</string>
 </resources>

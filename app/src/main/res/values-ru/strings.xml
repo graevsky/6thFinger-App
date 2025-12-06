@@ -62,7 +62,7 @@
     <string name="control_diagnostic">Диагностика</string>
 
     <!-- FSR -->
-    <string name="fsr_settings">Настройки FSR</string>
+    <string name="fsr_settings">Настройки FSRа</string>
     <string name="fsr_pin">FSR пин</string>
     <string name="fsr_pullup">Подтяжка, Ω</string>
     <string name="fsr_start_threshold">Порог старта</string>
@@ -110,4 +110,13 @@
     <string name="err_wrong_password">Неверный пароль</string>
     <string name="err_user_not_found">Пользователь не найден</string>
     <string name="err_unknown">Произошла ошибка</string>
+
+    <string name="control_diag_fsr_ohm">FSR, Ω</string>
+    <string name="control_diag_flex_ohm">Гибкий датчик, Ω</string>
+    <string name="control_diag_servo_deg">Серво, °</string>
+    <string name="control_diag_force_n">Сила, Н</string>
+
+    <string name="generic_ok">ОК</string>
+
+    <string name="sim_force">Сила: %1$s Н</string>
 </resources>

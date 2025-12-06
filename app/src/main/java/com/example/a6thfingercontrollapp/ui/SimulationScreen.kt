@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
+import kotlin.math.max
 
 @Composable
 fun SimulationScreen(vm: BleViewModel) {
@@ -36,8 +37,8 @@ fun SimulationScreen(vm: BleViewModel) {
     SimulationContent(
         servoDeg = t.servoDeg,
         flexOhm = t.flexOhm,
-        fsrOhm = t.fsrOhm,
-        fsrStartOhm = s.fsrStartOhm.toFloat()
+        fsrForceN = t.fsrForceN,
+        fsrSoftThresholdN = s.fsrSoftThresholdN
     )
 }
 
@@ -45,10 +46,10 @@ fun SimulationScreen(vm: BleViewModel) {
 private fun SimulationContent(
     servoDeg: Float,
     flexOhm: Float,
-    fsrOhm: Float,
-    fsrStartOhm: Float
+    fsrForceN: Float,
+    fsrSoftThresholdN: Float
 ) {
-    val fsrPressed = fsrOhm.isFinite() && fsrOhm < fsrStartOhm
+    val fsrPressed = fsrForceN.isFinite() && fsrForceN >= fsrSoftThresholdN.coerceAtLeast(0.1f)
 
     val angleClamp = servoDeg.coerceIn(40f, 180f)
     val animAngle by animateFloatAsState(angleClamp, label = "angle")
@@ -94,10 +95,13 @@ private fun SimulationContent(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Angle: %.1f°".format(servoDeg))
-                Text("Flex: ${prettyValue(flexOhm)} Ω")
+                Text(stringResource(R.string.sim_angle, prettyValue(servoDeg)))
+                Text(stringResource(R.string.sim_flex, prettyValue(flexOhm)))
+                Text(stringResource(R.string.sim_force, prettyValue(fsrForceN)))
                 Text(
-                    text = if (fsrPressed) "FSR: Pressed" else "FSR: Idle",
+                    text = stringResource(
+                        if (fsrPressed) R.string.sim_fsr_pressed else R.string.sim_fsr_idle
+                    ),
                     color = if (fsrPressed) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurface
                 )

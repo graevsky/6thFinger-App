@@ -37,7 +37,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
-import com.example.a6thfingercontrollapp.ble.DeviceSettings
+import com.example.a6thfingercontrollapp.ble.EspSettings
 import kotlin.math.max
 
 private enum class VibMode { Constant, Pulse }
@@ -146,9 +146,10 @@ fun ControlScreen(vm: BleViewModel) {
                 stringResource(R.string.control_diagnostic),
                 style = MaterialTheme.typography.titleMedium
             )
-            DiagnosticRow("FSR, Ω", pretty(t.fsrOhm))
-            DiagnosticRow("Flex, Ω", pretty(t.flexOhm))
-            DiagnosticRow("Servo, °", pretty(t.servoDeg))
+            DiagnosticRow(stringResource(R.string.control_diag_fsr_ohm), pretty(t.fsrOhm))
+            DiagnosticRow(stringResource(R.string.control_diag_flex_ohm), pretty(t.flexOhm))
+            DiagnosticRow(stringResource(R.string.control_diag_servo_deg), pretty(t.servoDeg))
+            DiagnosticRow(stringResource(R.string.control_diag_force_n), pretty(t.fsrForceN))
         }
     }
 
@@ -161,12 +162,15 @@ fun ControlScreen(vm: BleViewModel) {
         }
     )
 
-    if (fsrOpen) FsrDialog(s, onDismiss = { fsrOpen = false }) { next ->
+    if (fsrOpen) FsrDialog(
+        s = s,
+        onDismiss = { fsrOpen = false }
+    ) { next ->
         vm.updateActiveSettings { next }
     }
 
     if (flexOpen) FlexDialog(
-        s,
+        s = s,
         currentFlexOhm = t.flexOhm,
         onDismiss = { flexOpen = false }
     ) { next ->
@@ -174,14 +178,14 @@ fun ControlScreen(vm: BleViewModel) {
     }
 
     if (vibroOpen) VibroDialog(
-        s,
+        s = s,
         onDismiss = { vibroOpen = false }
     ) { next ->
         vm.updateActiveSettings { next }
     }
 
     if (servoOpen) ServoDialog(
-        s,
+        s = s,
         currentServoDeg = t.servoDeg,
         onDismiss = { servoOpen = false }
     ) { next ->
@@ -260,20 +264,26 @@ private fun RenameDialog(
 
 @Composable
 private fun FsrDialog(
-    s: DeviceSettings,
+    s: EspSettings,
     onDismiss: () -> Unit,
-    onChange: (DeviceSettings) -> Unit
+    onChange: (EspSettings) -> Unit
 ) {
     var pin by remember { mutableStateOf(s.fsrPin.toString()) }
     var pull by remember { mutableStateOf(s.fsrPullupOhm.toString()) }
-    var start by remember { mutableStateOf(s.fsrStartOhm.toString()) }
-    var max by remember { mutableStateOf(s.fsrMaxOhm.toString()) }
+    var soft by remember { mutableStateOf(s.fsrSoftThresholdN.toInt().toString()) }
+    var hard by remember { mutableStateOf(s.fsrHardMaxN.toInt().toString()) }
 
     BaseDialog(stringResource(R.string.fsr_settings), onDismiss) {
         NumberField(stringResource(R.string.fsr_pin), pin) { pin = it }
         NumberField(stringResource(R.string.fsr_pullup), pull) { pull = it }
-        NumberField(stringResource(R.string.fsr_start_threshold), start) { start = it }
-        NumberField(stringResource(R.string.fsr_max_vibro), max) { max = it }
+        NumberField(
+            stringResource(R.string.fsr_start_threshold),
+            soft
+        ) { soft = it }
+        NumberField(
+            stringResource(R.string.fsr_max_vibro),
+            hard
+        ) { hard = it }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
@@ -281,26 +291,27 @@ private fun FsrDialog(
                     s.copy(
                         fsrPin = pin.toIntOrNull() ?: s.fsrPin,
                         fsrPullupOhm = pull.toIntOrNull() ?: s.fsrPullupOhm,
-                        fsrStartOhm = start.toIntOrNull() ?: s.fsrStartOhm,
-                        fsrMaxOhm = max.toIntOrNull() ?: s.fsrMaxOhm
+                        fsrSoftThresholdN = (soft.toFloatOrNull() ?: s.fsrSoftThresholdN),
+                        fsrHardMaxN = (hard.toFloatOrNull() ?: s.fsrHardMaxN)
                     )
                 )
                 onDismiss()
-            }) { Text("OK") }
+            }) { Text(stringResource(R.string.generic_ok)) }
         }
     }
 }
 
 @Composable
 private fun FlexDialog(
-    s: DeviceSettings,
+    s: EspSettings,
     currentFlexOhm: Float,
     onDismiss: () -> Unit,
-    onChange: (DeviceSettings) -> Unit
+    onChange: (EspSettings) -> Unit
 ) {
     var pin by remember { mutableStateOf(s.flexPin.toString()) }
+    var pull by remember { mutableStateOf(s.flexPullupOhm.toString()) }
+    var straight by remember { mutableStateOf(s.flexStraightOhm.toString()) }
     var bend by remember { mutableStateOf(s.flexBendOhm.toString()) }
-    var flat by remember { mutableStateOf(s.flexFlatOhm.toString()) }
 
     BaseDialog(stringResource(R.string.flex_settings), onDismiss) {
         Text(
@@ -308,48 +319,81 @@ private fun FlexDialog(
             style = MaterialTheme.typography.bodyMedium
         )
         NumberField(stringResource(R.string.flex_pin), pin) { pin = it }
-        NumberField(stringResource(R.string.flex_unfolded), bend) { bend = it }
-        NumberField(stringResource(R.string.flex_folded), flat) { flat = it }
+        NumberField(
+            stringResource(R.string.flex_unfolded),
+            straight
+        ) { straight = it }
+        NumberField(
+            stringResource(R.string.flex_folded),
+            bend
+        ) { bend = it }
+        NumberField(
+            stringResource(R.string.fsr_pullup),
+            pull
+        ) { pull = it }
+
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
                 onChange(
                     s.copy(
                         flexPin = pin.toIntOrNull() ?: s.flexPin,
-                        flexFlatOhm = flat.toIntOrNull() ?: s.flexFlatOhm,
-                        flexBendOhm = bend.toIntOrNull() ?: s.flexBendOhm
+                        flexStraightOhm = straight.toIntOrNull() ?: s.flexStraightOhm,
+                        flexBendOhm = bend.toIntOrNull() ?: s.flexBendOhm,
+                        flexPullupOhm = pull.toIntOrNull() ?: s.flexPullupOhm
                     )
                 )
                 onDismiss()
-            }) { Text("OK") }
+            }) { Text(stringResource(R.string.generic_ok)) }
         }
     }
 }
 
 @Composable
 private fun VibroDialog(
-    s: DeviceSettings,
+    s: EspSettings,
     onDismiss: () -> Unit,
-    onChange: (DeviceSettings) -> Unit
+    onChange: (EspSettings) -> Unit
 ) {
-    var mode by remember { mutableStateOf(VibMode.Pulse) }
+    var mode by remember { mutableStateOf(if (s.vibroMode == 0) VibMode.Constant else VibMode.Pulse) }
 
     var pin by remember { mutableStateOf(s.vibroPin.toString()) }
-    var intensity by remember { mutableStateOf(s.vibroPowerPct.coerceIn(0, 100).toString()) }
+
+    var intensity by remember {
+        mutableStateOf(
+            ((s.vibroSoftPower.coerceIn(0, 255) * 100) / 255).coerceIn(0, 100).toString()
+        )
+    }
+
     var onMs by remember { mutableStateOf("150") }
     var offMs by remember { mutableStateOf("150") }
 
-    fun toDeviceValues(): Pair<Int, Int> {
+    fun toDeviceValues(): Quad<Int, Int, Int, Int> {
+        val intensityPct = intensity.toIntOrNull()?.coerceIn(0, 100) ?: 60
+        val softPower = ((intensityPct * 255) / 100).coerceIn(0, 255)
+
         return if (mode == VibMode.Constant) {
-            val pwr = intensity.toIntOrNull()?.coerceIn(0, 100) ?: s.vibroPowerPct
-            200 to pwr
+            val freq = s.vibroFreqHz
+            Quad(
+                0,
+                freq,
+                softPower,
+                s.vibroPulseBase
+            )
         } else {
             val on = max(1, onMs.toIntOrNull() ?: 150)
             val off = max(1, offMs.toIntOrNull() ?: 150)
             val period = (on + off).coerceAtLeast(2)
             val freq = (1000f / period).toInt().coerceAtLeast(1)
-            val dutyPct = ((on * 100f) / period).toInt().coerceIn(1, 99)
-            freq to dutyPct
+
+            val base = ((intensityPct * 200) / 100).coerceIn(0, 255)
+
+            Quad(
+                1,
+                freq,
+                softPower,
+                base
+            )
         }
     }
 
@@ -382,31 +426,37 @@ private fun VibroDialog(
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
-                val (freq, pwrPct) = toDeviceValues()
+                val (modeInt, freqHz, softPower, pulseBase) = toDeviceValues()
                 onChange(
                     s.copy(
                         vibroPin = pin.toIntOrNull() ?: s.vibroPin,
-                        vibroPulseFreqHz = freq,
-                        vibroPowerPct = pwrPct
+                        vibroMode = modeInt,
+                        vibroFreqHz = freqHz,
+                        vibroSoftPower = softPower,
+                        vibroPulseBase = pulseBase,
+                        vibroMinDuty = 0,
+                        vibroMaxDuty = 255
                     )
                 )
                 onDismiss()
-            }) { Text("OK") }
+            }) { Text(stringResource(R.string.generic_ok)) }
         }
     }
 }
 
+private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+
 @Composable
 private fun ServoDialog(
-    s: DeviceSettings,
+    s: EspSettings,
     currentServoDeg: Float,
     onDismiss: () -> Unit,
-    onChange: (DeviceSettings) -> Unit
+    onChange: (EspSettings) -> Unit
 ) {
     var pin by remember { mutableStateOf(s.servoPin.toString()) }
     var min by remember { mutableStateOf(s.servoMinDeg.toString()) }
     var max by remember { mutableStateOf(s.servoMaxDeg.toString()) }
-    var manual by remember { mutableStateOf(s.servoManualMode) }
+    var manual by remember { mutableStateOf(s.servoManual != 0) }
     var deg by remember { mutableStateOf(s.servoManualDeg.toString()) }
 
     val minV = min.toIntOrNull() ?: s.servoMinDeg
@@ -426,7 +476,7 @@ private fun ServoDialog(
                 servoPin = pin.toIntOrNull() ?: s.servoPin,
                 servoMinDeg = minAngle,
                 servoMaxDeg = maxAngle,
-                servoManualMode = manual,
+                servoManual = if (manual) 1 else 0,
                 servoManualDeg = clamped
             )
         )
@@ -452,10 +502,13 @@ private fun ServoDialog(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(stringResource(R.string.servo_manual_control))
-            Switch(checked = manual, onCheckedChange = {
-                manual = it
-                pushImmediate(slider.toInt())
-            })
+            Switch(
+                checked = manual,
+                onCheckedChange = {
+                    manual = it
+                    pushImmediate(slider.toInt())
+                }
+            )
         }
         if (manual) {
             Slider(
@@ -479,7 +532,7 @@ private fun ServoDialog(
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = { onDismiss() }) { Text("OK") }
+            Button(onClick = { onDismiss() }) { Text(stringResource(R.string.generic_ok)) }
         }
     }
 }
