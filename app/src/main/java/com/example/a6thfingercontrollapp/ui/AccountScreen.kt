@@ -27,11 +27,14 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,23 +49,79 @@ import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.MainActivity
 import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.UiAuthState
+import com.example.a6thfingercontrollapp.ble.EspSettings
+import com.example.a6thfingercontrollapp.network.DeviceOut
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 @Composable
 fun AccountScreen(
     vm: BleViewModel,
     authVm: AuthViewModel,
     onLoginClick: () -> Unit,
-    onRegisterClick: () -> Unit
+    onRegisterClick: () -> Unit,
+    onOpenControl: () -> Unit
 ) {
     var showSettings by remember { mutableStateOf(false) }
-    var showDeviceSettingsDialog by remember { mutableStateOf(false) }
 
     val lang by vm.appLanguage.collectAsState()
     val authState by authVm.auth.collectAsState()
+    val bleState by vm.state.collectAsState()
+    val currentSettings by vm.activeSettings.collectAsState()
 
     val username: String? = when (authState) {
         is UiAuthState.LoggedIn -> (authState as UiAuthState.LoggedIn).username
         else -> null
+    }
+
+    val scope = rememberCoroutineScope()
+
+    var devices by remember { mutableStateOf<List<DeviceOut>>(emptyList()) }
+    var devicesLoading by remember { mutableStateOf(false) }
+    var devicesError by remember { mutableStateOf<String?>(null) }
+
+    var showDeviceSettingsDialog by remember { mutableStateOf(false) }
+    var selectedDevice by remember { mutableStateOf<DeviceOut?>(null) }
+    var dialogJson by remember { mutableStateOf("{}") }
+    var dialogError by remember { mutableStateOf<String?>(null) }
+    var showConnectWarning by remember { mutableStateOf(false) }
+
+    val activeAddress by vm.activeAddress.collectAsState()
+    val activeAlias by vm.activeAlias.collectAsState()
+
+    val connected =
+        bleState.status.contains("Subscribed", true) ||
+                bleState.status.contains("Connected", true)
+
+    LaunchedEffect(username, activeAddress) {
+        if (username == null) {
+            devices = emptyList()
+            devicesError = null
+            return@LaunchedEffect
+        }
+
+        devicesLoading = true
+        devicesError = null
+        try {
+            if (activeAddress.isNotEmpty()) {
+                try {
+                    authVm.ensureDevice(
+                        address = activeAddress,
+                        alias = activeAlias.ifBlank { null }
+                    )
+                } catch (e: Exception) {
+                    devicesError = e.message
+                }
+            }
+
+            val list = authVm.fetchDevices()
+            devices = list
+        } catch (e: Exception) {
+            devicesError = e.message ?: "Failed to load devices"
+            devices = emptyList()
+        } finally {
+            devicesLoading = false
+        }
     }
 
     Scaffold { inner ->
@@ -165,15 +224,68 @@ fun AccountScreen(
                             text = stringResource(R.string.prosthesis_settings_descr),
                             style = MaterialTheme.typography.bodySmall
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            OutlinedButton(
-                                enabled = username != null,
-                                onClick = { showDeviceSettingsDialog = true }
+
+                        if (devicesLoading) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.loading),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else if (devicesError != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = devicesError ?: "",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else if (devices.isEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.prosthesis_no_devices),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            Spacer(Modifier.height(8.dp))
+                            devices.forEach { dev ->
+                                DeviceRow(
+                                    device = dev,
+                                    isConnected = connected,
+                                    enabled = username != null,
+                                    onOpen = {
+                                        selectedDevice = dev
+                                        dialogError = null
+                                        dialogJson = settingsToPrettyJson(currentSettings)
+                                        showDeviceSettingsDialog = true
+                                    }
+                                )
+                            }
+                        }
+
+                        if (username != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
                             ) {
-                                Text(stringResource(R.string.device_open))
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch {
+                                            devicesLoading = true
+                                            devicesError = null
+                                            try {
+                                                val list = authVm.fetchDevices()
+                                                devices = list
+                                            } catch (e: Exception) {
+                                                devicesError =
+                                                    e.message ?: "Failed to load devices"
+                                                devices = emptyList()
+                                            } finally {
+                                                devicesLoading = false
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.refresh))
+                                }
                             }
                         }
                     }
@@ -195,9 +307,7 @@ fun AccountScreen(
 
                 val currentAuth = authState
                 if (currentAuth is UiAuthState.LoggedIn) {
-                    authVm.scheduleAppSettingsUpload(
-                        mapOf("language" to newLang)
-                    )
+                    authVm.updateLanguageRemote(newLang)
                 }
 
                 showSettings = false
@@ -206,10 +316,66 @@ fun AccountScreen(
         )
     }
 
-    if (showDeviceSettingsDialog) {
+    if (showDeviceSettingsDialog && selectedDevice != null) {
+        val dev = selectedDevice!!
+        val noSettingsMsg = stringResource(R.string.prosthesis_no_settings_on_server)
+
         DeviceSettingsDialog(
-            onDismiss = { showDeviceSettingsDialog = false },
-            enabled = username != null
+            device = dev,
+            json = dialogJson,
+            isPullEnabled = connected,
+            error = dialogError,
+            onDismiss = {
+                showDeviceSettingsDialog = false
+            },
+            onPullClick = {
+                if (!connected) {
+                    showConnectWarning = true
+                    return@DeviceSettingsDialog
+                }
+                scope.launch {
+                    dialogError = null
+                    try {
+                        val fromServer = authVm.pullDeviceSettings(dev.id)
+                        if (fromServer != null) {
+                            dialogJson = settingsToPrettyJson(fromServer)
+                            vm.applySettingsFromCloud(fromServer)
+                        } else {
+                            dialogError = noSettingsMsg
+                        }
+                    } catch (e: Exception) {
+                        dialogError = e.message ?: "Failed to pull settings"
+                    }
+                }
+            },
+            onPushClick = {
+                scope.launch {
+                    dialogError = null
+                    try {
+                        authVm.pushDeviceSettings(dev.id, currentSettings)
+                        dialogJson = settingsToPrettyJson(currentSettings)
+                    } catch (e: Exception) {
+                        dialogError = e.message ?: "Failed to push settings"
+                    }
+                }
+            }
+        )
+    }
+
+    if (showConnectWarning) {
+        AlertDialog(
+            onDismissRequest = { showConnectWarning = false },
+            title = { Text(stringResource(R.string.prosthesis_not_connected_title)) },
+            text = {
+                Text(stringResource(R.string.prosthesis_not_connected_message))
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConnectWarning = false
+                }) {
+                    Text(stringResource(R.string.generic_ok))
+                }
+            }
         )
     }
 }
@@ -269,44 +435,132 @@ private fun LanguageOptionRow(
 }
 
 @Composable
+private fun DeviceRow(
+    device: DeviceOut,
+    isConnected: Boolean,
+    enabled: Boolean,
+    onOpen: () -> Unit
+) {
+    val title = device.alias ?: device.address
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+                if (device.alias == null) {
+                    Text(
+                        text = device.address,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                if (isConnected) {
+                    Text(
+                        text = stringResource(R.string.prosthesis_connected),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            OutlinedButton(
+                onClick = onOpen,
+                enabled = enabled
+            ) {
+                Text(stringResource(R.string.device_open))
+            }
+        }
+    }
+}
+
+
+@Composable
 private fun DeviceSettingsDialog(
+    device: DeviceOut,
+    json: String,
+    isPullEnabled: Boolean,
+    error: String?,
     onDismiss: () -> Unit,
-    enabled: Boolean
+    onPullClick: () -> Unit,
+    onPushClick: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.prosthesis_settings)) },
+        title = {
+            Text(
+                text = stringResource(
+                    R.string.prosthesis_settings_for_device,
+                    device.alias ?: device.address
+                )
+            )
+        },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     text = stringResource(R.string.prosthesis_settings_dialog_hint),
                     style = MaterialTheme.typography.bodyMedium
                 )
+
+                OutlinedTextField(
+                    value = json,
+                    onValueChange = {},
+                    label = { Text("JSON") },
+                    readOnly = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                )
+
+                if (error != null) {
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
                         modifier = Modifier.weight(1f),
-                        enabled = enabled,
-                        onClick = {
-                            // TODO: получить настройки протеза с сервера
-                        }
+                        enabled = isPullEnabled,
+                        onClick = onPullClick
                     ) {
                         Text(text = stringResource(R.string.prosthesis_pull))
                     }
                     Button(
                         modifier = Modifier.weight(1f),
-                        enabled = enabled,
-                        onClick = {
-                            // TODO: отправить настройки протеза на сервер
-                        }
+                        onClick = onPushClick
                     ) {
                         Text(text = stringResource(R.string.prosthesis_push))
                     }
+                }
+
+                if (!isPullEnabled) {
+                    Text(
+                        text = stringResource(R.string.prosthesis_connect_hint),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         },
@@ -316,4 +570,14 @@ private fun DeviceSettingsDialog(
             }
         }
     )
+}
+
+private fun settingsToPrettyJson(s: EspSettings): String {
+    return try {
+        val raw = s.toJsonString()
+        val obj = JSONObject(raw)
+        obj.toString(2)
+    } catch (_: Exception) {
+        s.toJsonString()
+    }
 }

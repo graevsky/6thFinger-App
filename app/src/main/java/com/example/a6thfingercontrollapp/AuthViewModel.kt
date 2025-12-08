@@ -3,17 +3,17 @@ package com.example.a6thfingercontrollapp
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.data.AppSettingsStore
 import com.example.a6thfingercontrollapp.data.AuthRepository
 import com.example.a6thfingercontrollapp.data.AuthState
+import com.example.a6thfingercontrollapp.network.DeviceOut
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import org.json.JSONObject
-import retrofit2.HttpException
 
 sealed class UiAuthState {
     object Loading : UiAuthState()
@@ -112,7 +112,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-
     fun scheduleAppSettingsUpload(payload: Map<String, Any?>) {
         val state = _auth.value
         if (state is UiAuthState.LoggedIn) {
@@ -150,7 +149,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-
     private suspend fun periodicSettingsPullLoop() {
         val intervalMs = 15 * 60 * 1000L
         while (auth.value is UiAuthState.LoggedIn) {
@@ -166,10 +164,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * Воркер, который ждёт, пока в [pendingAppSettingsUpload] что-то появится,
-     * и пытается отгрузить на сервер. При ошибке – ретраи с задержкой.
-     */
     private suspend fun uploadSettingsWorker() {
         val retryDelayMs = 30_000L
         while (true) {
@@ -186,6 +180,42 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                 pendingAppSettingsUpload.value = null
             } catch (_: Exception) {
                 delay(retryDelayMs)
+            }
+        }
+    }
+
+    suspend fun fetchDevices(): List<DeviceOut> {
+        return repo.listDevices()
+    }
+
+    suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings) {
+        repo.pushDeviceSettings(deviceId, settings)
+    }
+
+    suspend fun pullDeviceSettings(deviceId: String): EspSettings? {
+        return repo.pullDeviceSettings(deviceId)
+    }
+
+    suspend fun ensureDevice(address: String, alias: String?): DeviceOut {
+        return repo.ensureDevice(address, alias)
+    }
+
+    suspend fun pushSettingsForDeviceAddress(
+        address: String,
+        alias: String?,
+        settings: EspSettings
+    ) {
+        val dev = repo.ensureDevice(address, alias)
+        repo.pushDeviceSettings(dev.id, settings)
+    }
+
+    fun updateLanguageRemote(newLang: String) {
+        viewModelScope.launch {
+            try {
+                repo.pushAppSettings(mapOf("language" to newLang))
+                pendingAppSettingsUpload.value = null
+            } catch (_: Exception) {
+                pendingAppSettingsUpload.value = mapOf("language" to newLang)
             }
         }
     }

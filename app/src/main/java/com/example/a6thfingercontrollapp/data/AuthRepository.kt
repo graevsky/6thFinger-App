@@ -1,8 +1,13 @@
 package com.example.a6thfingercontrollapp.data
 
 import android.content.Context
+import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.network.AppSettingsIn
 import com.example.a6thfingercontrollapp.network.BackendApi
+import com.example.a6thfingercontrollapp.network.DeviceCreate
+import com.example.a6thfingercontrollapp.network.DeviceOut
+import com.example.a6thfingercontrollapp.network.DeviceSettingsIn
+import com.example.a6thfingercontrollapp.network.DeviceUpdate
 import com.example.a6thfingercontrollapp.network.LoginFinishIn
 import com.example.a6thfingercontrollapp.network.LoginStartIn
 import com.example.a6thfingercontrollapp.network.RegisterIn
@@ -10,12 +15,16 @@ import com.example.a6thfingercontrollapp.security.srp.SrpLogin
 import com.example.a6thfingercontrollapp.security.srp.SrpRegister
 import com.example.a6thfingercontrollapp.utils.parseBackendError
 import kotlinx.coroutines.flow.first
+import org.json.JSONObject
 
 sealed class AuthState {
     object Unauthenticated : AuthState()
     object Guest : AuthState()
-    data class LoggedIn(val username: String, val accessToken: String, val refreshToken: String) :
-        AuthState()
+    data class LoggedIn(
+        val username: String,
+        val accessToken: String,
+        val refreshToken: String
+    ) : AuthState()
 }
 
 class AuthRepository(context: Context) {
@@ -68,7 +77,6 @@ class AuthRepository(context: Context) {
         }
     }
 
-
     suspend fun login(username: String, password: String): AuthState {
         try {
             val normalized = username.trim().lowercase()
@@ -120,5 +128,111 @@ class AuthRepository(context: Context) {
         val s = stored.first()
         val token = s.accessToken ?: return
         api.putAppSettings("Bearer $token", AppSettingsIn(payload))
+    }
+
+    suspend fun listDevices(): List<DeviceOut> {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+        return try {
+            api.listDevices("Bearer $token")
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings) {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+
+        val payload = espToPayload(settings)
+
+        try {
+            api.postDeviceSettings(
+                auth = "Bearer $token",
+                deviceId = deviceId,
+                body = DeviceSettingsIn(
+                    payload = payload
+                )
+            )
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun pullDeviceSettings(deviceId: String): EspSettings? {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+
+        return try {
+            val res = api.getDeviceSettings(
+                auth = "Bearer $token",
+                deviceId = deviceId
+            )
+            payloadToEsp(res.payload)
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    private fun espToPayload(settings: EspSettings): Map<String, Any?> {
+        return try {
+            val json = JSONObject(settings.toJsonString())
+            val out = mutableMapOf<String, Any?>()
+            val keys = json.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                out[k] = json.get(k)
+            }
+            out
+        } catch (_: Throwable) {
+            emptyMap()
+        }
+    }
+
+    private fun payloadToEsp(payload: Map<String, Any?>): EspSettings? {
+        return try {
+            val json = JSONObject(payload)
+            EspSettings.fromJson(json)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    suspend fun ensureDevice(address: String, alias: String?): DeviceOut {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+        val auth = "Bearer $token"
+
+        try {
+            val existing = api.listDevices(auth)
+                .firstOrNull { it.address.equals(address, ignoreCase = true) }
+
+            if (existing != null) {
+                val desiredAlias = alias?.takeIf { it.isNotBlank() }
+                return if (desiredAlias != null && existing.alias != desiredAlias) {
+                    api.updateDevice(
+                        auth = auth,
+                        deviceId = existing.id,
+                        body = DeviceUpdate(alias = desiredAlias)
+                    )
+                } else {
+                    existing
+                }
+            }
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+
+        return try {
+            api.createDevice(
+                auth = auth,
+                body = DeviceCreate(
+                    address = address,
+                    alias = alias
+                )
+            )
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
     }
 }

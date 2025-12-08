@@ -60,6 +60,8 @@
     <string name="control_vibro_mode">Mode and response</string>
     <string name="control_servo_manual">Limits and manual mode</string>
     <string name="control_diagnostic">Diagnostic</string>
+    <string name="device_reset">Reset</string>
+
 
     <!-- FSR -->
     <string name="fsr_settings">FSR Settings</string>
@@ -119,4 +121,14 @@
     <string name="generic_ok">OK</string>
 
     <string name="sim_force">Force: %1$s N</string>
+
+    <string name="loading">Loading…</string>
+    <string name="prosthesis_no_devices">I dont have any prothesis registered</string>
+    <string name="refresh">Update</string>
+    <string name="prosthesis_not_connected_title">Prothesis is not connected</string>
+    <string name="prosthesis_not_connected_message">Connect to get device settings</string>
+    <string name="prosthesis_no_settings_on_server">Device does not have any saved settings</string>
+    <string name="prosthesis_connected">Connected</string>
+    <string name="prosthesis_settings_for_device">Device settings: %1$s</string>
+    <string name="prosthesis_connect_hint">Connect device to get settings from server</string>
 </resources>

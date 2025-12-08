@@ -52,6 +52,10 @@ data class DeviceCreate(
     val alias: String?
 )
 
+data class DeviceUpdate(
+    val alias: String?
+)
+
 data class DeviceOut(
     val id: String,
     val owner_id: String,
@@ -61,14 +65,13 @@ data class DeviceOut(
 )
 
 data class DeviceSettingsIn(
-    val version: String,
     val payload: Map<String, Any?>
 )
 
 data class DeviceSettingsOut(
     val id: String,
     val device_id: String,
-    val version: String,
+    val version: Int,
     val payload: Map<String, Any?>,
     val updated_at: String
 )

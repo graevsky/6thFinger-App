@@ -17,6 +17,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,11 +25,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import java.util.concurrent.atomic.AtomicBoolean
 
 class BleClient(private val context: Context) {
-    private val manager: BluetoothManager? =
-        context.getSystemService(BluetoothManager::class.java)
+    private val manager: BluetoothManager? = context.getSystemService(BluetoothManager::class.java)
 
     private val adapter: BluetoothAdapter?
         get() = manager?.adapter
@@ -54,7 +53,6 @@ class BleClient(private val context: Context) {
     val settings: StateFlow<EspSettings?> = _settings.asStateFlow()
 
     private val _status = MutableStateFlow("Idle")
-    val status: StateFlow<String> = _status.asStateFlow()
 
     private val _devices = MutableStateFlow<List<BleDeviceUi>>(emptyList())
     val devices: StateFlow<List<BleDeviceUi>> = _devices.asStateFlow()
@@ -64,6 +62,12 @@ class BleClient(private val context: Context) {
 
     private val cfgParser = ChunkParser()
     private val teleParser = ChunkParser()
+
+    private val writeMutex = Any()
+
+    @Volatile private var writeInProgress: Boolean = false
+
+    @Volatile private var lastWriteOk: Boolean = true
 
     fun start() {
         // stub
@@ -98,9 +102,8 @@ class BleClient(private val context: Context) {
         _devices.value = emptyList()
         updateStatus("Scanning")
 
-        val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .build()
+        val settings =
+                ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
 
         try {
             scanner?.startScan(null, settings, scanCallback)
@@ -114,11 +117,12 @@ class BleClient(private val context: Context) {
     }
 
     fun connectByAddress(addr: String) {
-        val dev = try {
-            adapter?.getRemoteDevice(addr)
-        } catch (_: IllegalArgumentException) {
-            null
-        }
+        val dev =
+                try {
+                    adapter?.getRemoteDevice(addr)
+                } catch (_: IllegalArgumentException) {
+                    null
+                }
 
         if (dev == null) {
             updateStatus("Invalid device")
@@ -130,10 +134,10 @@ class BleClient(private val context: Context) {
 
     fun requestConfig() {
         scope.launch {
+            kotlinx.coroutines.delay(200)
             writeJsonChunked("{}")
         }
     }
-
 
     fun applySettings(settings: EspSettings): Boolean {
         val json = settings.toJsonString()
@@ -141,7 +145,7 @@ class BleClient(private val context: Context) {
     }
 
     private fun checkPerm(p: String): Boolean =
-        ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
 
     private fun hasScanPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= 31) {
@@ -159,32 +163,29 @@ class BleClient(private val context: Context) {
         }
     }
 
+    private val scanCallback =
+            object : ScanCallback() {
+                @SuppressLint("MissingPermission")
+                override fun onScanResult(callbackType: Int, result: ScanResult) {
+                    val rec = result.scanRecord ?: return
+                    val uuids = rec.serviceUuids?.map { it.uuid } ?: emptyList()
 
-    private val scanCallback = object : ScanCallback() {
-        @SuppressLint("MissingPermission")
-        override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val rec = result.scanRecord ?: return
-            val uuids = rec.serviceUuids?.map { it.uuid } ?: emptyList()
+                    if (!uuids.contains(NewBleConstants.SERVICE_UUID)) return
 
-            if (!uuids.contains(NewBleConstants.SERVICE_UUID)) return
+                    val dev = result.device
+                    val list = _devices.value
 
-            val dev = result.device
-            val list = _devices.value
+                    if (list.none { it.address == dev.address }) {
+                        val name = dev.name ?: rec.deviceName ?: "ESP32"
+                        _devices.value = list + BleDeviceUi(name = name, address = dev.address)
+                    }
+                }
 
-            if (list.none { it.address == dev.address }) {
-                val name = dev.name ?: rec.deviceName ?: "ESP32"
-                _devices.value = list + BleDeviceUi(
-                    name = name,
-                    address = dev.address
-                )
+                override fun onScanFailed(errorCode: Int) {
+                    scanning.set(false)
+                    updateStatus("Scan failed: $errorCode")
+                }
             }
-        }
-
-        override fun onScanFailed(errorCode: Int) {
-            scanning.set(false)
-            updateStatus("Scan failed: $errorCode")
-        }
-    }
 
     @SuppressLint("MissingPermission")
     private fun stopScan() {
@@ -200,7 +201,6 @@ class BleClient(private val context: Context) {
         }
     }
 
-
     @SuppressLint("MissingPermission")
     private fun connect(dev: BluetoothDevice) {
         if (connecting.getAndSet(true)) return
@@ -213,18 +213,18 @@ class BleClient(private val context: Context) {
 
         updateStatus("Connecting")
 
-        gatt = try {
-            if (Build.VERSION.SDK_INT >= 33) {
-                dev.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
-            } else {
-                @Suppress("DEPRECATION")
-                dev.connectGatt(context, false, gattCallback)
-            }
-        } catch (_: Throwable) {
-            connecting.set(false)
-            updateStatus("Connect failed")
-            null
-        }
+        gatt =
+                try {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        dev.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+                    } else {
+                        @Suppress("DEPRECATION") dev.connectGatt(context, false, gattCallback)
+                    }
+                } catch (_: Throwable) {
+                    connecting.set(false)
+                    updateStatus("Connect failed")
+                    null
+                }
     }
 
     @SuppressLint("MissingPermission")
@@ -235,13 +235,11 @@ class BleClient(private val context: Context) {
             if (hasConnPermission()) {
                 gatt?.disconnect()
             }
-        } catch (_: Throwable) {
-        }
+        } catch (_: Throwable) {}
 
         try {
             gatt?.close()
-        } catch (_: Throwable) {
-        }
+        } catch (_: Throwable) {}
 
         gatt = null
         chCfgIn = null
@@ -252,95 +250,99 @@ class BleClient(private val context: Context) {
         updateStatus("Disconnected")
     }
 
-    private val gattCallback = object : BluetoothGattCallback() {
+    private val gattCallback =
+            object : BluetoothGattCallback() {
 
-        @SuppressLint("MissingPermission")
-        override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
-            if (status == BluetoothGatt.GATT_SUCCESS &&
-                newState == BluetoothProfile.STATE_CONNECTED
-            ) {
-                updateStatus("Discovering")
-                try {
-                    g.discoverServices()
-                } catch (_: Throwable) {
-                    updateStatus("Service discovery error")
-                    disconnect()
+                @SuppressLint("MissingPermission")
+                override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
+                    if (status == BluetoothGatt.GATT_SUCCESS &&
+                                    newState == BluetoothProfile.STATE_CONNECTED
+                    ) {
+                        updateStatus("Discovering")
+                        try {
+                            g.discoverServices()
+                        } catch (_: Throwable) {
+                            updateStatus("Service discovery error")
+                            disconnect()
+                        }
+                    } else {
+                        disconnect()
+                    }
                 }
-            } else {
-                disconnect()
+
+                @SuppressLint("MissingPermission")
+                override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        updateStatus("Service discovery failed")
+                        disconnect()
+                        return
+                    }
+
+                    if (!hasConnPermission()) {
+                        updateStatus("No permission")
+                        disconnect()
+                        return
+                    }
+
+                    val svc = g.getService(NewBleConstants.SERVICE_UUID)
+                    if (svc == null) {
+                        updateStatus("Service not found")
+                        disconnect()
+                        return
+                    }
+
+                    chCfgIn = svc.getCharacteristic(NewBleConstants.CFG_IN_UUID)
+                    chCfgOut = svc.getCharacteristic(NewBleConstants.CFG_OUT_UUID)
+                    chAck = svc.getCharacteristic(NewBleConstants.ACK_UUID)
+                    chTele = svc.getCharacteristic(NewBleConstants.TELE_UUID)
+
+                    if (chTele == null) {
+                        updateStatus("Telemetry char missing")
+                        disconnect()
+                        return
+                    }
+
+                    enableNotify(g, chTele!!)
+                    chCfgOut?.let { enableNotify(g, it) } ?: updateStatus("CFG_OUT char missing")
+                    chAck?.let { enableNotify(g, it) } ?: updateStatus("ACK char missing")
+                    updateStatus("Subscribed (tele+cfg+ack)")
+                    requestConfig()
+                }
+
+                override fun onCharacteristicChanged(
+                        g: BluetoothGatt,
+                        ch: BluetoothGattCharacteristic
+                ) {
+                    val bytes = ch.value ?: return
+
+                    val text = decodeAscii(bytes)
+
+                    when (ch.uuid) {
+                        NewBleConstants.CFG_OUT_UUID -> handleCfgChunk(text)
+                        NewBleConstants.ACK_UUID -> handleAck(text)
+                        NewBleConstants.TELE_UUID -> handleTeleChunk(text)
+                    }
+                }
+
+                override fun onDescriptorWrite(
+                        gatt: BluetoothGatt,
+                        descriptor: BluetoothGattDescriptor,
+                        status: Int
+                ) {}
+                override fun onCharacteristicWrite(
+                        gatt: BluetoothGatt,
+                        characteristic: BluetoothGattCharacteristic,
+                        status: Int
+                ) {
+                    lastWriteOk = (status == BluetoothGatt.GATT_SUCCESS)
+                    writeInProgress = false
+                }
             }
-        }
-
-        @SuppressLint("MissingPermission")
-        override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
-            if (status != BluetoothGatt.GATT_SUCCESS) {
-                updateStatus("Service discovery failed")
-                disconnect()
-                return
-            }
-
-            if (!hasConnPermission()) {
-                updateStatus("No permission")
-                disconnect()
-                return
-            }
-
-            val svc = g.getService(NewBleConstants.SERVICE_UUID)
-            if (svc == null) {
-                updateStatus("Service not found")
-                disconnect()
-                return
-            }
-
-            chCfgIn = svc.getCharacteristic(NewBleConstants.CFG_IN_UUID)
-            chCfgOut = svc.getCharacteristic(NewBleConstants.CFG_OUT_UUID)
-            chAck = svc.getCharacteristic(NewBleConstants.ACK_UUID)
-            chTele = svc.getCharacteristic(NewBleConstants.TELE_UUID)
-
-            if (chTele == null) {
-                updateStatus("Telemetry char missing")
-                disconnect()
-                return
-            }
-
-            enableNotify(g, chTele!!)
-            updateStatus("Subscribed (tele only)")
-
-            requestConfig()
-        }
-
-        override fun onCharacteristicChanged(
-            g: BluetoothGatt,
-            ch: BluetoothGattCharacteristic
-        ) {
-            val bytes = ch.value ?: return
-
-            val hex = bytes.joinToString(" ") { "%02X".format(it) }
-            //Log.d("BLE_HEX", "uuid=${ch.uuid} hex=$hex")
-
-            val text = decodeAscii(bytes)
-            //Log.d("BLE_RAW", "notif uuid=${ch.uuid} ascii='$text'")
-
-            when (ch.uuid) {
-                NewBleConstants.CFG_OUT_UUID -> handleCfgChunk(text)
-                NewBleConstants.ACK_UUID -> handleAck(text)
-                NewBleConstants.TELE_UUID -> handleTeleChunk(text)
-            }
-        }
-
-
-        override fun onDescriptorWrite(
-            gatt: BluetoothGatt,
-            descriptor: BluetoothGattDescriptor,
-            status: Int
-        ) {
-        }
-    }
 
     @SuppressLint("MissingPermission")
     private fun enableNotify(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
         try {
-            //Log.d("BLE_DBG", "enableNotify uuid=${ch.uuid}")
+            // Log.d("BLE_DBG", "enableNotify uuid=${ch.uuid}")
             g.setCharacteristicNotification(ch, true)
 
             val ccc = ch.getDescriptor(NewBleConstants.CCC_UUID)
@@ -357,17 +359,16 @@ class BleClient(private val context: Context) {
         }
     }
 
-
     private fun handleAck(s: String) {
-        // {"ack":true} или {"ack":false}
         val text = s.trim()
-        val label = try {
-            val obj = JSONObject(text)
-            val ok = obj.optBoolean("ack", false)
-            if (ok) "ACK OK" else "ACK FAIL"
-        } catch (_: Throwable) {
-            "ACK: $text"
-        }
+        val label =
+                try {
+                    val obj = JSONObject(text)
+                    val ok = obj.optBoolean("ack", false)
+                    if (ok) "ACK OK" else "ACK FAIL"
+                } catch (_: Throwable) {
+                    "ACK: $text"
+                }
         updateStatus(label)
     }
 
@@ -375,76 +376,108 @@ class BleClient(private val context: Context) {
         if (!cfgParser.push(s)) return
         val json = cfgParser.jsonOrNull() ?: return
 
-        val cfg = try {
-            EspSettings.fromJson(json)
-        } catch (_: Throwable) {
-            updateStatus("Config parse error")
-            return
-        }
+        val cfg =
+                try {
+                    EspSettings.fromJson(json)
+                } catch (_: Throwable) {
+                    updateStatus("Config parse error")
+                    return
+                }
 
         _settings.value = cfg
         updateStatus("Config updated")
     }
 
-
     private fun handleTeleChunk(s: String) {
-        //Log.d("BLE_TEL", "chunk='$s'")
+        // Log.d("BLE_TEL", "chunk='$s'")
 
         if (!teleParser.push(s)) return
         val json = teleParser.jsonOrNull() ?: return
 
-        //Log.d("BLE_TEL", "full json=$json")
-
-        val t = try {
-            Telemetry.fromJson(json)
-        } catch (e: Throwable) {
-            //Log.e("BLE_TEL", "parse error", e)
-            updateStatus("Tele parse error")
-            return
-        }
+        val t =
+                try {
+                    Telemetry.fromJson(json)
+                } catch (_: Throwable) {
+                    // Log.e("BLE_TEL", "parse error", e)
+                    updateStatus("Tele parse error")
+                    return
+                }
 
         val prev = _telemetry.value
         _telemetry.value = t.copy(status = prev.status)
     }
 
-
     @SuppressLint("MissingPermission")
-    private fun writeJsonChunked(json: String): Boolean {
-        val ch = chCfgIn ?: return false
-        val g = gatt ?: return false
+    private fun writeJsonChunked(json: String): Boolean =
+            synchronized(writeMutex) {
+                val ch =
+                        chCfgIn
+                                ?: run {
+                                    updateStatus("No CFG_IN characteristic")
+                                    return false
+                                }
+                val g =
+                        gatt
+                                ?: run {
+                                    updateStatus("No GATT")
+                                    return false
+                                }
 
-        if (!hasConnPermission()) {
-            updateStatus("No write permission")
-            return false
-        }
+                if (!hasConnPermission()) {
+                    updateStatus("No write permission")
+                    return false
+                }
+                ch.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
 
+                fun safeWrite(str: String): Boolean {
+                    writeInProgress = true
+                    lastWriteOk = true
+                    ch.value = str.toByteArray()
+                    val started = g.writeCharacteristic(ch)
+                    if (!started) {
+                        writeInProgress = false
+                        return false
+                    }
+                    var waited = 0
+                    while (writeInProgress && waited < 1000) {
+                        try {
+                            Thread.sleep(10)
+                        } catch (_: InterruptedException) {}
+                        waited += 10
+                    }
+                    return !writeInProgress && lastWriteOk
+                }
 
+                return try {
+                    val payload = json
+                    val chunkSize = 18
 
-        return try {
-            ch.value = "[BEGIN]".toByteArray()
-            g.writeCharacteristic(ch)
+                    if (!safeWrite("[BEGIN]")) {
+                        updateStatus("Write BEGIN failed")
+                        return false
+                    }
+                    var i = 0
+                    while (i < payload.length) {
+                        val end = (i + chunkSize).coerceAtMost(payload.length)
+                        val part = payload.substring(i, end)
+                        if (!safeWrite(part)) {
+                            updateStatus("Write chunk failed")
+                            return false
+                        }
+                        i = end
+                    }
 
-            val payload = json
-            val chunkSize = 80
+                    if (!safeWrite("[END]")) {
+                        updateStatus("Write END failed")
+                        return false
+                    }
 
-            var i = 0
-            while (i < payload.length) {
-                val end = (i + chunkSize).coerceAtMost(payload.length)
-                val part = payload.substring(i, end)
-                ch.value = part.toByteArray()
-                g.writeCharacteristic(ch)
-                i = end
+                    true
+                } catch (_: Throwable) {
+                    updateStatus("Write failed")
+                    false
+                }
             }
-
-            ch.value = "[END]".toByteArray()
-            g.writeCharacteristic(ch)
-
-            true
-        } catch (_: Throwable) {
-            updateStatus("Write failed")
-            false
-        }
-    }
 
     private fun updateStatus(text: String) {
         scope.launch {
@@ -464,5 +497,4 @@ class BleClient(private val context: Context) {
         }
         return sb.toString().trim()
     }
-
 }

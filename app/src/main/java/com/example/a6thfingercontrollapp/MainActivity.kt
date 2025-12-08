@@ -141,8 +141,33 @@ class MainActivity : ComponentActivity() {
                         )
 
                         val backStack by nav.currentBackStackEntryAsState()
-                        val current = backStack?.destination?.route ?: NavRoute.Connect.route
-                        val state by vm.state.collectAsState()
+                        val currentRoute = backStack?.destination?.route ?: NavRoute.Connect.route
+                        val bleState by vm.state.collectAsState()
+
+                        val rawStatus = bleState.status.lowercase()
+
+                        val connected = when {
+                            "disconnected" in rawStatus -> false
+                            "subscribed" in rawStatus -> true
+                            "connected" in rawStatus -> true
+                            else -> false
+                        }
+
+
+                        LaunchedEffect(connected, currentRoute) {
+                            if (!connected &&
+                                (currentRoute == NavRoute.Control.route ||
+                                        currentRoute == NavRoute.Sim.route)
+                            ) {
+                                nav.navigate(NavRoute.Connect.route) {
+                                    launchSingleTop = true
+                                    restoreState = true
+                                    popUpTo(nav.graph.startDestinationId) {
+                                        saveState = true
+                                    }
+                                }
+                            }
+                        }
 
                         Scaffold(
                             bottomBar = {
@@ -151,12 +176,11 @@ class MainActivity : ComponentActivity() {
                                         val enabled = when (r) {
                                             NavRoute.Connect -> true
                                             NavRoute.Account -> true
-                                            else -> state.status.contains("Subscribed", true) ||
-                                                    state.status.contains("Connected", true)
+                                            else -> connected
                                         }
 
                                         NavigationBarItem(
-                                            selected = current == r.route,
+                                            selected = currentRoute == r.route,
                                             onClick = {
                                                 if (enabled) {
                                                     nav.navigate(r.route) {
@@ -207,7 +231,7 @@ class MainActivity : ComponentActivity() {
                                     ConnectScreen(vm = vm, permissionsGranted = granted)
                                 }
                                 composable(NavRoute.Control.route) {
-                                    ControlScreen(vm = vm)
+                                    ControlScreen(vm = vm, authVm = authVm)
                                 }
                                 composable(NavRoute.Sim.route) {
                                     SimulationScreen(vm = vm)
@@ -223,6 +247,15 @@ class MainActivity : ComponentActivity() {
                                         onRegisterClick = {
                                             authFlowScreen = AuthFlowScreen.Register
                                             authVm.logout()
+                                        },
+                                        onOpenControl = {
+                                            nav.navigate(NavRoute.Control.route) {
+                                                launchSingleTop = true
+                                                restoreState = true
+                                                popUpTo(nav.graph.startDestinationId) {
+                                                    saveState = true
+                                                }
+                                            }
                                         }
                                     )
                                 }

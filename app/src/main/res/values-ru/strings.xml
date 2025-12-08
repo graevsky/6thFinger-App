@@ -60,6 +60,7 @@
     <string name="control_vibro_mode">Режим и отклик</string>
     <string name="control_servo_manual">Пределы и ручной режим</string>
     <string name="control_diagnostic">Диагностика</string>
+    <string name="device_reset">Сбросить</string>
 
     <!-- FSR -->
     <string name="fsr_settings">Настройки FSRа</string>
@@ -119,4 +120,14 @@
     <string name="generic_ok">ОК</string>
 
     <string name="sim_force">Сила: %1$s Н</string>
+
+    <string name="loading">Загрузка…</string>
+    <string name="prosthesis_no_devices">Нет зарегистрированных протезов</string>
+    <string name="refresh">Обновить</string>
+    <string name="prosthesis_not_connected_title">Протез не подключен</string>
+    <string name="prosthesis_not_connected_message">Подключите протез, чтобы получить настройки.</string>
+    <string name="prosthesis_no_settings_on_server">Для этого протеза ещё нет сохранённых настроек на сервере.</string>
+    <string name="prosthesis_connected">Подключен</string>
+    <string name="prosthesis_settings_for_device">Настройки протеза: %1$s</string>
+    <string name="prosthesis_connect_hint">Подключите протез, чтобы можно было получить настройки с сервера.</string>
 </resources>

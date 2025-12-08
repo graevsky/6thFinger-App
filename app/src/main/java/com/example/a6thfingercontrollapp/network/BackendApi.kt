@@ -48,6 +48,13 @@ interface BackendApi {
         @Body body: DeviceCreate
     ): DeviceOut
 
+    @PUT("/device/{id}")
+    suspend fun updateDevice(
+        @Header("Authorization") auth: String,
+        @Path("id") deviceId: String,
+        @Body body: DeviceUpdate
+    ): DeviceOut
+
     @GET("/device/{id}/settings")
     suspend fun getDeviceSettings(
         @Header("Authorization") auth: String,
@@ -62,7 +69,7 @@ interface BackendApi {
     ): DeviceSettingsOut
 
     companion object {
-        private const val BASE_URL = "http://10.0.2.2:8000" // temp stub "http://10.0.2.2:8000" or pc ip "http://192.168.31.210:8000"
+        private const val BASE_URL = "http://192.168.31.211:8000" // temp stub "http://10.0.2.2:8000" or pc ip "http://192.168.31.211:8000"
 
         fun create(): BackendApi {
             val logging = HttpLoggingInterceptor().apply {

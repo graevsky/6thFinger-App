@@ -29,24 +29,36 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import com.example.a6thfingercontrollapp.AuthViewModel
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
+import com.example.a6thfingercontrollapp.UiAuthState
 import com.example.a6thfingercontrollapp.ble.EspSettings
+import kotlinx.coroutines.launch
 import kotlin.math.max
 
 private enum class VibMode { Constant, Pulse }
 
 @Composable
-fun ControlScreen(vm: BleViewModel) {
+fun ControlScreen(
+    vm: BleViewModel,
+    authVm: AuthViewModel
+) {
+    val authState by authVm.auth.collectAsState()
+    val activeAddress by vm.activeAddress.collectAsState()
     val alias by vm.activeAlias.collectAsState()
+    val scope = rememberCoroutineScope()
+
     val t by vm.state.collectAsState()
     val s by vm.activeSettings.collectAsState()
+    val applied by vm.lastAppliedSettings.collectAsState()
 
     var renameOpen by remember { mutableStateOf(false) }
     var fsrOpen by remember { mutableStateOf(false) }
@@ -54,10 +66,10 @@ fun ControlScreen(vm: BleViewModel) {
     var vibroOpen by remember { mutableStateOf(false) }
     var servoOpen by remember { mutableStateOf(false) }
 
-    val connected = t.status.contains("Subscribed", true) || t.status.contains("Connected", true)
+    val connected =
+        t.status.contains("Subscribed", true) || t.status.contains("Connected", true)
 
-    var savedSnapshot by remember { mutableStateOf(s) }
-    val dirty = s != savedSnapshot
+    val dirty = s != applied
 
     Scaffold(
         bottomBar = {
@@ -65,12 +77,34 @@ fun ControlScreen(vm: BleViewModel) {
                 Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                OutlinedButton(
+                    onClick = { vm.resetToDefaults() }
+                ) {
+                    Text(stringResource(R.string.device_reset))
+                }
+
+                Spacer(Modifier.width(12.dp))
+
                 Button(
                     onClick = {
-                        if (vm.applyAndSaveToBoard()) {
-                            savedSnapshot = s
+                        val ok = vm.applyAndSaveToBoard()
+                        if (ok &&
+                            activeAddress.isNotEmpty() &&
+                            authState is UiAuthState.LoggedIn
+                        ) {
+                            scope.launch {
+                                try {
+                                    authVm.pushSettingsForDeviceAddress(
+                                        address = activeAddress,
+                                        alias = alias.ifBlank { null },
+                                        settings = vm.activeSettings.value
+                                    )
+                                } catch (_: Exception) {
+                                }
+                            }
                         }
                     },
                     enabled = connected,
@@ -187,10 +221,14 @@ fun ControlScreen(vm: BleViewModel) {
     if (servoOpen) ServoDialog(
         s = s,
         currentServoDeg = t.servoDeg,
-        onDismiss = { servoOpen = false }
-    ) { next ->
-        vm.updateActiveSettings { next }
-    }
+        onDismiss = { servoOpen = false },
+        onChange = { next ->
+            vm.updateActiveSettings { next }
+        },
+        onLiveChange = { next ->
+            vm.applySettingsLive { next }
+        }
+    )
 }
 
 @Composable
@@ -308,10 +346,10 @@ private fun FlexDialog(
     onDismiss: () -> Unit,
     onChange: (EspSettings) -> Unit
 ) {
-    var pin by remember { mutableStateOf(s.flexPin.toString()) }
-    var pull by remember { mutableStateOf(s.flexPullupOhm.toString()) }
-    var straight by remember { mutableStateOf(s.flexStraightOhm.toString()) }
-    var bend by remember { mutableStateOf(s.flexBendOhm.toString()) }
+    var pin by remember(s.flexPin) { mutableStateOf(s.flexPin.toString()) }
+    var pull by remember(s.flexPullupOhm) { mutableStateOf(s.flexPullupOhm.toString()) }
+    var straight by remember(s.flexStraightOhm) { mutableStateOf(s.flexStraightOhm.toString()) }
+    var bend by remember(s.flexBendOhm) { mutableStateOf(s.flexBendOhm.toString()) }
 
     BaseDialog(stringResource(R.string.flex_settings), onDismiss) {
         Text(
@@ -451,7 +489,8 @@ private fun ServoDialog(
     s: EspSettings,
     currentServoDeg: Float,
     onDismiss: () -> Unit,
-    onChange: (EspSettings) -> Unit
+    onChange: (EspSettings) -> Unit,
+    onLiveChange: (EspSettings) -> Unit
 ) {
     var pin by remember { mutableStateOf(s.servoPin.toString()) }
     var min by remember { mutableStateOf(s.servoMinDeg.toString()) }
@@ -467,19 +506,22 @@ private fun ServoDialog(
         )
     }
 
-    fun pushImmediate(value: Int) {
+    fun buildSettingsWith(angle: Int): EspSettings {
         val minAngle = min.toIntOrNull() ?: s.servoMinDeg
         val maxAngle = max.toIntOrNull() ?: s.servoMaxDeg
-        val clamped = value.coerceIn(minAngle, maxAngle)
-        onChange(
-            s.copy(
-                servoPin = pin.toIntOrNull() ?: s.servoPin,
-                servoMinDeg = minAngle,
-                servoMaxDeg = maxAngle,
-                servoManual = if (manual) 1 else 0,
-                servoManualDeg = clamped
-            )
+        val clamped = angle.coerceIn(minAngle, maxAngle)
+        return s.copy(
+            servoPin = pin.toIntOrNull() ?: s.servoPin,
+            servoMinDeg = minAngle,
+            servoMaxDeg = maxAngle,
+            servoManual = if (manual) 1 else 0,
+            servoManualDeg = clamped
         )
+    }
+
+    fun pushImmediate(value: Int) {
+        val next = buildSettingsWith(value)
+        onLiveChange(next)
     }
 
     BaseDialog(stringResource(R.string.servo_settings), onDismiss) {
@@ -532,7 +574,13 @@ private fun ServoDialog(
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = { onDismiss() }) { Text(stringResource(R.string.generic_ok)) }
+            Button(onClick = {
+                val finalCfg = buildSettingsWith(slider.toInt())
+                onChange(finalCfg)
+                onDismiss()
+            }) {
+                Text(stringResource(R.string.generic_ok))
+            }
         }
     }
 }
@@ -547,7 +595,10 @@ private fun BaseDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 content()
             }
         },

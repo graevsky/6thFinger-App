@@ -13,6 +13,7 @@ import com.example.a6thfingercontrollapp.data.DeviceSettingsStore
 import com.example.a6thfingercontrollapp.data.LastDevice
 import com.example.a6thfingercontrollapp.data.LastDeviceStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -28,13 +29,18 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     private val settingsStore = DeviceSettingsStore(app)
     private val appSettings = AppSettingsStore(app)
 
+    private val _uiSettings = MutableStateFlow(EspSettings())
+    val activeSettings: StateFlow<EspSettings> = _uiSettings
+
+    private val _lastAppliedSettings = MutableStateFlow(EspSettings())
+    val lastAppliedSettings: StateFlow<EspSettings> = _lastAppliedSettings
+
     val state: StateFlow<Telemetry> =
         client.state.stateIn(
             viewModelScope,
             SharingStarted.Eagerly,
             Telemetry()
         )
-
 
     val devices: StateFlow<List<BleDeviceUi>> =
         client.devices.stateIn(
@@ -43,7 +49,6 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
             emptyList()
         )
 
-
     val lastDevice: StateFlow<LastDevice?> =
         lastStore.lastDevice.stateIn(
             viewModelScope,
@@ -51,7 +56,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
             null
         )
 
-    private val activeAddress: StateFlow<String> =
+    val activeAddress: StateFlow<String> =
         lastDevice.map { it?.address.orEmpty() }
             .stateIn(
                 viewModelScope,
@@ -72,19 +77,6 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
             ""
         )
 
-    val activeSettings: StateFlow<EspSettings> =
-        activeAddress.flatMapLatest { addr ->
-            if (addr.isEmpty()) {
-                flowOf(EspSettings())
-            } else {
-                settingsStore.get(addr).map { it ?: EspSettings() }
-            }
-        }.stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            EspSettings()
-        )
-
     val appLanguage: StateFlow<String> =
         appSettings.getLanguage()
             .stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
@@ -93,8 +85,12 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             client.settings.collect { fromBoard ->
                 val addr = activeAddress.value
-                if (addr.isNotEmpty() && fromBoard != null) {
-                    settingsStore.set(addr, fromBoard)
+                if (fromBoard != null) {
+                    _uiSettings.value = fromBoard
+                    _lastAppliedSettings.value = fromBoard
+                    if (addr.isNotEmpty()) {
+                        settingsStore.set(addr, fromBoard)
+                    }
                 }
             }
         }
@@ -111,7 +107,6 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     fun isBleReady(): Boolean = client.isBleReady()
 
     fun disconnect() = client.disconnectNow()
-
 
     fun aliasFlow(address: String): Flow<String?> = aliasStore.alias(address)
 
@@ -134,21 +129,54 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         val addr = activeAddress.value
         if (addr.isEmpty()) return
 
-        val current = activeSettings.value
+        val current = _uiSettings.value
         val next = update(current)
 
+        _uiSettings.value = next
         viewModelScope.launch {
             settingsStore.set(addr, next)
         }
     }
 
-
     fun applyAndSaveToBoard(): Boolean {
         val addr = activeAddress.value
         if (addr.isEmpty()) return false
 
-        val cfg = activeSettings.value
-        return client.applySettings(cfg)
+        val cfg = _uiSettings.value
+        val ok = client.applySettings(cfg)
+
+        if (ok) {
+            _lastAppliedSettings.value = cfg
+            viewModelScope.launch {
+                settingsStore.set(addr, cfg)
+            }
+        }
+
+        return ok
+    }
+    fun applySettingsLive(update: (EspSettings) -> EspSettings) {
+        val addr = activeAddress.value
+        if (addr.isEmpty()) return
+
+        val current = _uiSettings.value
+        val next = update(current)
+
+        _uiSettings.value = next
+
+        viewModelScope.launch {
+            settingsStore.set(addr, next)
+            client.applySettings(next)
+        }
+    }
+
+
+    fun resetToDefaults() {
+        val defaults = EspSettings()
+        _uiSettings.value = defaults
+    }
+
+    fun applySettingsFromCloud(settings: EspSettings) {
+        _uiSettings.value = settings
     }
 
     fun setAppLanguage(language: String) {
