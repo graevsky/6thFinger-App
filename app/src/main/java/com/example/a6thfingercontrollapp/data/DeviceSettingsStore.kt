@@ -13,24 +13,21 @@ private val Context.deviceSettingsDataStore by preferencesDataStore(name = "ble_
 
 class DeviceSettingsStore(private val context: Context) {
 
-    private fun keyFor(address: String) =
-        stringPreferencesKey("cfg_${address.lowercase()}")
+    private fun keyFor(address: String) = stringPreferencesKey("cfg_${address.lowercase()}")
 
     fun get(address: String): Flow<EspSettings?> =
-        context.deviceSettingsDataStore.data.map { prefs ->
-            val raw = prefs[keyFor(address)] ?: return@map null
-            try {
-                val json = JSONObject(raw)
-                EspSettings.fromJson(json)
-            } catch (_: Throwable) {
-                null
+            context.deviceSettingsDataStore.data.map { prefs ->
+                val raw = prefs[keyFor(address)] ?: return@map null
+                try {
+                    val json = JSONObject(raw)
+                    EspSettings.fromJson(json)
+                } catch (_: Throwable) {
+                    null
+                }
             }
-        }
 
     suspend fun set(address: String, s: EspSettings) {
         val rawJson = s.toJsonString()
-        context.deviceSettingsDataStore.edit { prefs ->
-            prefs[keyFor(address)] = rawJson
-        }
+        context.deviceSettingsDataStore.edit { prefs -> prefs[keyFor(address)] = rawJson }
     }
 }

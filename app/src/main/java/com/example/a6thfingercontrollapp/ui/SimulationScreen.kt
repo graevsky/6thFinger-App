@@ -27,7 +27,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
-import kotlin.math.max
 
 @Composable
 fun SimulationScreen(vm: BleViewModel) {
@@ -35,89 +34,79 @@ fun SimulationScreen(vm: BleViewModel) {
     val s by vm.activeSettings.collectAsState()
 
     SimulationContent(
-        servoDeg = t.servoDeg,
-        flexOhm = t.flexOhm,
-        fsrForceN = t.fsrForceN,
-        fsrSoftThresholdN = s.fsrSoftThresholdN
+            servoDeg = t.servoDeg,
+            flexOhm = t.flexOhm,
+            fsrForceN = t.fsrForceN,
+            fsrSoftThresholdN = s.fsrSoftThresholdN
     )
 }
 
 @Composable
 private fun SimulationContent(
-    servoDeg: Float,
-    flexOhm: Float,
-    fsrForceN: Float,
-    fsrSoftThresholdN: Float
+        servoDeg: Float,
+        flexOhm: Float,
+        fsrForceN: Float,
+        fsrSoftThresholdN: Float
 ) {
     val fsrPressed = fsrForceN.isFinite() && fsrForceN >= fsrSoftThresholdN.coerceAtLeast(0.1f)
 
     val angleClamp = servoDeg.coerceIn(40f, 180f)
     val animAngle by animateFloatAsState(angleClamp, label = "angle")
 
-    val tipColor by animateColorAsState(
-        if (fsrPressed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-        label = "tipColor"
-    )
+    val tipColor by
+            animateColorAsState(
+                    if (fsrPressed) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.primary,
+                    label = "tipColor"
+            )
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = stringResource(R.string.nav_simulation),
-            style = MaterialTheme.typography.titleLarge
+                text = stringResource(R.string.nav_simulation),
+                style = MaterialTheme.typography.titleLarge
         )
 
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-        ) {
+        Card(modifier = Modifier.fillMaxWidth().weight(1f)) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(24.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                RoboFinger(
-                    angle = animAngle,
-                    tipColor = tipColor
-                )
-            }
+                    modifier =
+                            Modifier.fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .padding(24.dp),
+                    contentAlignment = Alignment.TopCenter
+            ) { RoboFinger(angle = animAngle, tipColor = tipColor) }
         }
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(stringResource(R.string.sim_angle, prettyValue(servoDeg)))
                 Text(stringResource(R.string.sim_flex, prettyValue(flexOhm)))
                 Text(stringResource(R.string.sim_force, prettyValue(fsrForceN)))
                 Text(
-                    text = stringResource(
-                        if (fsrPressed) R.string.sim_fsr_pressed else R.string.sim_fsr_idle
-                    ),
-                    color = if (fsrPressed) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurface
+                        text =
+                                stringResource(
+                                        if (fsrPressed) R.string.sim_fsr_pressed
+                                        else R.string.sim_fsr_idle
+                                ),
+                        color =
+                                if (fsrPressed) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface
                 )
             }
         }
     }
 }
 
-private fun prettyValue(v: Float) =
-    if (v.isFinite()) "%.1f".format(v) else "--"
+private fun prettyValue(v: Float) = if (v.isFinite()) "%.1f".format(v) else "--"
 
 @Composable
-private fun RoboFinger(
-    angle: Float,
-    tipColor: Color
-) {
+private fun RoboFinger(angle: Float, tipColor: Color) {
     val t = 1f - ((angle - 40f) / (180f - 40f))
 
     val baseBend = 75f * t
@@ -132,44 +121,44 @@ private fun RoboFinger(
     val width = 38.dp
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
         Box(
-            modifier = Modifier
-                .width(width * 1.25f)
-                .height(baseH)
-                .background(metal, MaterialTheme.shapes.large)
+                modifier =
+                        Modifier.width(width * 1.25f)
+                                .height(baseH)
+                                .background(metal, MaterialTheme.shapes.large)
         )
 
         JointDot(joint)
 
         Box(
-            modifier = Modifier.graphicsLayer(
-                rotationZ = baseBend,
-                transformOrigin = TransformOrigin(0.5f, 0f)
-            )
+                modifier =
+                        Modifier.graphicsLayer(
+                                rotationZ = baseBend,
+                                transformOrigin = TransformOrigin(0.5f, 0f)
+                        )
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
                 Box(
-                    modifier = Modifier
-                        .width(width)
-                        .height(phalanxH)
-                        .background(metal, MaterialTheme.shapes.large)
+                        modifier =
+                                Modifier.width(width)
+                                        .height(phalanxH)
+                                        .background(metal, MaterialTheme.shapes.large)
                 )
 
                 JointDot(joint)
 
                 Box(
-                    modifier = Modifier.graphicsLayer(
-                        rotationZ = tipBend,
-                        transformOrigin = TransformOrigin(0.5f, 0f)
-                    )
+                        modifier =
+                                Modifier.graphicsLayer(
+                                        rotationZ = tipBend,
+                                        transformOrigin = TransformOrigin(0.5f, 0f)
+                                )
                 ) {
                     Box(
-                        modifier = Modifier
-                            .width(width * 0.9f)
-                            .height(tipH)
-                            .background(tipColor, MaterialTheme.shapes.large)
+                            modifier =
+                                    Modifier.width(width * 0.9f)
+                                            .height(tipH)
+                                            .background(tipColor, MaterialTheme.shapes.large)
                     )
                 }
             }
@@ -180,9 +169,9 @@ private fun RoboFinger(
 @Composable
 private fun JointDot(color: Color) {
     Box(
-        modifier = Modifier
-            .padding(vertical = 4.dp)
-            .size(10.dp)
-            .background(color, MaterialTheme.shapes.small)
+            modifier =
+                    Modifier.padding(vertical = 4.dp)
+                            .size(10.dp)
+                            .background(color, MaterialTheme.shapes.small)
     )
 }

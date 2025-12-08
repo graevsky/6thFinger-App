@@ -23,11 +23,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,11 +56,11 @@ import org.json.JSONObject
 
 @Composable
 fun AccountScreen(
-    vm: BleViewModel,
-    authVm: AuthViewModel,
-    onLoginClick: () -> Unit,
-    onRegisterClick: () -> Unit,
-    onOpenControl: () -> Unit
+        vm: BleViewModel,
+        authVm: AuthViewModel,
+        onLoginClick: () -> Unit,
+        onRegisterClick: () -> Unit,
+        onOpenControl: () -> Unit
 ) {
     var showSettings by remember { mutableStateOf(false) }
 
@@ -69,10 +69,11 @@ fun AccountScreen(
     val bleState by vm.state.collectAsState()
     val currentSettings by vm.activeSettings.collectAsState()
 
-    val username: String? = when (authState) {
-        is UiAuthState.LoggedIn -> (authState as UiAuthState.LoggedIn).username
-        else -> null
-    }
+    val username: String? =
+            when (authState) {
+                is UiAuthState.LoggedIn -> (authState as UiAuthState.LoggedIn).username
+                else -> null
+            }
 
     val scope = rememberCoroutineScope()
 
@@ -90,8 +91,8 @@ fun AccountScreen(
     val activeAlias by vm.activeAlias.collectAsState()
 
     val connected =
-        bleState.status.contains("Subscribed", true) ||
-                bleState.status.contains("Connected", true)
+            bleState.status.contains("Subscribed", true) ||
+                    bleState.status.contains("Connected", true)
 
     LaunchedEffect(username, activeAddress) {
         if (username == null) {
@@ -106,8 +107,8 @@ fun AccountScreen(
             if (activeAddress.isNotEmpty()) {
                 try {
                     authVm.ensureDevice(
-                        address = activeAddress,
-                        alias = activeAlias.ifBlank { null }
+                            address = activeAddress,
+                            alias = activeAlias.ifBlank { null }
                     )
                 } catch (e: Exception) {
                     devicesError = e.message
@@ -126,76 +127,65 @@ fun AccountScreen(
 
     Scaffold { inner ->
         Column(
-            Modifier
-                .padding(inner)
-                .padding(16.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
+                Modifier.padding(inner).padding(16.dp).fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    stringResource(R.string.nav_account),
-                    style = MaterialTheme.typography.titleLarge
+                        stringResource(R.string.nav_account),
+                        style = MaterialTheme.typography.titleLarge
                 )
                 IconButton(onClick = { showSettings = true }) {
                     Icon(
-                        Icons.Default.Build,
-                        contentDescription = stringResource(R.string.settings_title)
+                            Icons.Default.Build,
+                            contentDescription = stringResource(R.string.settings_title)
                     )
                 }
             }
 
             Column(
-                Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape)
-                ) {
+                Box(modifier = Modifier.size(120.dp).clip(CircleShape)) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_avatar_placeholder),
-                        contentDescription = stringResource(R.string.account_avatar)
+                            painter = painterResource(id = R.drawable.ic_avatar_placeholder),
+                            contentDescription = stringResource(R.string.account_avatar)
                     )
                 }
 
                 Spacer(Modifier.height(16.dp))
 
                 Text(
-                    text = username ?: stringResource(R.string.auth_guest),
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                        text = username ?: stringResource(R.string.auth_guest),
+                        style =
+                                MaterialTheme.typography.headlineSmall.copy(
+                                        fontWeight = FontWeight.Bold
+                                )
                 )
 
                 Spacer(Modifier.height(12.dp))
 
                 if (username == null) {
                     Text(
-                        text = stringResource(R.string.auth_guest_hint),
-                        style = MaterialTheme.typography.bodyMedium
+                            text = stringResource(R.string.auth_guest_hint),
+                            style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedButton(
-                            modifier = Modifier.weight(1f),
-                            onClick = onLoginClick
-                        ) {
+                        OutlinedButton(modifier = Modifier.weight(1f), onClick = onLoginClick) {
                             Text(stringResource(R.string.auth_login))
                         }
-                        Button(
-                            modifier = Modifier.weight(1f),
-                            onClick = onRegisterClick
-                        ) {
+                        Button(modifier = Modifier.weight(1f), onClick = onRegisterClick) {
                             Text(stringResource(R.string.auth_register))
                         }
                     }
@@ -207,85 +197,79 @@ fun AccountScreen(
 
                 Spacer(Modifier.height(24.dp))
 
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                ) {
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            stringResource(R.string.prosthesis_settings),
-                            style = MaterialTheme.typography.titleMedium
+                                stringResource(R.string.prosthesis_settings),
+                                style = MaterialTheme.typography.titleMedium
                         )
                         Text(
-                            text = stringResource(R.string.prosthesis_settings_descr),
-                            style = MaterialTheme.typography.bodySmall
+                                text = stringResource(R.string.prosthesis_settings_descr),
+                                style = MaterialTheme.typography.bodySmall
                         )
 
                         if (devicesLoading) {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = stringResource(R.string.loading),
-                                style = MaterialTheme.typography.bodySmall
+                                    text = stringResource(R.string.loading),
+                                    style = MaterialTheme.typography.bodySmall
                             )
                         } else if (devicesError != null) {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = devicesError ?: "",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
+                                    text = devicesError ?: "",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
                             )
                         } else if (devices.isEmpty()) {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = stringResource(R.string.prosthesis_no_devices),
-                                style = MaterialTheme.typography.bodySmall
+                                    text = stringResource(R.string.prosthesis_no_devices),
+                                    style = MaterialTheme.typography.bodySmall
                             )
                         } else {
                             Spacer(Modifier.height(8.dp))
                             devices.forEach { dev ->
                                 DeviceRow(
-                                    device = dev,
-                                    isConnected = connected,
-                                    enabled = username != null,
-                                    onOpen = {
-                                        selectedDevice = dev
-                                        dialogError = null
-                                        dialogJson = settingsToPrettyJson(currentSettings)
-                                        showDeviceSettingsDialog = true
-                                    }
+                                        device = dev,
+                                        isConnected = connected,
+                                        enabled = username != null,
+                                        onOpen = {
+                                            selectedDevice = dev
+                                            dialogError = null
+                                            dialogJson = settingsToPrettyJson(currentSettings)
+                                            showDeviceSettingsDialog = true
+                                        }
                                 )
                             }
                         }
 
                         if (username != null) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
                             ) {
                                 OutlinedButton(
-                                    onClick = {
-                                        scope.launch {
-                                            devicesLoading = true
-                                            devicesError = null
-                                            try {
-                                                val list = authVm.fetchDevices()
-                                                devices = list
-                                            } catch (e: Exception) {
-                                                devicesError =
-                                                    e.message ?: "Failed to load devices"
-                                                devices = emptyList()
-                                            } finally {
-                                                devicesLoading = false
+                                        onClick = {
+                                            scope.launch {
+                                                devicesLoading = true
+                                                devicesError = null
+                                                try {
+                                                    val list = authVm.fetchDevices()
+                                                    devices = list
+                                                } catch (e: Exception) {
+                                                    devicesError =
+                                                            e.message ?: "Failed to load devices"
+                                                    devices = emptyList()
+                                                } finally {
+                                                    devicesLoading = false
+                                                }
                                             }
                                         }
-                                    }
-                                ) {
-                                    Text(stringResource(R.string.refresh))
-                                }
+                                ) { Text(stringResource(R.string.refresh)) }
                             }
                         }
                     }
@@ -300,19 +284,19 @@ fun AccountScreen(
         val activity = LocalContext.current as? MainActivity
 
         SettingsDialog(
-            currentLang = lang,
-            onDismiss = { showSettings = false },
-            onSelect = { newLang: String ->
-                vm.setAppLanguage(newLang)
+                currentLang = lang,
+                onDismiss = { showSettings = false },
+                onSelect = { newLang: String ->
+                    vm.setAppLanguage(newLang)
 
-                val currentAuth = authState
-                if (currentAuth is UiAuthState.LoggedIn) {
-                    authVm.updateLanguageRemote(newLang)
+                    val currentAuth = authState
+                    if (currentAuth is UiAuthState.LoggedIn) {
+                        authVm.updateLanguageRemote(newLang)
+                    }
+
+                    showSettings = false
+                    activity?.recreateApp()
                 }
-
-                showSettings = false
-                activity?.recreateApp()
-            }
         )
     }
 
@@ -321,112 +305,95 @@ fun AccountScreen(
         val noSettingsMsg = stringResource(R.string.prosthesis_no_settings_on_server)
 
         DeviceSettingsDialog(
-            device = dev,
-            json = dialogJson,
-            isPullEnabled = connected,
-            error = dialogError,
-            onDismiss = {
-                showDeviceSettingsDialog = false
-            },
-            onPullClick = {
-                if (!connected) {
-                    showConnectWarning = true
-                    return@DeviceSettingsDialog
-                }
-                scope.launch {
-                    dialogError = null
-                    try {
-                        val fromServer = authVm.pullDeviceSettings(dev.id)
-                        if (fromServer != null) {
-                            dialogJson = settingsToPrettyJson(fromServer)
-                            vm.applySettingsFromCloud(fromServer)
-                        } else {
-                            dialogError = noSettingsMsg
+                device = dev,
+                json = dialogJson,
+                isPullEnabled = connected,
+                error = dialogError,
+                onDismiss = { showDeviceSettingsDialog = false },
+                onPullClick = {
+                    if (!connected) {
+                        showConnectWarning = true
+                        return@DeviceSettingsDialog
+                    }
+                    scope.launch {
+                        dialogError = null
+                        try {
+                            val fromServer = authVm.pullDeviceSettings(dev.id)
+                            if (fromServer != null) {
+                                dialogJson = settingsToPrettyJson(fromServer)
+                                vm.applySettingsFromCloud(fromServer)
+                            } else {
+                                dialogError = noSettingsMsg
+                            }
+                        } catch (e: Exception) {
+                            dialogError = e.message ?: "Failed to pull settings"
                         }
-                    } catch (e: Exception) {
-                        dialogError = e.message ?: "Failed to pull settings"
+                    }
+                },
+                onPushClick = {
+                    scope.launch {
+                        dialogError = null
+                        try {
+                            authVm.pushDeviceSettings(dev.id, currentSettings)
+                            dialogJson = settingsToPrettyJson(currentSettings)
+                        } catch (e: Exception) {
+                            dialogError = e.message ?: "Failed to push settings"
+                        }
                     }
                 }
-            },
-            onPushClick = {
-                scope.launch {
-                    dialogError = null
-                    try {
-                        authVm.pushDeviceSettings(dev.id, currentSettings)
-                        dialogJson = settingsToPrettyJson(currentSettings)
-                    } catch (e: Exception) {
-                        dialogError = e.message ?: "Failed to push settings"
-                    }
-                }
-            }
         )
     }
 
     if (showConnectWarning) {
         AlertDialog(
-            onDismissRequest = { showConnectWarning = false },
-            title = { Text(stringResource(R.string.prosthesis_not_connected_title)) },
-            text = {
-                Text(stringResource(R.string.prosthesis_not_connected_message))
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showConnectWarning = false
-                }) {
-                    Text(stringResource(R.string.generic_ok))
+                onDismissRequest = { showConnectWarning = false },
+                title = { Text(stringResource(R.string.prosthesis_not_connected_title)) },
+                text = { Text(stringResource(R.string.prosthesis_not_connected_message)) },
+                confirmButton = {
+                    TextButton(onClick = { showConnectWarning = false }) {
+                        Text(stringResource(R.string.generic_ok))
+                    }
                 }
-            }
         )
     }
 }
 
 @Composable
-fun SettingsDialog(
-    currentLang: String,
-    onDismiss: () -> Unit,
-    onSelect: (String) -> Unit
-) {
+fun SettingsDialog(currentLang: String, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_app)) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("${stringResource(R.string.settings_language)}:")
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(R.string.settings_app)) },
+            text = {
+                Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("${stringResource(R.string.settings_language)}:")
 
-                LanguageOptionRow(
-                    title = stringResource(R.string.settings_russian),
-                    selected = currentLang == "ru",
-                    onClick = { onSelect("ru") }
-                )
+                    LanguageOptionRow(
+                            title = stringResource(R.string.settings_russian),
+                            selected = currentLang == "ru",
+                            onClick = { onSelect("ru") }
+                    )
 
-                LanguageOptionRow(
-                    title = stringResource(R.string.settings_english),
-                    selected = currentLang == "en",
-                    onClick = { onSelect("en") }
-                )
+                    LanguageOptionRow(
+                            title = stringResource(R.string.settings_english),
+                            selected = currentLang == "en",
+                            onClick = { onSelect("en") }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_close)) }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_close)) }
-        }
     )
 }
 
 @Composable
-private fun LanguageOptionRow(
-    title: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
+private fun LanguageOptionRow(title: String, selected: Boolean, onClick: () -> Unit) {
     Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(selected = selected, onClick = onClick)
         Spacer(Modifier.width(8.dp))
@@ -436,139 +403,113 @@ private fun LanguageOptionRow(
 
 @Composable
 private fun DeviceRow(
-    device: DeviceOut,
-    isConnected: Boolean,
-    enabled: Boolean,
-    onOpen: () -> Unit
+        device: DeviceOut,
+        isConnected: Boolean,
+        enabled: Boolean,
+        onOpen: () -> Unit
 ) {
     val title = device.alias ?: device.address
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(
-            modifier = Modifier
-                .padding(8.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge
-                )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = title, style = MaterialTheme.typography.bodyLarge)
 
                 if (device.alias == null) {
-                    Text(
-                        text = device.address,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text(text = device.address, style = MaterialTheme.typography.bodySmall)
                 }
 
                 if (isConnected) {
                     Text(
-                        text = stringResource(R.string.prosthesis_connected),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                            text = stringResource(R.string.prosthesis_connected),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
-            OutlinedButton(
-                onClick = onOpen,
-                enabled = enabled
-            ) {
+            OutlinedButton(onClick = onOpen, enabled = enabled) {
                 Text(stringResource(R.string.device_open))
             }
         }
     }
 }
 
-
 @Composable
 private fun DeviceSettingsDialog(
-    device: DeviceOut,
-    json: String,
-    isPullEnabled: Boolean,
-    error: String?,
-    onDismiss: () -> Unit,
-    onPullClick: () -> Unit,
-    onPushClick: () -> Unit
+        device: DeviceOut,
+        json: String,
+        isPullEnabled: Boolean,
+        error: String?,
+        onDismiss: () -> Unit,
+        onPullClick: () -> Unit,
+        onPushClick: () -> Unit
 ) {
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = stringResource(
-                    R.string.prosthesis_settings_for_device,
-                    device.alias ?: device.address
-                )
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            onDismissRequest = onDismiss,
+            title = {
                 Text(
-                    text = stringResource(R.string.prosthesis_settings_dialog_hint),
-                    style = MaterialTheme.typography.bodyMedium
+                        text =
+                                stringResource(
+                                        R.string.prosthesis_settings_for_device,
+                                        device.alias ?: device.address
+                                )
                 )
-
-                OutlinedTextField(
-                    value = json,
-                    onValueChange = {},
-                    label = { Text("JSON") },
-                    readOnly = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                )
-
-                if (error != null) {
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+            },
+            text = {
+                Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
-                        modifier = Modifier.weight(1f),
-                        enabled = isPullEnabled,
-                        onClick = onPullClick
-                    ) {
-                        Text(text = stringResource(R.string.prosthesis_pull))
-                    }
-                    Button(
-                        modifier = Modifier.weight(1f),
-                        onClick = onPushClick
-                    ) {
-                        Text(text = stringResource(R.string.prosthesis_push))
-                    }
-                }
-
-                if (!isPullEnabled) {
                     Text(
-                        text = stringResource(R.string.prosthesis_connect_hint),
-                        style = MaterialTheme.typography.bodySmall
+                            text = stringResource(R.string.prosthesis_settings_dialog_hint),
+                            style = MaterialTheme.typography.bodyMedium
                     )
+
+                    OutlinedTextField(
+                            value = json,
+                            onValueChange = {},
+                            label = { Text("JSON") },
+                            readOnly = true,
+                            modifier = Modifier.fillMaxWidth().height(200.dp)
+                    )
+
+                    if (error != null) {
+                        Text(
+                                text = error,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                                modifier = Modifier.weight(1f),
+                                enabled = isPullEnabled,
+                                onClick = onPullClick
+                        ) { Text(text = stringResource(R.string.prosthesis_pull)) }
+                        Button(modifier = Modifier.weight(1f), onClick = onPushClick) {
+                            Text(text = stringResource(R.string.prosthesis_push))
+                        }
+                    }
+
+                    if (!isPullEnabled) {
+                        Text(
+                                text = stringResource(R.string.prosthesis_connect_hint),
+                                style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
+            },
+            confirmButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_close)) }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.settings_close))
-            }
-        }
     )
 }
 

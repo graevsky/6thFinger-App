@@ -2,10 +2,7 @@ package com.example.a6thfingercontrollapp.security.srp
 
 import java.math.BigInteger
 
-class SrpClientSession(
-    private val context: SrpContext,
-    privateHex: String? = null
-) {
+class SrpClientSession(private val context: SrpContext, privateHex: String? = null) {
 
     private var saltBytes: ByteArray? = null
     private var saltInt: BigInteger? = null
@@ -21,11 +18,12 @@ class SrpClientSession(
     private var sessionKeyProofHash: ByteArray? = null
 
     init {
-        clientPrivate = if (privateHex != null) {
-            SrpUtils.intFromHex(privateHex)
-        } else {
-            context.generateClientPrivate()
-        }
+        clientPrivate =
+                if (privateHex != null) {
+                    SrpUtils.intFromHex(privateHex)
+                } else {
+                    context.generateClientPrivate()
+                }
 
         clientPublic = context.getClientPublic(clientPrivate)
     }
@@ -57,10 +55,7 @@ class SrpClientSession(
             error("Wrong public provided for SRPClientSession.")
         }
         serverPublic = sp
-        commonSecret = context.getCommonSecret(
-            serverPublic = sp,
-            clientPublic = clientPublic
-        )
+        commonSecret = context.getCommonSecret(serverPublic = sp, clientPublic = clientPublic)
     }
 
     private fun initSessionKey() {
@@ -69,12 +64,13 @@ class SrpClientSession(
         val commonSecretLocal = commonSecret ?: error("Common secret not initialized")
 
         val passwordHash = context.getCommonPasswordHash(saltIntLocal)
-        val premaster = context.getClientPremasterSecret(
-            passwordHash = passwordHash,
-            serverPublic = serverPublicLocal,
-            clientPrivate = clientPrivate,
-            commonSecret = commonSecretLocal
-        )
+        val premaster =
+                context.getClientPremasterSecret(
+                        passwordHash = passwordHash,
+                        serverPublic = serverPublicLocal,
+                        clientPrivate = clientPrivate,
+                        commonSecret = commonSecretLocal
+                )
         sessionKey = context.getCommonSessionKey(premaster)
     }
 
@@ -83,19 +79,21 @@ class SrpClientSession(
         val saltBytesLocal = saltBytes ?: error("Salt bytes not initialized")
         val serverPublicLocal = serverPublic ?: error("Server public not initialized")
 
-        val proof = context.getCommonSessionKeyProof(
-            sessionKey = sk,
-            saltBytes = saltBytesLocal,
-            serverPublic = serverPublicLocal,
-            clientPublic = clientPublic
-        )
+        val proof =
+                context.getCommonSessionKeyProof(
+                        sessionKey = sk,
+                        saltBytes = saltBytesLocal,
+                        serverPublic = serverPublicLocal,
+                        clientPublic = clientPublic
+                )
         sessionKeyProof = proof
 
-        val proofHash = context.getCommonSessionKeyProofHash(
-            sessionKey = sk,
-            sessionKeyProof = proof,
-            clientPublic = clientPublic
-        )
+        val proofHash =
+                context.getCommonSessionKeyProofHash(
+                        sessionKey = sk,
+                        sessionKeyProof = proof,
+                        clientPublic = clientPublic
+                )
         sessionKeyProofHash = proofHash
     }
 }

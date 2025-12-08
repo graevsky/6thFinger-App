@@ -5,10 +5,7 @@ import java.security.SecureRandom
 
 object SrpRegister {
 
-    data class RegistrationResult(
-        val saltHex: String,
-        val verifierHex: String
-    )
+    data class RegistrationResult(val saltHex: String, val verifierHex: String)
 
     private val random = SecureRandom()
 
@@ -19,10 +16,10 @@ object SrpRegister {
     }
 
     fun generateVerifier(
-        username: String,
-        password: String,
-        primeHex: String,
-        generatorHex: String
+            username: String,
+            password: String,
+            primeHex: String,
+            generatorHex: String
     ): RegistrationResult {
         val user = username.trim().lowercase()
 
@@ -36,9 +33,6 @@ object SrpRegister {
 
         val verifierHex = v.toString(16).lowercase()
 
-        return RegistrationResult(
-            saltHex = saltHex,
-            verifierHex = verifierHex
-        )
+        return RegistrationResult(saltHex = saltHex, verifierHex = verifierHex)
     }
 }

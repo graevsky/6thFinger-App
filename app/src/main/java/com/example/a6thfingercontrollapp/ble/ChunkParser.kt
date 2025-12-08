@@ -9,9 +9,7 @@ class ChunkParser {
     private var completeJson: JSONObject? = null
 
     fun push(chunkRaw: String): Boolean {
-        val chunk = chunkRaw
-            .filter { it.code in 32..126 }
-            .trim()
+        val chunk = chunkRaw.filter { it.code in 32..126 }.trim()
 
         if (chunk.isEmpty()) return false
 
@@ -29,11 +27,12 @@ class ChunkParser {
             val data = buffer.toString()
             buffer.clear()
 
-            completeJson = try {
-                JSONObject(data)
-            } catch (_: Throwable) {
-                null
-            }
+            completeJson =
+                    try {
+                        JSONObject(data)
+                    } catch (_: Throwable) {
+                        null
+                    }
 
             return completeJson != null
         }

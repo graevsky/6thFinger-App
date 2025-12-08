@@ -10,8 +10,7 @@ object SrpUtils {
         return s
     }
 
-    fun hexFromBytes(bytes: ByteArray): String =
-        bytes.joinToString("") { "%02x".format(it) }
+    fun hexFromBytes(bytes: ByteArray): String = bytes.joinToString("") { "%02x".format(it) }
 
     fun intFromHex(hex: String): BigInteger {
         val clean = hex.trim().lowercase()

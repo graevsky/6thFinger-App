@@ -12,8 +12,7 @@ private val Context.dataStore by preferencesDataStore(name = "ble_aliases")
 class AliasStore(private val context: Context) {
     private fun keyFor(address: String) = stringPreferencesKey("alias_${address.lowercase()}")
 
-    fun alias(address: String): Flow<String?> =
-        context.dataStore.data.map { it[keyFor(address)] }
+    fun alias(address: String): Flow<String?> = context.dataStore.data.map { it[keyFor(address)] }
 
     suspend fun setAlias(address: String, alias: String) {
         context.dataStore.edit { it[keyFor(address)] = alias }

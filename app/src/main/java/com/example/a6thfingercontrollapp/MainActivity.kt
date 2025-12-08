@@ -77,9 +77,10 @@ class MainActivity : ComponentActivity() {
 
                 val permissions = remember { requiredPermissions() }
                 var granted by remember { mutableStateOf(false) }
-                val launcher = rememberLauncherForActivityResult(
-                    ActivityResultContracts.RequestMultiplePermissions()
-                ) { res -> granted = res.all { it.value } }
+                val launcher =
+                        rememberLauncherForActivityResult(
+                                ActivityResultContracts.RequestMultiplePermissions()
+                        ) { res -> granted = res.all { it.value } }
 
                 LaunchedEffect(Unit) { launcher.launch(permissions) }
 
@@ -91,54 +92,50 @@ class MainActivity : ComponentActivity() {
                 when (authState) {
                     is UiAuthState.Loading -> {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = androidx.compose.ui.Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = androidx.compose.ui.Alignment.Center
+                        ) { CircularProgressIndicator() }
                     }
-
                     is UiAuthState.Unauthenticated -> {
                         when (authFlowScreen) {
                             AuthFlowScreen.Start -> {
                                 StartScreen(
-                                    bleVm = vm,
-                                    authVm = authVm,
-                                    onLoginClick = { authFlowScreen = AuthFlowScreen.Login },
-                                    onRegisterClick = { authFlowScreen = AuthFlowScreen.Register },
-                                    onContinueAsGuest = { authVm.continueAsGuest() }
+                                        bleVm = vm,
+                                        authVm = authVm,
+                                        onLoginClick = { authFlowScreen = AuthFlowScreen.Login },
+                                        onRegisterClick = {
+                                            authFlowScreen = AuthFlowScreen.Register
+                                        },
+                                        onContinueAsGuest = { authVm.continueAsGuest() }
                                 )
                             }
-
                             AuthFlowScreen.Login -> {
                                 LoginScreen(
-                                    vm = authVm,
-                                    initialUsername = prefillUsername,
-                                    onBack = { authFlowScreen = AuthFlowScreen.Start }
+                                        vm = authVm,
+                                        initialUsername = prefillUsername,
+                                        onBack = { authFlowScreen = AuthFlowScreen.Start }
                                 )
                             }
-
                             AuthFlowScreen.Register -> {
                                 RegisterScreen(
-                                    vm = authVm,
-                                    onBack = { authFlowScreen = AuthFlowScreen.Start },
-                                    onRegistered = { username ->
-                                        prefillUsername = username
-                                        authFlowScreen = AuthFlowScreen.Login
-                                    }
+                                        vm = authVm,
+                                        onBack = { authFlowScreen = AuthFlowScreen.Start },
+                                        onRegistered = { username ->
+                                            prefillUsername = username
+                                            authFlowScreen = AuthFlowScreen.Login
+                                        }
                                 )
                             }
                         }
                     }
-
-                    is UiAuthState.Guest,
-                    is UiAuthState.LoggedIn -> {
-                        val routes = listOf(
-                            NavRoute.Connect,
-                            NavRoute.Control,
-                            NavRoute.Sim,
-                            NavRoute.Account
-                        )
+                    is UiAuthState.Guest, is UiAuthState.LoggedIn -> {
+                        val routes =
+                                listOf(
+                                        NavRoute.Connect,
+                                        NavRoute.Control,
+                                        NavRoute.Sim,
+                                        NavRoute.Account
+                                )
 
                         val backStack by nav.currentBackStackEntryAsState()
                         val currentRoute = backStack?.destination?.route ?: NavRoute.Connect.route
@@ -146,86 +143,83 @@ class MainActivity : ComponentActivity() {
 
                         val rawStatus = bleState.status.lowercase()
 
-                        val connected = when {
-                            "disconnected" in rawStatus -> false
-                            "subscribed" in rawStatus -> true
-                            "connected" in rawStatus -> true
-                            else -> false
-                        }
-
+                        val connected =
+                                when {
+                                    "disconnected" in rawStatus -> false
+                                    "subscribed" in rawStatus -> true
+                                    "connected" in rawStatus -> true
+                                    else -> false
+                                }
 
                         LaunchedEffect(connected, currentRoute) {
                             if (!connected &&
-                                (currentRoute == NavRoute.Control.route ||
-                                        currentRoute == NavRoute.Sim.route)
+                                            (currentRoute == NavRoute.Control.route ||
+                                                    currentRoute == NavRoute.Sim.route)
                             ) {
                                 nav.navigate(NavRoute.Connect.route) {
                                     launchSingleTop = true
                                     restoreState = true
-                                    popUpTo(nav.graph.startDestinationId) {
-                                        saveState = true
-                                    }
+                                    popUpTo(nav.graph.startDestinationId) { saveState = true }
                                 }
                             }
                         }
 
                         Scaffold(
-                            bottomBar = {
-                                NavigationBar {
-                                    routes.forEach { r ->
-                                        val enabled = when (r) {
-                                            NavRoute.Connect -> true
-                                            NavRoute.Account -> true
-                                            else -> connected
-                                        }
-
-                                        NavigationBarItem(
-                                            selected = currentRoute == r.route,
-                                            onClick = {
-                                                if (enabled) {
-                                                    nav.navigate(r.route) {
-                                                        launchSingleTop = true
-                                                        restoreState = true
-                                                        popUpTo(nav.graph.startDestinationId) {
-                                                            saveState = true
-                                                        }
+                                bottomBar = {
+                                    NavigationBar {
+                                        routes.forEach { r ->
+                                            val enabled =
+                                                    when (r) {
+                                                        NavRoute.Connect -> true
+                                                        NavRoute.Account -> true
+                                                        else -> connected
                                                     }
-                                                }
-                                            },
-                                            icon = {
-                                                when (r) {
-                                                    NavRoute.Connect -> Icon(
-                                                        Icons.Default.Bluetooth,
-                                                        null
-                                                    )
 
-                                                    NavRoute.Control -> Icon(
-                                                        Icons.Default.Settings,
-                                                        null
-                                                    )
-
-                                                    NavRoute.Sim -> Icon(
-                                                        Icons.Default.PlayArrow,
-                                                        null
-                                                    )
-
-                                                    NavRoute.Account -> Icon(
-                                                        Icons.Default.Person,
-                                                        null
-                                                    )
-                                                }
-                                            },
-                                            label = { Text(stringResource(r.labelRes)) },
-                                            enabled = enabled
-                                        )
+                                            NavigationBarItem(
+                                                    selected = currentRoute == r.route,
+                                                    onClick = {
+                                                        if (enabled) {
+                                                            nav.navigate(r.route) {
+                                                                launchSingleTop = true
+                                                                restoreState = true
+                                                                popUpTo(
+                                                                        nav.graph.startDestinationId
+                                                                ) { saveState = true }
+                                                            }
+                                                        }
+                                                    },
+                                                    icon = {
+                                                        when (r) {
+                                                            NavRoute.Connect ->
+                                                                    Icon(
+                                                                            Icons.Default.Bluetooth,
+                                                                            null
+                                                                    )
+                                                            NavRoute.Control ->
+                                                                    Icon(
+                                                                            Icons.Default.Settings,
+                                                                            null
+                                                                    )
+                                                            NavRoute.Sim ->
+                                                                    Icon(
+                                                                            Icons.Default.PlayArrow,
+                                                                            null
+                                                                    )
+                                                            NavRoute.Account ->
+                                                                    Icon(Icons.Default.Person, null)
+                                                        }
+                                                    },
+                                                    label = { Text(stringResource(r.labelRes)) },
+                                                    enabled = enabled
+                                            )
+                                        }
                                     }
                                 }
-                            }
                         ) { innerPadding ->
                             NavHost(
-                                navController = nav,
-                                startDestination = NavRoute.Connect.route,
-                                modifier = Modifier.padding(innerPadding)
+                                    navController = nav,
+                                    startDestination = NavRoute.Connect.route,
+                                    modifier = Modifier.padding(innerPadding)
                             ) {
                                 composable(NavRoute.Connect.route) {
                                     ConnectScreen(vm = vm, permissionsGranted = granted)
@@ -233,30 +227,28 @@ class MainActivity : ComponentActivity() {
                                 composable(NavRoute.Control.route) {
                                     ControlScreen(vm = vm, authVm = authVm)
                                 }
-                                composable(NavRoute.Sim.route) {
-                                    SimulationScreen(vm = vm)
-                                }
+                                composable(NavRoute.Sim.route) { SimulationScreen(vm = vm) }
                                 composable(NavRoute.Account.route) {
                                     AccountScreen(
-                                        vm = vm,
-                                        authVm = authVm,
-                                        onLoginClick = {
-                                            authFlowScreen = AuthFlowScreen.Login
-                                            authVm.logout()
-                                        },
-                                        onRegisterClick = {
-                                            authFlowScreen = AuthFlowScreen.Register
-                                            authVm.logout()
-                                        },
-                                        onOpenControl = {
-                                            nav.navigate(NavRoute.Control.route) {
-                                                launchSingleTop = true
-                                                restoreState = true
-                                                popUpTo(nav.graph.startDestinationId) {
-                                                    saveState = true
+                                            vm = vm,
+                                            authVm = authVm,
+                                            onLoginClick = {
+                                                authFlowScreen = AuthFlowScreen.Login
+                                                authVm.logout()
+                                            },
+                                            onRegisterClick = {
+                                                authFlowScreen = AuthFlowScreen.Register
+                                                authVm.logout()
+                                            },
+                                            onOpenControl = {
+                                                nav.navigate(NavRoute.Control.route) {
+                                                    launchSingleTop = true
+                                                    restoreState = true
+                                                    popUpTo(nav.graph.startDestinationId) {
+                                                        saveState = true
+                                                    }
                                                 }
                                             }
-                                        }
                                     )
                                 }
                             }
@@ -282,9 +274,9 @@ class MainActivity : ComponentActivity() {
 private fun requiredPermissions(): Array<String> {
     return if (Build.VERSION.SDK_INT >= 31) {
         arrayOf(
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.ACCESS_FINE_LOCATION
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.ACCESS_FINE_LOCATION
         )
     } else {
         arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)

@@ -46,67 +46,59 @@ private fun localizedError(key: String?, get: @Composable (Int) -> String): Stri
         else -> get(R.string.err_unknown)
     }
 }
+
 @Composable
 fun StartScreen(
-    bleVm: BleViewModel,
-    authVm: AuthViewModel,
-    onLoginClick: () -> Unit,
-    onRegisterClick: () -> Unit,
-    onContinueAsGuest: () -> Unit
+        bleVm: BleViewModel,
+        authVm: AuthViewModel,
+        onLoginClick: () -> Unit,
+        onRegisterClick: () -> Unit,
+        onContinueAsGuest: () -> Unit
 ) {
     val lang by bleVm.appLanguage.collectAsState()
     var showLangDialog by remember { mutableStateOf(false) }
 
     Scaffold { inner ->
         Box(
-            modifier = Modifier
-                .padding(inner)
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
+                modifier =
+                        Modifier.padding(inner)
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.background)
+                                .padding(24.dp),
+                contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.ic_logo),
-                    contentDescription = stringResource(R.string.app_name),
-                    modifier = Modifier.size(160.dp)
+                        painter = painterResource(id = R.drawable.ic_logo),
+                        contentDescription = stringResource(R.string.app_name),
+                        modifier = Modifier.size(160.dp)
                 )
 
                 Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground
                 )
 
                 Spacer(Modifier.height(16.dp))
 
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Button(
                         modifier = Modifier.fillMaxWidth(),
-                        onClick = onLoginClick
-                    ) {
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Button(modifier = Modifier.fillMaxWidth(), onClick = onLoginClick) {
                         Text(stringResource(R.string.auth_login))
                     }
 
-                    OutlinedButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = onRegisterClick
-                    ) {
+                    OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onRegisterClick) {
                         Text(stringResource(R.string.auth_register))
                     }
 
-                    TextButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = onContinueAsGuest
-                    ) {
+                    TextButton(modifier = Modifier.fillMaxWidth(), onClick = onContinueAsGuest) {
                         Text(stringResource(R.string.auth_continue_guest))
                     }
                 }
@@ -114,12 +106,14 @@ fun StartScreen(
                 Spacer(modifier = Modifier.weight(1f))
 
                 TextButton(
-                    onClick = { showLangDialog = true },
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                        onClick = { showLangDialog = true },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
                     Text(
-                        text = stringResource(R.string.settings_language) +
-                                ": " + lang.uppercase()
+                            text =
+                                    stringResource(R.string.settings_language) +
+                                            ": " +
+                                            lang.uppercase()
                     )
                 }
             }
@@ -129,23 +123,19 @@ fun StartScreen(
     if (showLangDialog) {
         val activity = LocalContext.current as? MainActivity
         SettingsDialog(
-            currentLang = lang,
-            onDismiss = { showLangDialog = false },
-            onSelect = { newLang ->
-                bleVm.setAppLanguage(newLang)
-                showLangDialog = false
-                activity?.recreateApp()
-            }
+                currentLang = lang,
+                onDismiss = { showLangDialog = false },
+                onSelect = { newLang ->
+                    bleVm.setAppLanguage(newLang)
+                    showLangDialog = false
+                    activity?.recreateApp()
+                }
         )
     }
 }
 
 @Composable
-fun LoginScreen(
-    vm: AuthViewModel,
-    initialUsername: String,
-    onBack: () -> Unit
-) {
+fun LoginScreen(vm: AuthViewModel, initialUsername: String, onBack: () -> Unit) {
     val rawError by vm.error.collectAsState()
     val error = rawError?.let { localizedError(it) { id -> stringResource(id) } }
 
@@ -154,39 +144,38 @@ fun LoginScreen(
 
     Scaffold { inner ->
         Box(
-            Modifier
-                .padding(inner)
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
+                Modifier.padding(inner)
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(24.dp),
+                contentAlignment = Alignment.Center
         ) {
             Column(
-                Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = stringResource(R.string.auth_sign_in),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground
+                        text = stringResource(R.string.auth_sign_in),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground
                 )
 
                 OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it.trim() },
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.auth_username)) },
-                    modifier = Modifier.fillMaxWidth()
+                        value = username,
+                        onValueChange = { username = it.trim() },
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.auth_username)) },
+                        modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    label = { Text(stringResource(R.string.auth_password)) },
-                    modifier = Modifier.fillMaxWidth()
+                        value = password,
+                        onValueChange = { password = it },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        label = { Text(stringResource(R.string.auth_password)) },
+                        modifier = Modifier.fillMaxWidth()
                 )
 
                 if (!error.isNullOrBlank()) {
@@ -195,22 +184,17 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    OutlinedButton(onClick = {
-                        vm.clearError()
-                        onBack()
-                    }) {
-                        Text(stringResource(R.string.auth_back))
-                    }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    OutlinedButton(
+                            onClick = {
+                                vm.clearError()
+                                onBack()
+                            }
+                    ) { Text(stringResource(R.string.auth_back)) }
                     Button(
-                        onClick = { vm.login(username, password) },
-                        enabled = username.isNotBlank() && password.isNotBlank()
-                    ) {
-                        Text(stringResource(R.string.auth_login))
-                    }
+                            onClick = { vm.login(username, password) },
+                            enabled = username.isNotBlank() && password.isNotBlank()
+                    ) { Text(stringResource(R.string.auth_login)) }
                 }
             }
         }
@@ -218,11 +202,7 @@ fun LoginScreen(
 }
 
 @Composable
-fun RegisterScreen(
-    vm: AuthViewModel,
-    onBack: () -> Unit,
-    onRegistered: (String) -> Unit
-) {
+fun RegisterScreen(vm: AuthViewModel, onBack: () -> Unit, onRegistered: (String) -> Unit) {
     val rawError by vm.error.collectAsState()
     val error = rawError?.let { localizedError(it) { id -> stringResource(id) } }
 
@@ -231,39 +211,38 @@ fun RegisterScreen(
 
     Scaffold { inner ->
         Box(
-            Modifier
-                .padding(inner)
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
+                Modifier.padding(inner)
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(24.dp),
+                contentAlignment = Alignment.Center
         ) {
             Column(
-                Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = stringResource(R.string.auth_register),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground
+                        text = stringResource(R.string.auth_register),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground
                 )
 
                 OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it.trim() },
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.auth_username)) },
-                    modifier = Modifier.fillMaxWidth()
+                        value = username,
+                        onValueChange = { username = it.trim() },
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.auth_username)) },
+                        modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    label = { Text(stringResource(R.string.auth_password)) },
-                    modifier = Modifier.fillMaxWidth()
+                        value = password,
+                        onValueChange = { password = it },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        label = { Text(stringResource(R.string.auth_password)) },
+                        modifier = Modifier.fillMaxWidth()
                 )
 
                 if (!error.isNullOrBlank()) {
@@ -272,27 +251,20 @@ fun RegisterScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    OutlinedButton(onClick = {
-                        vm.clearError()
-                        onBack()
-                    }) {
-                        Text(stringResource(R.string.auth_back))
-                    }
-                    Button(
-                        onClick = {
-                            val normalized = username.trim().lowercase()
-                            vm.register(normalized, password) {
-                                onRegistered(normalized)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    OutlinedButton(
+                            onClick = {
+                                vm.clearError()
+                                onBack()
                             }
-                        },
-                        enabled = username.isNotBlank() && password.isNotBlank()
-                    ) {
-                        Text(stringResource(R.string.auth_register))
-                    }
+                    ) { Text(stringResource(R.string.auth_back)) }
+                    Button(
+                            onClick = {
+                                val normalized = username.trim().lowercase()
+                                vm.register(normalized, password) { onRegistered(normalized) }
+                            },
+                            enabled = username.isNotBlank() && password.isNotBlank()
+                    ) { Text(stringResource(R.string.auth_register)) }
                 }
             }
         }

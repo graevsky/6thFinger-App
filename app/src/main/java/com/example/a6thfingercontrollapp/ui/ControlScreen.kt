@@ -41,16 +41,16 @@ import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.UiAuthState
 import com.example.a6thfingercontrollapp.ble.EspSettings
-import kotlinx.coroutines.launch
 import kotlin.math.max
+import kotlinx.coroutines.launch
 
-private enum class VibMode { Constant, Pulse }
+private enum class VibMode {
+    Constant,
+    Pulse
+}
 
 @Composable
-fun ControlScreen(
-    vm: BleViewModel,
-    authVm: AuthViewModel
-) {
+fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     val authState by authVm.auth.collectAsState()
     val activeAddress by vm.activeAddress.collectAsState()
     val alias by vm.activeAlias.collectAsState()
@@ -66,81 +66,72 @@ fun ControlScreen(
     var vibroOpen by remember { mutableStateOf(false) }
     var servoOpen by remember { mutableStateOf(false) }
 
-    val connected =
-        t.status.contains("Subscribed", true) || t.status.contains("Connected", true)
+    val connected = t.status.contains("Subscribed", true) || t.status.contains("Connected", true)
 
     val dirty = s != applied
 
     Scaffold(
-        bottomBar = {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = { vm.resetToDefaults() }
+            bottomBar = {
+                Row(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(stringResource(R.string.device_reset))
-                }
+                    OutlinedButton(onClick = { vm.resetToDefaults() }) {
+                        Text(stringResource(R.string.device_reset))
+                    }
 
-                Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(12.dp))
 
-                Button(
-                    onClick = {
-                        val ok = vm.applyAndSaveToBoard()
-                        if (ok &&
-                            activeAddress.isNotEmpty() &&
-                            authState is UiAuthState.LoggedIn
-                        ) {
-                            scope.launch {
-                                try {
-                                    authVm.pushSettingsForDeviceAddress(
-                                        address = activeAddress,
-                                        alias = alias.ifBlank { null },
-                                        settings = vm.activeSettings.value
-                                    )
-                                } catch (_: Exception) {
+                    Button(
+                            onClick = {
+                                val ok = vm.applyAndSaveToBoard()
+                                if (ok &&
+                                                activeAddress.isNotEmpty() &&
+                                                authState is UiAuthState.LoggedIn
+                                ) {
+                                    scope.launch {
+                                        try {
+                                            authVm.pushSettingsForDeviceAddress(
+                                                    address = activeAddress,
+                                                    alias = alias.ifBlank { null },
+                                                    settings = vm.activeSettings.value
+                                            )
+                                        } catch (_: Exception) {}
+                                    }
                                 }
-                            }
-                        }
-                    },
-                    enabled = connected,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (dirty) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(stringResource(R.string.device_save))
+                            },
+                            enabled = connected,
+                            colors =
+                                    ButtonDefaults.buttonColors(
+                                            containerColor =
+                                                    if (dirty) MaterialTheme.colorScheme.error
+                                                    else MaterialTheme.colorScheme.primary
+                                    )
+                    ) { Text(stringResource(R.string.device_save)) }
                 }
             }
-        }
     ) { inner ->
         Column(
-            Modifier
-                .padding(inner)
-                .padding(16.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                Modifier.padding(inner).padding(16.dp).fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Card(Modifier.fillMaxWidth()) {
                 Row(
-                    Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            stringResource(R.string.device_name),
-                            style = MaterialTheme.typography.labelLarge
+                                stringResource(R.string.device_name),
+                                style = MaterialTheme.typography.labelLarge
                         )
                         Text(
-                            if (alias.isBlank()) {
-                                stringResource(R.string.device_no_name)
-                            } else alias,
-                            style = MaterialTheme.typography.titleMedium
+                                if (alias.isBlank()) {
+                                    stringResource(R.string.device_no_name)
+                                } else alias,
+                                style = MaterialTheme.typography.titleMedium
                         )
                     }
                     Spacer(Modifier.width(12.dp))
@@ -151,34 +142,34 @@ fun ControlScreen(
             }
 
             Text(
-                stringResource(R.string.settings_title),
-                style = MaterialTheme.typography.titleMedium
+                    stringResource(R.string.settings_title),
+                    style = MaterialTheme.typography.titleMedium
             )
 
             SettingItem(
-                title = stringResource(R.string.fsr_settings),
-                subtitle = stringResource(R.string.control_sensitivity_pullup)
+                    title = stringResource(R.string.fsr_settings),
+                    subtitle = stringResource(R.string.control_sensitivity_pullup)
             ) { fsrOpen = true }
 
             SettingItem(
-                title = stringResource(R.string.flex_settings),
-                subtitle = stringResource(R.string.control_resistance_cal)
+                    title = stringResource(R.string.flex_settings),
+                    subtitle = stringResource(R.string.control_resistance_cal)
             ) { flexOpen = true }
 
             SettingItem(
-                title = stringResource(R.string.vibro_settings),
-                subtitle = stringResource(R.string.control_vibro_mode)
+                    title = stringResource(R.string.vibro_settings),
+                    subtitle = stringResource(R.string.control_vibro_mode)
             ) { vibroOpen = true }
 
             SettingItem(
-                title = stringResource(R.string.servo_settings),
-                subtitle = stringResource(R.string.control_servo_manual)
+                    title = stringResource(R.string.servo_settings),
+                    subtitle = stringResource(R.string.control_servo_manual)
             ) { servoOpen = true }
 
             Divider(Modifier.padding(vertical = 8.dp))
             Text(
-                stringResource(R.string.control_diagnostic),
-                style = MaterialTheme.typography.titleMedium
+                    stringResource(R.string.control_diagnostic),
+                    style = MaterialTheme.typography.titleMedium
             )
             DiagnosticRow(stringResource(R.string.control_diag_fsr_ohm), pretty(t.fsrOhm))
             DiagnosticRow(stringResource(R.string.control_diag_flex_ohm), pretty(t.flexOhm))
@@ -187,81 +178,62 @@ fun ControlScreen(
         }
     }
 
-    if (renameOpen) RenameDialog(
-        current = alias,
-        onDismiss = { renameOpen = false },
-        onSave = { newName ->
-            vm.renameActive(newName)
-            renameOpen = false
-        }
-    )
+    if (renameOpen)
+            RenameDialog(
+                    current = alias,
+                    onDismiss = { renameOpen = false },
+                    onSave = { newName ->
+                        vm.renameActive(newName)
+                        renameOpen = false
+                    }
+            )
 
-    if (fsrOpen) FsrDialog(
-        s = s,
-        onDismiss = { fsrOpen = false }
-    ) { next ->
-        vm.updateActiveSettings { next }
-    }
+    if (fsrOpen)
+            FsrDialog(s = s, onDismiss = { fsrOpen = false }) { next ->
+                vm.updateActiveSettings { next }
+            }
 
-    if (flexOpen) FlexDialog(
-        s = s,
-        currentFlexOhm = t.flexOhm,
-        onDismiss = { flexOpen = false }
-    ) { next ->
-        vm.updateActiveSettings { next }
-    }
+    if (flexOpen)
+            FlexDialog(s = s, currentFlexOhm = t.flexOhm, onDismiss = { flexOpen = false }) { next
+                ->
+                vm.updateActiveSettings { next }
+            }
 
-    if (vibroOpen) VibroDialog(
-        s = s,
-        onDismiss = { vibroOpen = false }
-    ) { next ->
-        vm.updateActiveSettings { next }
-    }
+    if (vibroOpen)
+            VibroDialog(s = s, onDismiss = { vibroOpen = false }) { next ->
+                vm.updateActiveSettings { next }
+            }
 
-    if (servoOpen) ServoDialog(
-        s = s,
-        currentServoDeg = t.servoDeg,
-        onDismiss = { servoOpen = false },
-        onChange = { next ->
-            vm.updateActiveSettings { next }
-        },
-        onLiveChange = { next ->
-            vm.applySettingsLive { next }
-        }
-    )
+    if (servoOpen)
+            ServoDialog(
+                    s = s,
+                    currentServoDeg = t.servoDeg,
+                    onDismiss = { servoOpen = false },
+                    onChange = { next -> vm.updateActiveSettings { next } },
+                    onLiveChange = { next -> vm.applySettingsLive { next } }
+            )
 }
 
 @Composable
 private fun SettingItem(title: String, subtitle: String, onClick: () -> Unit) {
-    Card(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp)
-    ) {
+    Card(Modifier.fillMaxWidth().padding(top = 4.dp)) {
         Row(
-            Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                Modifier.padding(12.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall)
             }
-            OutlinedButton(onClick = onClick) {
-                Text(stringResource(R.string.device_open))
-            }
+            OutlinedButton(onClick = onClick) { Text(stringResource(R.string.device_open)) }
         }
     }
 }
 
 @Composable
 private fun DiagnosticRow(name: String, value: String) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(name)
         Text(value)
     }
@@ -270,42 +242,32 @@ private fun DiagnosticRow(name: String, value: String) {
 private fun pretty(v: Float) = if (v.isFinite()) String.format("%.1f", v) else "--"
 
 @Composable
-private fun RenameDialog(
-    current: String,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit
-) {
+private fun RenameDialog(current: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var text by remember { mutableStateOf(TextFieldValue(current)) }
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.device_rename)) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                singleLine = true,
-                label = { Text(stringResource(R.string.device_name)) }
-            )
-        },
-        confirmButton = {
-            Button(onClick = { onSave(text.text) }) {
-                Text(stringResource(R.string.device_save))
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(R.string.device_rename)) },
+            text = {
+                OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.device_name)) }
+                )
+            },
+            confirmButton = {
+                Button(onClick = { onSave(text.text) }) {
+                    Text(stringResource(R.string.device_save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.device_cancel)) }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.device_cancel))
-            }
-        }
     )
 }
 
 @Composable
-private fun FsrDialog(
-    s: EspSettings,
-    onDismiss: () -> Unit,
-    onChange: (EspSettings) -> Unit
-) {
+private fun FsrDialog(s: EspSettings, onDismiss: () -> Unit, onChange: (EspSettings) -> Unit) {
     var pin by remember { mutableStateOf(s.fsrPin.toString()) }
     var pull by remember { mutableStateOf(s.fsrPullupOhm.toString()) }
     var soft by remember { mutableStateOf(s.fsrSoftThresholdN.toInt().toString()) }
@@ -314,37 +276,34 @@ private fun FsrDialog(
     BaseDialog(stringResource(R.string.fsr_settings), onDismiss) {
         NumberField(stringResource(R.string.fsr_pin), pin) { pin = it }
         NumberField(stringResource(R.string.fsr_pullup), pull) { pull = it }
-        NumberField(
-            stringResource(R.string.fsr_start_threshold),
-            soft
-        ) { soft = it }
-        NumberField(
-            stringResource(R.string.fsr_max_vibro),
-            hard
-        ) { hard = it }
+        NumberField(stringResource(R.string.fsr_start_threshold), soft) { soft = it }
+        NumberField(stringResource(R.string.fsr_max_vibro), hard) { hard = it }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = {
-                onChange(
-                    s.copy(
-                        fsrPin = pin.toIntOrNull() ?: s.fsrPin,
-                        fsrPullupOhm = pull.toIntOrNull() ?: s.fsrPullupOhm,
-                        fsrSoftThresholdN = (soft.toFloatOrNull() ?: s.fsrSoftThresholdN),
-                        fsrHardMaxN = (hard.toFloatOrNull() ?: s.fsrHardMaxN)
-                    )
-                )
-                onDismiss()
-            }) { Text(stringResource(R.string.generic_ok)) }
+            Button(
+                    onClick = {
+                        onChange(
+                                s.copy(
+                                        fsrPin = pin.toIntOrNull() ?: s.fsrPin,
+                                        fsrPullupOhm = pull.toIntOrNull() ?: s.fsrPullupOhm,
+                                        fsrSoftThresholdN = (soft.toFloatOrNull()
+                                                        ?: s.fsrSoftThresholdN),
+                                        fsrHardMaxN = (hard.toFloatOrNull() ?: s.fsrHardMaxN)
+                                )
+                        )
+                        onDismiss()
+                    }
+            ) { Text(stringResource(R.string.generic_ok)) }
         }
     }
 }
 
 @Composable
 private fun FlexDialog(
-    s: EspSettings,
-    currentFlexOhm: Float,
-    onDismiss: () -> Unit,
-    onChange: (EspSettings) -> Unit
+        s: EspSettings,
+        currentFlexOhm: Float,
+        onDismiss: () -> Unit,
+        onChange: (EspSettings) -> Unit
 ) {
     var pin by remember(s.flexPin) { mutableStateOf(s.flexPin.toString()) }
     var pull by remember(s.flexPullupOhm) { mutableStateOf(s.flexPullupOhm.toString()) }
@@ -353,53 +312,45 @@ private fun FlexDialog(
 
     BaseDialog(stringResource(R.string.flex_settings), onDismiss) {
         Text(
-            "${stringResource(R.string.flex_current_resistance)}: ${pretty(currentFlexOhm)} Ω",
-            style = MaterialTheme.typography.bodyMedium
+                "${stringResource(R.string.flex_current_resistance)}: ${pretty(currentFlexOhm)} Ω",
+                style = MaterialTheme.typography.bodyMedium
         )
         NumberField(stringResource(R.string.flex_pin), pin) { pin = it }
-        NumberField(
-            stringResource(R.string.flex_unfolded),
-            straight
-        ) { straight = it }
-        NumberField(
-            stringResource(R.string.flex_folded),
-            bend
-        ) { bend = it }
-        NumberField(
-            stringResource(R.string.fsr_pullup),
-            pull
-        ) { pull = it }
+        NumberField(stringResource(R.string.flex_unfolded), straight) { straight = it }
+        NumberField(stringResource(R.string.flex_folded), bend) { bend = it }
+        NumberField(stringResource(R.string.fsr_pullup), pull) { pull = it }
 
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = {
-                onChange(
-                    s.copy(
-                        flexPin = pin.toIntOrNull() ?: s.flexPin,
-                        flexStraightOhm = straight.toIntOrNull() ?: s.flexStraightOhm,
-                        flexBendOhm = bend.toIntOrNull() ?: s.flexBendOhm,
-                        flexPullupOhm = pull.toIntOrNull() ?: s.flexPullupOhm
-                    )
-                )
-                onDismiss()
-            }) { Text(stringResource(R.string.generic_ok)) }
+            Button(
+                    onClick = {
+                        onChange(
+                                s.copy(
+                                        flexPin = pin.toIntOrNull() ?: s.flexPin,
+                                        flexStraightOhm = straight.toIntOrNull()
+                                                        ?: s.flexStraightOhm,
+                                        flexBendOhm = bend.toIntOrNull() ?: s.flexBendOhm,
+                                        flexPullupOhm = pull.toIntOrNull() ?: s.flexPullupOhm
+                                )
+                        )
+                        onDismiss()
+                    }
+            ) { Text(stringResource(R.string.generic_ok)) }
         }
     }
 }
 
 @Composable
-private fun VibroDialog(
-    s: EspSettings,
-    onDismiss: () -> Unit,
-    onChange: (EspSettings) -> Unit
-) {
-    var mode by remember { mutableStateOf(if (s.vibroMode == 0) VibMode.Constant else VibMode.Pulse) }
+private fun VibroDialog(s: EspSettings, onDismiss: () -> Unit, onChange: (EspSettings) -> Unit) {
+    var mode by remember {
+        mutableStateOf(if (s.vibroMode == 0) VibMode.Constant else VibMode.Pulse)
+    }
 
     var pin by remember { mutableStateOf(s.vibroPin.toString()) }
 
     var intensity by remember {
         mutableStateOf(
-            ((s.vibroSoftPower.coerceIn(0, 255) * 100) / 255).coerceIn(0, 100).toString()
+                ((s.vibroSoftPower.coerceIn(0, 255) * 100) / 255).coerceIn(0, 100).toString()
         )
     }
 
@@ -412,12 +363,7 @@ private fun VibroDialog(
 
         return if (mode == VibMode.Constant) {
             val freq = s.vibroFreqHz
-            Quad(
-                0,
-                freq,
-                softPower,
-                s.vibroPulseBase
-            )
+            Quad(0, freq, softPower, s.vibroPulseBase)
         } else {
             val on = max(1, onMs.toIntOrNull() ?: 150)
             val off = max(1, offMs.toIntOrNull() ?: 150)
@@ -426,12 +372,7 @@ private fun VibroDialog(
 
             val base = ((intensityPct * 200) / 100).coerceIn(0, 255)
 
-            Quad(
-                1,
-                freq,
-                softPower,
-                base
-            )
+            Quad(1, freq, softPower, base)
         }
     }
 
@@ -439,18 +380,19 @@ private fun VibroDialog(
         NumberField(stringResource(R.string.vibro_pin), pin) { pin = it }
 
         Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
         ) {
             Text(stringResource(R.string.vibro_mode))
             SegmentedButtons(
-                items = listOf(
-                    stringResource(R.string.vibro_continuous),
-                    stringResource(R.string.vibro_pulse)
-                ),
-                selectedIndex = if (mode == VibMode.Constant) 0 else 1,
-                onSelect = { idx -> mode = if (idx == 0) VibMode.Constant else VibMode.Pulse }
+                    items =
+                            listOf(
+                                    stringResource(R.string.vibro_continuous),
+                                    stringResource(R.string.vibro_pulse)
+                            ),
+                    selectedIndex = if (mode == VibMode.Constant) 0 else 1,
+                    onSelect = { idx -> mode = if (idx == 0) VibMode.Constant else VibMode.Pulse }
             )
         }
 
@@ -463,21 +405,23 @@ private fun VibroDialog(
 
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = {
-                val (modeInt, freqHz, softPower, pulseBase) = toDeviceValues()
-                onChange(
-                    s.copy(
-                        vibroPin = pin.toIntOrNull() ?: s.vibroPin,
-                        vibroMode = modeInt,
-                        vibroFreqHz = freqHz,
-                        vibroSoftPower = softPower,
-                        vibroPulseBase = pulseBase,
-                        vibroMinDuty = 0,
-                        vibroMaxDuty = 255
-                    )
-                )
-                onDismiss()
-            }) { Text(stringResource(R.string.generic_ok)) }
+            Button(
+                    onClick = {
+                        val (modeInt, freqHz, softPower, pulseBase) = toDeviceValues()
+                        onChange(
+                                s.copy(
+                                        vibroPin = pin.toIntOrNull() ?: s.vibroPin,
+                                        vibroMode = modeInt,
+                                        vibroFreqHz = freqHz,
+                                        vibroSoftPower = softPower,
+                                        vibroPulseBase = pulseBase,
+                                        vibroMinDuty = 0,
+                                        vibroMaxDuty = 255
+                                )
+                        )
+                        onDismiss()
+                    }
+            ) { Text(stringResource(R.string.generic_ok)) }
         }
     }
 }
@@ -486,11 +430,11 @@ private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, v
 
 @Composable
 private fun ServoDialog(
-    s: EspSettings,
-    currentServoDeg: Float,
-    onDismiss: () -> Unit,
-    onChange: (EspSettings) -> Unit,
-    onLiveChange: (EspSettings) -> Unit
+        s: EspSettings,
+        currentServoDeg: Float,
+        onDismiss: () -> Unit,
+        onChange: (EspSettings) -> Unit,
+        onLiveChange: (EspSettings) -> Unit
 ) {
     var pin by remember { mutableStateOf(s.servoPin.toString()) }
     var min by remember { mutableStateOf(s.servoMinDeg.toString()) }
@@ -501,9 +445,7 @@ private fun ServoDialog(
     val minV = min.toIntOrNull() ?: s.servoMinDeg
     val maxV = max.toIntOrNull() ?: s.servoMaxDeg
     var slider by remember {
-        mutableStateOf(
-            (deg.toIntOrNull() ?: s.servoManualDeg).coerceIn(minV, maxV).toFloat()
-        )
+        mutableStateOf((deg.toIntOrNull() ?: s.servoManualDeg).coerceIn(minV, maxV).toFloat())
     }
 
     fun buildSettingsWith(angle: Int): EspSettings {
@@ -511,11 +453,11 @@ private fun ServoDialog(
         val maxAngle = max.toIntOrNull() ?: s.servoMaxDeg
         val clamped = angle.coerceIn(minAngle, maxAngle)
         return s.copy(
-            servoPin = pin.toIntOrNull() ?: s.servoPin,
-            servoMinDeg = minAngle,
-            servoMaxDeg = maxAngle,
-            servoManual = if (manual) 1 else 0,
-            servoManualDeg = clamped
+                servoPin = pin.toIntOrNull() ?: s.servoPin,
+                servoMinDeg = minAngle,
+                servoMaxDeg = maxAngle,
+                servoManual = if (manual) 1 else 0,
+                servoManualDeg = clamped
         )
     }
 
@@ -526,8 +468,8 @@ private fun ServoDialog(
 
     BaseDialog(stringResource(R.string.servo_settings), onDismiss) {
         Text(
-            "${stringResource(R.string.servo_current_angle)}: ${pretty(currentServoDeg)} °",
-            style = MaterialTheme.typography.bodyMedium
+                "${stringResource(R.string.servo_current_angle)}: ${pretty(currentServoDeg)} °",
+                style = MaterialTheme.typography.bodyMedium
         )
         NumberField(stringResource(R.string.servo_pin), pin) { pin = it }
         NumberField(stringResource(R.string.servo_min_angle), min) {
@@ -539,94 +481,88 @@ private fun ServoDialog(
             if (manual) pushImmediate(slider.toInt())
         }
         Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
         ) {
             Text(stringResource(R.string.servo_manual_control))
             Switch(
-                checked = manual,
-                onCheckedChange = {
-                    manual = it
-                    pushImmediate(slider.toInt())
-                }
+                    checked = manual,
+                    onCheckedChange = {
+                        manual = it
+                        pushImmediate(slider.toInt())
+                    }
             )
         }
         if (manual) {
             Slider(
-                value = slider,
-                onValueChange = {
-                    slider = it
-                    deg = it.toInt().toString()
-                    pushImmediate(it.toInt())
-                },
-                valueRange = (min.toIntOrNull() ?: s.servoMinDeg).toFloat()..
-                        (max.toIntOrNull() ?: s.servoMaxDeg).toFloat(),
-                steps = max(
-                    0,
-                    (max.toIntOrNull() ?: s.servoMaxDeg) - (min.toIntOrNull() ?: s.servoMinDeg)
-                )
+                    value = slider,
+                    onValueChange = {
+                        slider = it
+                        deg = it.toInt().toString()
+                        pushImmediate(it.toInt())
+                    },
+                    valueRange =
+                            (min.toIntOrNull() ?: s.servoMinDeg).toFloat()..(max.toIntOrNull()
+                                                    ?: s.servoMaxDeg).toFloat(),
+                    steps =
+                            max(
+                                    0,
+                                    (max.toIntOrNull()
+                                            ?: s.servoMaxDeg) - (min.toIntOrNull() ?: s.servoMinDeg)
+                            )
             )
             Text(
-                "${stringResource(R.string.servo_manual_angle)}: ${slider.toInt()}°",
-                style = MaterialTheme.typography.bodySmall
+                    "${stringResource(R.string.servo_manual_angle)}: ${slider.toInt()}°",
+                    style = MaterialTheme.typography.bodySmall
             )
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = {
-                val finalCfg = buildSettingsWith(slider.toInt())
-                onChange(finalCfg)
-                onDismiss()
-            }) {
-                Text(stringResource(R.string.generic_ok))
-            }
+            Button(
+                    onClick = {
+                        val finalCfg = buildSettingsWith(slider.toInt())
+                        onChange(finalCfg)
+                        onDismiss()
+                    }
+            ) { Text(stringResource(R.string.generic_ok)) }
         }
     }
 }
 
 @Composable
 private fun BaseDialog(
-    title: String,
-    onDismiss: () -> Unit,
-    content: @Composable ColumnScope.() -> Unit
+        title: String,
+        onDismiss: () -> Unit,
+        content: @Composable ColumnScope.() -> Unit
 ) {
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(
-                Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                content()
+            onDismissRequest = onDismiss,
+            title = { Text(title) },
+            text = {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    content()
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.device_cancel)) }
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.device_cancel))
-            }
-        }
     )
 }
 
 @Composable
 private fun NumberField(label: String, value: String, onValue: (String) -> Unit) {
     OutlinedTextField(
-        value = value,
-        onValueChange = { onValue(it.filter { ch -> ch.isDigit() }) },
-        singleLine = true,
-        label = { Text(label) }
+            value = value,
+            onValueChange = { onValue(it.filter { ch -> ch.isDigit() }) },
+            singleLine = true,
+            label = { Text(label) }
     )
 }
 
 @Composable
-private fun SegmentedButtons(
-    items: List<String>,
-    selectedIndex: Int,
-    onSelect: (Int) -> Unit
-) {
+private fun SegmentedButtons(items: List<String>, selectedIndex: Int, onSelect: (Int) -> Unit) {
     require(items.size >= 2)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items.forEachIndexed { i, label ->

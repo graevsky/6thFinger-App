@@ -28,10 +28,7 @@ import com.example.a6thfingercontrollapp.ble.BleDeviceUi
 import com.example.a6thfingercontrollapp.data.LastDevice
 
 @Composable
-fun ConnectScreen(
-    vm: BleViewModel,
-    permissionsGranted: Boolean
-) {
+fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
     val status by vm.state.collectAsState()
     val devices by vm.devices.collectAsState()
     val last by vm.lastDevice.collectAsState()
@@ -39,74 +36,71 @@ fun ConnectScreen(
     val connectingText = stringResource(R.string.ble_connecting)
     val connectedText = stringResource(R.string.ble_connected)
 
-    val uiStatus = when {
-        status.status.contains("discover", ignoreCase = true) -> connectingText
-        status.status.contains("subscribed", ignoreCase = true) -> connectedText
-        else -> status.status
-    }
+    val uiStatus =
+            when {
+                status.status.contains("discover", ignoreCase = true) -> connectingText
+                status.status.contains("subscribed", ignoreCase = true) -> connectedText
+                else -> status.status
+            }
 
     val isConnected = uiStatus.contains(connectedText, ignoreCase = true)
 
-    val lastAlias: String? = when (val ld = last) {
-        null -> null
-        else -> vm.aliasFlow(ld.address).collectAsState(initial = null).value
-    }
+    val lastAlias: String? =
+            when (val ld = last) {
+                null -> null
+                else -> vm.aliasFlow(ld.address).collectAsState(initial = null).value
+            }
 
     Scaffold { inner ->
         Column(
-            Modifier
-                .padding(inner)
-                .padding(16.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                Modifier.padding(inner).padding(16.dp).fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                "${stringResource(R.string.ble_status)}: $uiStatus",
-                style = MaterialTheme.typography.titleMedium
+                    "${stringResource(R.string.ble_status)}: $uiStatus",
+                    style = MaterialTheme.typography.titleMedium
             )
 
             LastDeviceCard(
-                last = last,
-                alias = lastAlias,
-                isConnected = isConnected,
-                onConnect = { addr -> vm.connect(addr) },
-                onDisconnect = { vm.disconnect() }
+                    last = last,
+                    alias = lastAlias,
+                    isConnected = isConnected,
+                    onConnect = { addr -> vm.connect(addr) },
+                    onDisconnect = { vm.disconnect() }
             )
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
             ) {
                 Button(
-                    onClick = { if (permissionsGranted && vm.isBleReady()) vm.scan() },
-                    enabled = permissionsGranted && !isConnected
-                ) {
-                    Text(stringResource(R.string.ble_scan))
-                }
+                        onClick = { if (permissionsGranted && vm.isBleReady()) vm.scan() },
+                        enabled = permissionsGranted && !isConnected
+                ) { Text(stringResource(R.string.ble_scan)) }
                 if (!permissionsGranted) {
                     Text(stringResource(R.string.ble_access_denied))
                 }
             }
 
             Text(
-                stringResource(R.string.ble_available_devices),
-                style = MaterialTheme.typography.titleMedium
+                    stringResource(R.string.ble_available_devices),
+                    style = MaterialTheme.typography.titleMedium
             )
 
             LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(devices, key = { it.address }) { d: BleDeviceUi ->
                     val alias by vm.aliasFlow(d.address).collectAsState(initial = null)
                     DeviceItem(
-                        title = (alias ?: d.name).ifBlank { alias ?: d.name },
-                        address = d.address,
-                        isConnected = isConnected,
-                        onClick = {
-                            vm.saveLastDevice(d.name, d.address)
-                            vm.connect(d.address)
-                        }
+                            title = (alias ?: d.name).ifBlank { alias ?: d.name },
+                            address = d.address,
+                            isConnected = isConnected,
+                            onClick = {
+                                vm.saveLastDevice(d.name, d.address)
+                                vm.connect(d.address)
+                            }
                     )
                 }
             }
@@ -120,17 +114,14 @@ fun ConnectScreen(
 
 @Composable
 private fun LastDeviceCard(
-    last: LastDevice?,
-    alias: String?,
-    isConnected: Boolean,
-    onConnect: (String) -> Unit,
-    onDisconnect: () -> Unit
+        last: LastDevice?,
+        alias: String?,
+        isConnected: Boolean,
+        onConnect: (String) -> Unit,
+        onDisconnect: () -> Unit
 ) {
     Card(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(R.string.device_last), style = MaterialTheme.typography.titleMedium)
             if (last == null) {
                 Text(stringResource(R.string.device_no_stored))
@@ -139,9 +130,9 @@ private fun LastDeviceCard(
                 Text(title.ifBlank { stringResource(R.string.device_no_name) })
                 Text(last.address, style = MaterialTheme.typography.bodySmall)
                 Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isConnected) {
                         OutlinedButton(onClick = onDisconnect) {
@@ -159,27 +150,21 @@ private fun LastDeviceCard(
 }
 
 @Composable
-private fun DeviceItem(
-    title: String,
-    address: String,
-    isConnected: Boolean,
-    onClick: () -> Unit
-) {
+private fun DeviceItem(title: String, address: String, isConnected: Boolean, onClick: () -> Unit) {
     Card(
-        Modifier
-            .fillMaxWidth()
-            .then(if (!isConnected) Modifier.clickable { onClick() } else Modifier)
+            Modifier.fillMaxWidth()
+                    .then(if (!isConnected) Modifier.clickable { onClick() } else Modifier)
     ) {
         Column(Modifier.padding(12.dp)) {
             Text(
-                title.ifBlank { stringResource(R.string.device_no_name) },
-                style = MaterialTheme.typography.titleMedium
+                    title.ifBlank { stringResource(R.string.device_no_name) },
+                    style = MaterialTheme.typography.titleMedium
             )
             Text(address, style = MaterialTheme.typography.bodySmall)
             if (isConnected) {
                 Text(
-                    stringResource(R.string.device_already_connected),
-                    style = MaterialTheme.typography.bodySmall
+                        stringResource(R.string.device_already_connected),
+                        style = MaterialTheme.typography.bodySmall
                 )
             }
         }

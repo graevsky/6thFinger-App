@@ -36,50 +36,32 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     val lastAppliedSettings: StateFlow<EspSettings> = _lastAppliedSettings
 
     val state: StateFlow<Telemetry> =
-        client.state.stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            Telemetry()
-        )
+            client.state.stateIn(viewModelScope, SharingStarted.Eagerly, Telemetry())
 
     val devices: StateFlow<List<BleDeviceUi>> =
-        client.devices.stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            emptyList()
-        )
+            client.devices.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val lastDevice: StateFlow<LastDevice?> =
-        lastStore.lastDevice.stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            null
-        )
+            lastStore.lastDevice.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val activeAddress: StateFlow<String> =
-        lastDevice.map { it?.address.orEmpty() }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.Eagerly,
-                ""
-            )
+            lastDevice
+                    .map { it?.address.orEmpty() }
+                    .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     val activeAlias: StateFlow<String> =
-        activeAddress.flatMapLatest { addr ->
-            if (addr.isEmpty()) {
-                flowOf("")
-            } else {
-                aliasStore.alias(addr).map { it ?: "" }
-            }
-        }.stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            ""
-        )
+            activeAddress
+                    .flatMapLatest { addr ->
+                        if (addr.isEmpty()) {
+                            flowOf("")
+                        } else {
+                            aliasStore.alias(addr).map { it ?: "" }
+                        }
+                    }
+                    .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     val appLanguage: StateFlow<String> =
-        appSettings.getLanguage()
-            .stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
+            appSettings.getLanguage().stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
 
     init {
         viewModelScope.launch {
@@ -111,18 +93,14 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     fun aliasFlow(address: String): Flow<String?> = aliasStore.alias(address)
 
     fun saveLastDevice(name: String, address: String) {
-        viewModelScope.launch {
-            lastStore.save(name, address)
-        }
+        viewModelScope.launch { lastStore.save(name, address) }
     }
 
     fun renameActive(newAlias: String) {
         val addr = activeAddress.value
         if (addr.isEmpty()) return
 
-        viewModelScope.launch {
-            aliasStore.setAlias(addr, newAlias.trim())
-        }
+        viewModelScope.launch { aliasStore.setAlias(addr, newAlias.trim()) }
     }
 
     fun updateActiveSettings(update: (EspSettings) -> EspSettings) {
@@ -133,9 +111,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         val next = update(current)
 
         _uiSettings.value = next
-        viewModelScope.launch {
-            settingsStore.set(addr, next)
-        }
+        viewModelScope.launch { settingsStore.set(addr, next) }
     }
 
     fun applyAndSaveToBoard(): Boolean {
@@ -147,9 +123,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
         if (ok) {
             _lastAppliedSettings.value = cfg
-            viewModelScope.launch {
-                settingsStore.set(addr, cfg)
-            }
+            viewModelScope.launch { settingsStore.set(addr, cfg) }
         }
 
         return ok
@@ -169,7 +143,6 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-
     fun resetToDefaults() {
         val defaults = EspSettings()
         _uiSettings.value = defaults
@@ -180,8 +153,6 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setAppLanguage(language: String) {
-        viewModelScope.launch {
-            appSettings.setLanguage(language)
-        }
+        viewModelScope.launch { appSettings.setLanguage(language) }
     }
 }

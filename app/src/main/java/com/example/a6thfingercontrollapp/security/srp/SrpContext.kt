@@ -5,14 +5,14 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 class SrpContext(
-    username: String,
-    password: String?,
-    primeHex: String,
-    generatorHex: String,
-    hashAlg: String = "SHA-1",
-    multiplierHex: String? = null,
-    bitsRandom: Int = 1024,
-    bitsSalt: Int = 64
+        username: String,
+        password: String?,
+        primeHex: String,
+        generatorHex: String,
+        hashAlg: String = "SHA-1",
+        multiplierHex: String? = null,
+        bitsRandom: Int = 1024,
+        bitsSalt: Int = 64
 ) {
 
     private val hashAlgName = hashAlg
@@ -36,12 +36,12 @@ class SrpContext(
     private val bitsSaltInternal = bitsSalt
 
     private fun conv(arg: Any): ByteArray =
-        when (arg) {
-            is BigInteger -> SrpUtils.intToBytes(arg)
-            is ByteArray -> arg
-            is String -> arg.toByteArray(Charsets.UTF_8)
-            else -> error("Unsupported type in hash: ${arg::class}")
-        }
+            when (arg) {
+                is BigInteger -> SrpUtils.intToBytes(arg)
+                is ByteArray -> arg
+                is String -> arg.toByteArray(Charsets.UTF_8)
+                else -> error("Unsupported type in hash: ${arg::class}")
+            }
 
     private fun digestBytes(data: ByteArray): ByteArray {
         val md = MessageDigest.getInstance(hashAlgName)
@@ -107,10 +107,10 @@ class SrpContext(
 
     // S = (B - (k * g^x)) ^ (a + (u * x)) % N
     fun getClientPremasterSecret(
-        passwordHash: BigInteger,
-        serverPublic: BigInteger,
-        clientPrivate: BigInteger,
-        commonSecret: BigInteger
+            passwordHash: BigInteger,
+            serverPublic: BigInteger,
+            clientPrivate: BigInteger,
+            commonSecret: BigInteger
     ): BigInteger {
         val passwordVerifier = getCommonPasswordVerifier(passwordHash)
         val base = serverPublic.subtract(mult.multiply(passwordVerifier)).mod(prime)
@@ -125,10 +125,10 @@ class SrpContext(
 
     // M = H(H(N) XOR H(g) | H(U) | s | A | B | K)
     fun getCommonSessionKeyProof(
-        sessionKey: ByteArray,
-        saltBytes: ByteArray,
-        serverPublic: BigInteger,
-        clientPublic: BigInteger
+            sessionKey: ByteArray,
+            saltBytes: ByteArray,
+            serverPublic: BigInteger,
+            clientPublic: BigInteger
     ): ByteArray {
         val hN = hashToInt(prime)
         val hG = hashToInt(gen)
@@ -136,26 +136,25 @@ class SrpContext(
         val hU = hashToInt(user)
 
         return hashBytes(
-            xorNg,
-            SrpUtils.intToBytes(hU),
-            saltBytes,
-            clientPublic,
-            serverPublic,
-            sessionKey
+                xorNg,
+                SrpUtils.intToBytes(hU),
+                saltBytes,
+                clientPublic,
+                serverPublic,
+                sessionKey
         )
     }
 
     // H(A | M | K)
     fun getCommonSessionKeyProofHash(
-        sessionKey: ByteArray,
-        sessionKeyProof: ByteArray,
-        clientPublic: BigInteger
+            sessionKey: ByteArray,
+            sessionKeyProof: ByteArray,
+            clientPublic: BigInteger
     ): ByteArray {
         return hashBytes(clientPublic, sessionKeyProof, sessionKey)
     }
 
     fun generateClientPrivate(): BigInteger = generateRandom()
 
-    fun getClientPublic(clientPrivate: BigInteger): BigInteger =
-        gen.modPow(clientPrivate, prime)
+    fun getClientPublic(clientPrivate: BigInteger): BigInteger = gen.modPow(clientPrivate, prime)
 }

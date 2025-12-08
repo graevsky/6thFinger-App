@@ -40,16 +40,15 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             val st = repo.resolveInitialState()
-            _auth.value = when (st) {
-                is AuthState.Guest -> UiAuthState.Guest
-                is AuthState.LoggedIn -> UiAuthState.LoggedIn(st.username)
-                is AuthState.Unauthenticated -> UiAuthState.Unauthenticated
-            }
+            _auth.value =
+                    when (st) {
+                        is AuthState.Guest -> UiAuthState.Guest
+                        is AuthState.LoggedIn -> UiAuthState.LoggedIn(st.username)
+                        is AuthState.Unauthenticated -> UiAuthState.Unauthenticated
+                    }
         }
 
-        viewModelScope.launch {
-            uploadSettingsWorker()
-        }
+        viewModelScope.launch { uploadSettingsWorker() }
 
         viewModelScope.launch {
             auth.collectLatest { state ->
@@ -159,8 +158,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                     val lang = payload["language"].toString()
                     appSettings.setLanguage(lang)
                 }
-            } catch (_: Exception) {
-            }
+            } catch (_: Exception) {}
         }
     }
 
@@ -201,9 +199,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     suspend fun pushSettingsForDeviceAddress(
-        address: String,
-        alias: String?,
-        settings: EspSettings
+            address: String,
+            alias: String?,
+            settings: EspSettings
     ) {
         val dev = repo.ensureDevice(address, alias)
         repo.pushDeviceSettings(dev.id, settings)

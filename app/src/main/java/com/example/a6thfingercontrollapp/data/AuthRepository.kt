@@ -20,11 +20,8 @@ import org.json.JSONObject
 sealed class AuthState {
     object Unauthenticated : AuthState()
     object Guest : AuthState()
-    data class LoggedIn(
-        val username: String,
-        val accessToken: String,
-        val refreshToken: String
-    ) : AuthState()
+    data class LoggedIn(val username: String, val accessToken: String, val refreshToken: String) :
+            AuthState()
 }
 
 class AuthRepository(context: Context) {
@@ -39,8 +36,7 @@ class AuthRepository(context: Context) {
         return when {
             s.isGuest -> AuthState.Guest
             s.accessToken != null && s.username != null && s.refreshToken != null ->
-                AuthState.LoggedIn(s.username, s.accessToken, s.refreshToken)
-
+                    AuthState.LoggedIn(s.username, s.accessToken, s.refreshToken)
             else -> AuthState.Unauthenticated
         }
     }
@@ -58,19 +54,20 @@ class AuthRepository(context: Context) {
             val Nhex = params.N.replace("\\s+".toRegex(), "")
             val ghex = params.g.trim()
 
-            val reg = SrpRegister.generateVerifier(
-                username = normalized,
-                password = password,
-                primeHex = Nhex,
-                generatorHex = ghex
-            )
+            val reg =
+                    SrpRegister.generateVerifier(
+                            username = normalized,
+                            password = password,
+                            primeHex = Nhex,
+                            generatorHex = ghex
+                    )
 
             api.register(
-                RegisterIn(
-                    username = normalized,
-                    salt = reg.saltHex,
-                    verifier = reg.verifierHex
-                )
+                    RegisterIn(
+                            username = normalized,
+                            salt = reg.saltHex,
+                            verifier = reg.verifierHex
+                    )
             )
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
@@ -86,23 +83,25 @@ class AuthRepository(context: Context) {
             val Nhex = start.N.replace("\\s+".toRegex(), "")
             val ghex = start.g.trim()
 
-            val loginRes = SrpLogin.clientLogin(
-                username = normalized,
-                password = password,
-                saltHex = start.salt,
-                BHex = start.B,
-                primeHex = Nhex,
-                generatorHex = ghex
-            )
+            val loginRes =
+                    SrpLogin.clientLogin(
+                            username = normalized,
+                            password = password,
+                            saltHex = start.salt,
+                            BHex = start.B,
+                            primeHex = Nhex,
+                            generatorHex = ghex
+                    )
 
-            val finish = api.loginFinish(
-                LoginFinishIn(
-                    username = normalized,
-                    A = loginRes.A,
-                    M1 = loginRes.M1,
-                    salt = start.salt
-                )
-            )
+            val finish =
+                    api.loginFinish(
+                            LoginFinishIn(
+                                    username = normalized,
+                                    A = loginRes.A,
+                                    M1 = loginRes.M1,
+                                    salt = start.salt
+                            )
+                    )
 
             store.saveTokens(normalized, finish.access_token, finish.refresh_token)
             return AuthState.LoggedIn(normalized, finish.access_token, finish.refresh_token)
@@ -115,7 +114,6 @@ class AuthRepository(context: Context) {
         store.logout()
         return AuthState.Unauthenticated
     }
-
 
     suspend fun pullAppSettings(): Map<String, Any?>? {
         val s = stored.first()
@@ -148,11 +146,9 @@ class AuthRepository(context: Context) {
 
         try {
             api.postDeviceSettings(
-                auth = "Bearer $token",
-                deviceId = deviceId,
-                body = DeviceSettingsIn(
-                    payload = payload
-                )
+                    auth = "Bearer $token",
+                    deviceId = deviceId,
+                    body = DeviceSettingsIn(payload = payload)
             )
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
@@ -164,10 +160,7 @@ class AuthRepository(context: Context) {
         val token = s.accessToken ?: throw Exception("Not authenticated")
 
         return try {
-            val res = api.getDeviceSettings(
-                auth = "Bearer $token",
-                deviceId = deviceId
-            )
+            val res = api.getDeviceSettings(auth = "Bearer $token", deviceId = deviceId)
             payloadToEsp(res.payload)
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
@@ -204,16 +197,18 @@ class AuthRepository(context: Context) {
         val auth = "Bearer $token"
 
         try {
-            val existing = api.listDevices(auth)
-                .firstOrNull { it.address.equals(address, ignoreCase = true) }
+            val existing =
+                    api.listDevices(auth).firstOrNull {
+                        it.address.equals(address, ignoreCase = true)
+                    }
 
             if (existing != null) {
                 val desiredAlias = alias?.takeIf { it.isNotBlank() }
                 return if (desiredAlias != null && existing.alias != desiredAlias) {
                     api.updateDevice(
-                        auth = auth,
-                        deviceId = existing.id,
-                        body = DeviceUpdate(alias = desiredAlias)
+                            auth = auth,
+                            deviceId = existing.id,
+                            body = DeviceUpdate(alias = desiredAlias)
                     )
                 } else {
                     existing
@@ -224,13 +219,7 @@ class AuthRepository(context: Context) {
         }
 
         return try {
-            api.createDevice(
-                auth = auth,
-                body = DeviceCreate(
-                    address = address,
-                    alias = alias
-                )
-            )
+            api.createDevice(auth = auth, body = DeviceCreate(address = address, alias = alias))
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }

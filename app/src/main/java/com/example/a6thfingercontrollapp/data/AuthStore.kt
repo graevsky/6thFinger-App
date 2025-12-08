@@ -11,10 +11,10 @@ import kotlinx.coroutines.flow.map
 private val Context.authDataStore by preferencesDataStore(name = "auth_store")
 
 data class AuthStateStored(
-    val username: String?,
-    val accessToken: String?,
-    val refreshToken: String?,
-    val isGuest: Boolean
+        val username: String?,
+        val accessToken: String?,
+        val refreshToken: String?,
+        val isGuest: Boolean
 )
 
 class AuthStore(private val context: Context) {
@@ -27,14 +27,14 @@ class AuthStore(private val context: Context) {
     }
 
     val authState: Flow<AuthStateStored> =
-        context.authDataStore.data.map { prefs ->
-            AuthStateStored(
-                username = prefs[Keys.USERNAME],
-                accessToken = prefs[Keys.ACCESS],
-                refreshToken = prefs[Keys.REFRESH],
-                isGuest = prefs[Keys.IS_GUEST] ?: false
-            )
-        }
+            context.authDataStore.data.map { prefs ->
+                AuthStateStored(
+                        username = prefs[Keys.USERNAME],
+                        accessToken = prefs[Keys.ACCESS],
+                        refreshToken = prefs[Keys.REFRESH],
+                        isGuest = prefs[Keys.IS_GUEST] ?: false
+                )
+            }
 
     suspend fun saveTokens(username: String, access: String, refresh: String) {
         context.authDataStore.edit { prefs ->

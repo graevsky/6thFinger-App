@@ -19,11 +19,11 @@ class LastDeviceStore(private val context: Context) {
     }
 
     val lastDevice: Flow<LastDevice?> =
-        context.dataStore.data.map { prefs: Preferences ->
-            val addr = prefs[Keys.ADDRESS]
-            val name = prefs[Keys.NAME]
-            if (addr.isNullOrBlank()) null else LastDevice(name.orEmpty(), addr)
-        }
+            context.dataStore.data.map { prefs: Preferences ->
+                val addr = prefs[Keys.ADDRESS]
+                val name = prefs[Keys.NAME]
+                if (addr.isNullOrBlank()) null else LastDevice(name.orEmpty(), addr)
+            }
 
     suspend fun save(name: String, address: String) {
         context.dataStore.edit { prefs ->

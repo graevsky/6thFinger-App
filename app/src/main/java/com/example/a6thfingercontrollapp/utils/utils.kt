@@ -31,9 +31,9 @@ fun parseBackendError(e: Throwable): String {
 }
 
 private fun toErrorKey(err: String): String =
-    when (err.uppercase()) {
-        "USERNAME_TAKEN" -> "username_taken"
-        "WRONG_PASSWORD" -> "wrong_password"
-        "USER_NOT_FOUND" -> "user_not_found"
-        else -> "unknown_error"
-    }
+        when (err.uppercase()) {
+            "USERNAME_TAKEN" -> "username_taken"
+            "WRONG_PASSWORD" -> "wrong_password"
+            "USER_NOT_FOUND" -> "user_not_found"
+            else -> "unknown_error"
+        }
