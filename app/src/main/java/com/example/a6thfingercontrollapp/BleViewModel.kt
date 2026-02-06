@@ -24,6 +24,8 @@ import kotlinx.coroutines.launch
 
 class BleViewModel(app: Application) : AndroidViewModel(app) {
     private val client = BleRepository.get(app)
+    val rawCfgText = client.rawCfgText
+
     private val lastStore = LastDeviceStore(app)
     private val aliasStore = AliasStore(app)
     private val settingsStore = DeviceSettingsStore(app)
@@ -32,36 +34,36 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     private val _uiSettings = MutableStateFlow(EspSettings())
     val activeSettings: StateFlow<EspSettings> = _uiSettings
 
-    private val _lastAppliedSettings = MutableStateFlow(EspSettings())
+    private val _lastAppliedSettings = MutableStateFlow(_uiSettings.value)
     val lastAppliedSettings: StateFlow<EspSettings> = _lastAppliedSettings
 
     val state: StateFlow<Telemetry> =
-            client.state.stateIn(viewModelScope, SharingStarted.Eagerly, Telemetry())
+        client.state.stateIn(viewModelScope, SharingStarted.Eagerly, Telemetry())
 
     val devices: StateFlow<List<BleDeviceUi>> =
-            client.devices.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        client.devices.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val lastDevice: StateFlow<LastDevice?> =
-            lastStore.lastDevice.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        lastStore.lastDevice.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val activeAddress: StateFlow<String> =
-            lastDevice
-                    .map { it?.address.orEmpty() }
-                    .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+        lastDevice
+            .map { it?.address.orEmpty() }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     val activeAlias: StateFlow<String> =
-            activeAddress
-                    .flatMapLatest { addr ->
-                        if (addr.isEmpty()) {
-                            flowOf("")
-                        } else {
-                            aliasStore.alias(addr).map { it ?: "" }
-                        }
-                    }
-                    .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+        activeAddress
+            .flatMapLatest { addr ->
+                if (addr.isEmpty()) {
+                    flowOf("")
+                } else {
+                    aliasStore.alias(addr).map { it ?: "" }
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     val appLanguage: StateFlow<String> =
-            appSettings.getLanguage().stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
+        appSettings.getLanguage().stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
 
     init {
         viewModelScope.launch {
@@ -103,15 +105,33 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { aliasStore.setAlias(addr, newAlias.trim()) }
     }
 
-    fun updateActiveSettings(update: (EspSettings) -> EspSettings) {
-        val addr = activeAddress.value
-        if (addr.isEmpty()) return
-
+    fun updateActiveSettings(pairIndex: Int, update: (EspSettings) -> EspSettings) {
         val current = _uiSettings.value
         val next = update(current)
 
-        _uiSettings.value = next
-        viewModelScope.launch { settingsStore.set(addr, next) }
+        when (pairIndex) {
+            0 -> {
+                _uiSettings.value =
+                    next.copy(flexSettings = next.flexSettings, servoSettings = next.servoSettings)
+            }
+
+            1 -> {
+                _uiSettings.value =
+                    next.copy(flexSettings = next.flexSettings, servoSettings = next.servoSettings)
+            }
+
+            2 -> {
+                _uiSettings.value =
+                    next.copy(flexSettings = next.flexSettings, servoSettings = next.servoSettings)
+            }
+
+            3 -> {
+                _uiSettings.value =
+                    next.copy(flexSettings = next.flexSettings, servoSettings = next.servoSettings)
+            }
+        }
+
+        viewModelScope.launch { settingsStore.set(activeAddress.value, next) }
     }
 
     fun applyAndSaveToBoard(): Boolean {
@@ -128,6 +148,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
         return ok
     }
+
     fun applySettingsLive(update: (EspSettings) -> EspSettings) {
         val addr = activeAddress.value
         if (addr.isEmpty()) return

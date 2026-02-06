@@ -16,18 +16,33 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.content.ContextCompat
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicBoolean
 
 class BleClient(private val context: Context) {
-    private val manager: BluetoothManager? = context.getSystemService(BluetoothManager::class.java)
+
+    private val _rawCfgText = MutableStateFlow("")
+    val rawCfgText: StateFlow<String> = _rawCfgText.asStateFlow()
+
+    private var rawCfgInProgress = false
+    private val rawCfgBuf = StringBuilder()
+
+    private val TAG_CFG = "BLE_CFG"
+    private val TAG_CFG_JSON = "BLE_CFG_JSON"
+    private val TAG_TELE = "BLE_TELE"
+
+    private val manager: BluetoothManager? =
+        context.getSystemService(BluetoothManager::class.java)
 
     private val adapter: BluetoothAdapter?
         get() = manager?.adapter
@@ -42,11 +57,12 @@ class BleClient(private val context: Context) {
     private var chAck: BluetoothGattCharacteristic? = null
     private var chTele: BluetoothGattCharacteristic? = null
 
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val notifyQueue = ArrayDeque<BluetoothGattCharacteristic>()
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val _telemetry = MutableStateFlow(Telemetry())
     val telemetry: StateFlow<Telemetry> = _telemetry.asStateFlow()
-
     val state: StateFlow<Telemetry> = telemetry
 
     private val _settings = MutableStateFlow<EspSettings?>(null)
@@ -60,17 +76,22 @@ class BleClient(private val context: Context) {
     private val scanning = AtomicBoolean(false)
     private val connecting = AtomicBoolean(false)
 
-    private val cfgParser = ChunkParser()
     private val teleParser = ChunkParser()
+    private val cfgParser = ChunkParser()
+    private val ackParser = ChunkParser()
 
     private val writeMutex = Any()
 
-    @Volatile private var writeInProgress: Boolean = false
+    @Volatile
+    private var writeInProgress: Boolean = false
+    @Volatile
+    private var lastWriteOk: Boolean = true
 
-    @Volatile private var lastWriteOk: Boolean = true
 
-    fun start() {
-        // stub
+    @Volatile
+    private var teleUnlocked: Boolean = false
+
+    fun start() { /* no-op */
     }
 
     fun stop() {
@@ -102,8 +123,9 @@ class BleClient(private val context: Context) {
         _devices.value = emptyList()
         updateStatus("Scanning")
 
-        val settings =
-                ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
+        val settings = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .build()
 
         try {
             scanner?.startScan(null, settings, scanCallback)
@@ -117,35 +139,48 @@ class BleClient(private val context: Context) {
     }
 
     fun connectByAddress(addr: String) {
-        val dev =
-                try {
-                    adapter?.getRemoteDevice(addr)
-                } catch (_: IllegalArgumentException) {
-                    null
-                }
-
+        val dev = try {
+            adapter?.getRemoteDevice(addr)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
         if (dev == null) {
             updateStatus("Invalid device")
             return
         }
-
         connect(dev)
+    }
+
+    fun applySettings(settings: EspSettings): Boolean {
+        val base = JSONObject(settings.toJsonString())
+        base.put("type", "cfg_set")
+        val json = base.toString()
+        Log.d(TAG_CFG, "ANDROID_SEND_CFG_JSON = $json")
+        return writeJsonChunked(json)
     }
 
     fun requestConfig() {
         scope.launch {
-            kotlinx.coroutines.delay(200)
-            writeJsonChunked("{}")
+            delay(200)
+            val obj = JSONObject().apply { put("type", "cfg_get") }
+            Log.d(TAG_CFG, "ANDROID_SEND_CFG_GET = $obj")
+            writeJsonChunked(obj.toString())
         }
     }
 
-    fun applySettings(settings: EspSettings): Boolean {
-        val json = settings.toJsonString()
-        return writeJsonChunked(json)
+    private fun sendCfgOkOnce() {
+        if (teleUnlocked) return
+        teleUnlocked = true
+
+        scope.launch {
+            val obj = JSONObject().apply { put("type", "cfg_ok") }
+            Log.d(TAG_CFG, "ANDROID_SEND_CFG_OK = $obj")
+            writeJsonChunked(obj.toString())
+        }
     }
 
     private fun checkPerm(p: String): Boolean =
-            ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
+        ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
 
     private fun hasScanPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= 31) {
@@ -163,47 +198,47 @@ class BleClient(private val context: Context) {
         }
     }
 
-    private val scanCallback =
-            object : ScanCallback() {
-                @SuppressLint("MissingPermission")
-                override fun onScanResult(callbackType: Int, result: ScanResult) {
-                    val rec = result.scanRecord ?: return
-                    val uuids = rec.serviceUuids?.map { it.uuid } ?: emptyList()
+    private val scanCallback = object : ScanCallback() {
+        @SuppressLint("MissingPermission")
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            val rec = result.scanRecord ?: return
+            val dev = result.device ?: return
 
-                    if (!uuids.contains(NewBleConstants.SERVICE_UUID)) return
+            val uuids = rec.serviceUuids?.map { it.uuid } ?: emptyList()
+            val name = dev.name ?: rec.deviceName ?: ""
 
-                    val dev = result.device
-                    val list = _devices.value
+            if (!uuids.contains(NewBleConstants.SERVICE_UUID) &&
+                !name.contains("ESP32-Flex6", ignoreCase = true) &&
+                !name.contains("ESP32", ignoreCase = true)
+            ) return
 
-                    if (list.none { it.address == dev.address }) {
-                        val name = dev.name ?: rec.deviceName ?: "ESP32"
-                        _devices.value = list + BleDeviceUi(name = name, address = dev.address)
-                    }
-                }
-
-                override fun onScanFailed(errorCode: Int) {
-                    scanning.set(false)
-                    updateStatus("Scan failed: $errorCode")
-                }
+            val list = _devices.value
+            if (list.none { it.address == dev.address }) {
+                val displayName = if (name.isNotBlank()) name else "ESP32"
+                _devices.value = list + BleDeviceUi(name = displayName, address = dev.address)
             }
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            scanning.set(false)
+            updateStatus("Scan failed: $errorCode")
+        }
+    }
 
     @SuppressLint("MissingPermission")
     private fun stopScan() {
         if (!scanning.getAndSet(false)) return
         try {
-            if (hasScanPermission()) {
-                scanner?.stopScan(scanCallback)
-            }
-        } catch (_: SecurityException) {
-            updateStatus("Scan stop denied")
+            if (hasScanPermission()) scanner?.stopScan(scanCallback)
         } catch (_: Throwable) {
-            updateStatus("Scan stop error")
         }
     }
 
     @SuppressLint("MissingPermission")
     private fun connect(dev: BluetoothDevice) {
         if (connecting.getAndSet(true)) return
+
+        teleUnlocked = false
 
         if (!hasConnPermission()) {
             connecting.set(false)
@@ -213,271 +248,369 @@ class BleClient(private val context: Context) {
 
         updateStatus("Connecting")
 
-        gatt =
-                try {
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        dev.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
-                    } else {
-                        @Suppress("DEPRECATION") dev.connectGatt(context, false, gattCallback)
-                    }
-                } catch (_: Throwable) {
-                    connecting.set(false)
-                    updateStatus("Connect failed")
-                    null
-                }
+        gatt = try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                dev.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+            } else {
+                @Suppress("DEPRECATION")
+                dev.connectGatt(context, false, gattCallback)
+            }
+        } catch (_: Throwable) {
+            connecting.set(false)
+            updateStatus("Connect failed")
+            null
+        }
     }
 
     @SuppressLint("MissingPermission")
     private fun disconnect() {
         connecting.set(false)
+        teleUnlocked = false
 
         try {
-            if (hasConnPermission()) {
-                gatt?.disconnect()
-            }
-        } catch (_: Throwable) {}
-
+            if (hasConnPermission()) gatt?.disconnect()
+        } catch (_: Throwable) {
+        }
         try {
             gatt?.close()
-        } catch (_: Throwable) {}
+        } catch (_: Throwable) {
+        }
 
         gatt = null
         chCfgIn = null
         chCfgOut = null
         chAck = null
         chTele = null
+        notifyQueue.clear()
+
+        rawCfgInProgress = false
+        rawCfgBuf.clear()
+        _rawCfgText.value = ""
 
         updateStatus("Disconnected")
     }
 
-    private val gattCallback =
-            object : BluetoothGattCallback() {
+    private val gattCallback = object : BluetoothGattCallback() {
 
-                @SuppressLint("MissingPermission")
-                override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
-                    if (status == BluetoothGatt.GATT_SUCCESS &&
-                                    newState == BluetoothProfile.STATE_CONNECTED
-                    ) {
-                        updateStatus("Discovering")
-                        try {
-                            g.discoverServices()
-                        } catch (_: Throwable) {
-                            updateStatus("Service discovery error")
-                            disconnect()
-                        }
-                    } else {
-                        disconnect()
-                    }
+        @SuppressLint("MissingPermission")
+        override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
+            Log.d(TAG_CFG, "onConnectionStateChange status=$status newState=$newState")
+
+            if (status == BluetoothGatt.GATT_SUCCESS &&
+                newState == BluetoothProfile.STATE_CONNECTED
+            ) {
+                updateStatus("Discovering")
+                try {
+                    g.discoverServices()
+                } catch (_: Throwable) {
+                    updateStatus("Service discovery error")
+                    disconnect()
                 }
+            } else {
+                disconnect()
+            }
+        }
 
-                @SuppressLint("MissingPermission")
-                override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
-                    if (status != BluetoothGatt.GATT_SUCCESS) {
-                        updateStatus("Service discovery failed")
-                        disconnect()
-                        return
-                    }
+        @SuppressLint("MissingPermission")
+        override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
+            Log.d(TAG_CFG, "onServicesDiscovered status=$status")
 
-                    if (!hasConnPermission()) {
-                        updateStatus("No permission")
-                        disconnect()
-                        return
-                    }
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                updateStatus("Service discovery failed")
+                disconnect()
+                return
+            }
 
-                    val svc = g.getService(NewBleConstants.SERVICE_UUID)
-                    if (svc == null) {
-                        updateStatus("Service not found")
-                        disconnect()
-                        return
-                    }
+            if (!hasConnPermission()) {
+                updateStatus("No permission")
+                disconnect()
+                return
+            }
 
-                    chCfgIn = svc.getCharacteristic(NewBleConstants.CFG_IN_UUID)
-                    chCfgOut = svc.getCharacteristic(NewBleConstants.CFG_OUT_UUID)
-                    chAck = svc.getCharacteristic(NewBleConstants.ACK_UUID)
-                    chTele = svc.getCharacteristic(NewBleConstants.TELE_UUID)
+            val svc = g.getService(NewBleConstants.SERVICE_UUID)
+            Log.d(TAG_CFG, "getService(${NewBleConstants.SERVICE_UUID}) = $svc")
 
-                    if (chTele == null) {
-                        updateStatus("Telemetry char missing")
-                        disconnect()
-                        return
-                    }
+            if (svc == null) {
+                updateStatus("Service not found")
+                disconnect()
+                return
+            }
 
-                    enableNotify(g, chTele!!)
-                    chCfgOut?.let { enableNotify(g, it) } ?: updateStatus("CFG_OUT char missing")
-                    chAck?.let { enableNotify(g, it) } ?: updateStatus("ACK char missing")
-                    updateStatus("Subscribed (tele+cfg+ack)")
+            chCfgIn = svc.getCharacteristic(NewBleConstants.CFG_IN_UUID)
+            chCfgOut = svc.getCharacteristic(NewBleConstants.CFG_OUT_UUID)
+            chAck = svc.getCharacteristic(NewBleConstants.ACK_UUID)
+            chTele = svc.getCharacteristic(NewBleConstants.TELE_UUID)
+
+            Log.d(
+                TAG_CFG,
+                "Characteristics: " +
+                        "CFG_IN=${chCfgIn != null} " +
+                        "CFG_OUT=${chCfgOut != null} " +
+                        "ACK=${chAck != null} " +
+                        "TELE=${chTele != null}"
+            )
+
+            if (chCfgIn == null || chCfgOut == null || chAck == null || chTele == null) {
+                updateStatus("Characteristics missing")
+                disconnect()
+                return
+            }
+
+            notifyQueue.clear()
+            notifyQueue.addLast(chTele!!)
+            notifyQueue.addLast(chCfgOut!!)
+            notifyQueue.addLast(chAck!!)
+
+            enableNextNotify(g)
+        }
+
+        override fun onDescriptorWrite(
+            gatt: BluetoothGatt,
+            descriptor: BluetoothGattDescriptor,
+            status: Int
+        ) {
+            Log.d(
+                TAG_CFG,
+                "onDescriptorWrite uuid=${descriptor.uuid}, char=${descriptor.characteristic.uuid}, status=$status"
+            )
+
+            if (descriptor.uuid == NewBleConstants.CCC_UUID) {
+                if (notifyQueue.isNotEmpty()) notifyQueue.removeFirst()
+
+                if (notifyQueue.isNotEmpty()) {
+                    enableNextNotify(gatt)
+                } else {
+                    updateStatus("Subscribed (tele/cfg/ack)")
+                    Log.d(TAG_CFG, "requestConfig() after subscribe")
                     requestConfig()
                 }
-
-                override fun onCharacteristicChanged(
-                        g: BluetoothGatt,
-                        ch: BluetoothGattCharacteristic
-                ) {
-                    val bytes = ch.value ?: return
-
-                    val text = decodeAscii(bytes)
-
-                    when (ch.uuid) {
-                        NewBleConstants.CFG_OUT_UUID -> handleCfgChunk(text)
-                        NewBleConstants.ACK_UUID -> handleAck(text)
-                        NewBleConstants.TELE_UUID -> handleTeleChunk(text)
-                    }
-                }
-
-                override fun onDescriptorWrite(
-                        gatt: BluetoothGatt,
-                        descriptor: BluetoothGattDescriptor,
-                        status: Int
-                ) {}
-                override fun onCharacteristicWrite(
-                        gatt: BluetoothGatt,
-                        characteristic: BluetoothGattCharacteristic,
-                        status: Int
-                ) {
-                    lastWriteOk = (status == BluetoothGatt.GATT_SUCCESS)
-                    writeInProgress = false
-                }
             }
+        }
 
-    @SuppressLint("MissingPermission")
-    private fun enableNotify(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
-        try {
-            // Log.d("BLE_DBG", "enableNotify uuid=${ch.uuid}")
-            g.setCharacteristicNotification(ch, true)
+        override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
+            val bytes = ch.value ?: return
+            handleNotify(ch.uuid, bytes)
+        }
 
-            val ccc = ch.getDescriptor(NewBleConstants.CCC_UUID)
-            if (ccc != null) {
-                ccc.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                g.writeDescriptor(ccc)
-            } else {
-                updateStatus("No CCC for ${ch.uuid}")
-            }
-        } catch (_: SecurityException) {
-            updateStatus("Notify denied")
-        } catch (_: Throwable) {
-            updateStatus("Notify error")
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt,
+            ch: BluetoothGattCharacteristic,
+            value: ByteArray
+        ) {
+            handleNotify(ch.uuid, value)
+        }
+
+        override fun onCharacteristicWrite(
+            g: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            status: Int
+        ) {
+            Log.d(TAG_CFG, "onCharacteristicWrite uuid=${characteristic.uuid} status=$status")
+            lastWriteOk = (status == BluetoothGatt.GATT_SUCCESS)
+            writeInProgress = false
         }
     }
 
-    private fun handleAck(s: String) {
-        val text = s.trim()
-        val label =
-                try {
-                    val obj = JSONObject(text)
-                    val ok = obj.optBoolean("ack", false)
-                    if (ok) "ACK OK" else "ACK FAIL"
-                } catch (_: Throwable) {
-                    "ACK: $text"
-                }
-        updateStatus(label)
+    private fun handleNotify(uuid: java.util.UUID, bytes: ByteArray) {
+        val text = decodeAscii(bytes)
+
+        when (uuid) {
+            NewBleConstants.TELE_UUID -> handleTeleStreamChunk(text)
+            NewBleConstants.CFG_OUT_UUID -> handleCfgStreamChunk(text)
+            NewBleConstants.ACK_UUID -> handleAckStreamChunk(text)
+            else -> Log.w(TAG_CFG, "notify/indicate from unexpected UUID=$uuid")
+        }
     }
 
-    private fun handleCfgChunk(s: String) {
+    @SuppressLint("MissingPermission")
+    private fun enableNextNotify(g: BluetoothGatt) {
+        val ch = notifyQueue.firstOrNull() ?: return
+        enableNotifyOrIndicate(g, ch)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun enableNotifyOrIndicate(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
+        try {
+            Log.d(TAG_CFG, "enableNotifyOrIndicate for ${ch.uuid}")
+            g.setCharacteristicNotification(ch, true)
+
+            val ccc = ch.getDescriptor(NewBleConstants.CCC_UUID)
+            Log.d(TAG_CFG, "CCC descriptor for ${ch.uuid} = $ccc")
+
+            if (ccc != null) {
+                val isIndicate =
+                    (ch.uuid == NewBleConstants.CFG_OUT_UUID || ch.uuid == NewBleConstants.ACK_UUID)
+
+                ccc.value = if (isIndicate)
+                    BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+                else
+                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+
+                val ok = g.writeDescriptor(ccc)
+                Log.d(TAG_CFG, "writeDescriptor(${ch.uuid}) started=$ok")
+
+                if (!ok) {
+                    if (notifyQueue.isNotEmpty() && notifyQueue.first() == ch) notifyQueue.removeFirst()
+                    enableNextNotify(g)
+                }
+            } else {
+                updateStatus("No CCC for ${ch.uuid}")
+                if (notifyQueue.isNotEmpty() && notifyQueue.first() == ch) notifyQueue.removeFirst()
+                enableNextNotify(g)
+            }
+        } catch (e: SecurityException) {
+            updateStatus("Notify denied")
+            Log.e(TAG_CFG, "Notify/Indicate denied for ${ch.uuid}", e)
+        } catch (e: Throwable) {
+            updateStatus("Notify error")
+            Log.e(TAG_CFG, "Notify/Indicate error for ${ch.uuid}", e)
+        }
+    }
+
+    private fun handleTeleStreamChunk(s: String) {
+        Log.d(TAG_TELE, "tele chunk='$s'")
+        if (!teleParser.push(s)) return
+        val json = teleParser.jsonOrNull() ?: return
+        Log.d(TAG_TELE, "FULL_JSON (tele) = $json")
+        handleIncomingJson(json)
+    }
+
+    private fun handleCfgStreamChunk(s: String) {
+        Log.d(TAG_CFG, "cfg chunk='$s'")
+
+        pushRawCfgChunk(s)
+
         if (!cfgParser.push(s)) return
         val json = cfgParser.jsonOrNull() ?: return
+        Log.d(TAG_CFG_JSON, "FULL_JSON (cfg) = $json")
+        handleIncomingJson(json)
+    }
 
-        val cfg =
-                try {
+    private fun handleAckStreamChunk(s: String) {
+        Log.d(TAG_CFG, "ack chunk='$s'")
+        if (!ackParser.push(s)) return
+        val json = ackParser.jsonOrNull() ?: return
+        Log.d(TAG_CFG, "FULL_JSON (ack) = $json")
+        handleIncomingJson(json)
+    }
+
+    private fun handleIncomingJson(json: JSONObject) {
+        val type = json.optString("type", "")
+
+        when {
+            type == "cfg" || (type.isEmpty() && json.has("servoSettings")) -> {
+                val cfg = try {
                     EspSettings.fromJson(json)
-                } catch (_: Throwable) {
+                } catch (t: Throwable) {
+                    Log.e(TAG_CFG, "Config parse error", t)
                     updateStatus("Config parse error")
                     return
                 }
+                _settings.value = cfg
+                updateStatus("Config updated")
 
-        _settings.value = cfg
-        updateStatus("Config updated")
-    }
+                sendCfgOkOnce()
+            }
 
-    private fun handleTeleChunk(s: String) {
-        // Log.d("BLE_TEL", "chunk='$s'")
-
-        if (!teleParser.push(s)) return
-        val json = teleParser.jsonOrNull() ?: return
-
-        val t =
-                try {
+            type == "tele" || json.has("fsr_raw") || json.has("flex_raw_0") -> {
+                val t = try {
                     Telemetry.fromJson(json)
-                } catch (_: Throwable) {
-                    // Log.e("BLE_TEL", "parse error", e)
+                } catch (t: Throwable) {
+                    Log.e(TAG_TELE, "Tele parse error", t)
                     updateStatus("Tele parse error")
                     return
                 }
+                val prev = _telemetry.value
+                _telemetry.value = t.copy(status = prev.status)
+            }
 
-        val prev = _telemetry.value
-        _telemetry.value = t.copy(status = prev.status)
+            type == "ack" || json.has("ok") -> {
+                val ok = json.optBoolean("ok", false)
+                Log.d(TAG_CFG, "ACK from board: ok=$ok")
+                updateStatus(if (ok) "ACK OK" else "ACK FAIL")
+            }
+
+            else -> Log.w(TAG_CFG, "Unknown JSON type: $json")
+        }
     }
 
     @SuppressLint("MissingPermission")
     private fun writeJsonChunked(json: String): Boolean =
-            synchronized(writeMutex) {
-                val ch =
-                        chCfgIn
-                                ?: run {
-                                    updateStatus("No CFG_IN characteristic")
-                                    return false
-                                }
-                val g =
-                        gatt
-                                ?: run {
-                                    updateStatus("No GATT")
-                                    return false
-                                }
+        synchronized(writeMutex) {
+            val ch = chCfgIn ?: run {
+                updateStatus("No CFG_IN characteristic")
+                return false
+            }
 
-                if (!hasConnPermission()) {
-                    updateStatus("No write permission")
+            val g = gatt ?: run {
+                updateStatus("No GATT")
+                return false
+            }
+
+            if (!hasConnPermission()) {
+                updateStatus("No write permission")
+                return false
+            }
+
+            ch.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+
+            fun safeWrite(str: String): Boolean {
+                writeInProgress = true
+                lastWriteOk = true
+                ch.value = str.toByteArray()
+
+                val started = g.writeCharacteristic(ch)
+                if (!started) {
+                    writeInProgress = false
                     return false
                 }
-                ch.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
 
-                fun safeWrite(str: String): Boolean {
-                    writeInProgress = true
-                    lastWriteOk = true
-                    ch.value = str.toByteArray()
-                    val started = g.writeCharacteristic(ch)
-                    if (!started) {
-                        writeInProgress = false
-                        return false
+                var waited = 0
+                while (writeInProgress && waited < 6000) {
+                    try {
+                        Thread.sleep(20)
+                    } catch (_: InterruptedException) {
                     }
-                    var waited = 0
-                    while (writeInProgress && waited < 1000) {
-                        try {
-                            Thread.sleep(10)
-                        } catch (_: InterruptedException) {}
-                        waited += 10
-                    }
-                    return !writeInProgress && lastWriteOk
+                    waited += 20
+                }
+                if (writeInProgress) {
+                    Log.w(
+                        TAG_CFG,
+                        "safeWrite timeout waiting for onCharacteristicWrite, chunk='$str'"
+                    )
                 }
 
-                return try {
-                    val payload = json
-                    val chunkSize = 18
-
-                    if (!safeWrite("[BEGIN]")) {
-                        updateStatus("Write BEGIN failed")
-                        return false
-                    }
-                    var i = 0
-                    while (i < payload.length) {
-                        val end = (i + chunkSize).coerceAtMost(payload.length)
-                        val part = payload.substring(i, end)
-                        if (!safeWrite(part)) {
-                            updateStatus("Write chunk failed")
-                            return false
-                        }
-                        i = end
-                    }
-
-                    if (!safeWrite("[END]")) {
-                        updateStatus("Write END failed")
-                        return false
-                    }
-
-                    true
-                } catch (_: Throwable) {
-                    updateStatus("Write failed")
-                    false
-                }
+                return !writeInProgress && lastWriteOk
             }
+
+            return try {
+                val payload = json
+                val chunkSize = 18
+
+                if (!safeWrite("[BEGIN]")) {
+                    updateStatus("Write BEGIN failed"); return false
+                }
+
+                var i = 0
+                while (i < payload.length) {
+                    val end = (i + chunkSize).coerceAtMost(payload.length)
+                    val part = payload.substring(i, end)
+                    if (!safeWrite(part)) {
+                        updateStatus("Write chunk failed"); return false
+                    }
+                    i = end
+                }
+
+                if (!safeWrite("[END]")) {
+                    updateStatus("Write END failed"); return false
+                }
+
+                true
+            } catch (_: Throwable) {
+                updateStatus("Write failed")
+                false
+            }
+        }
 
     private fun updateStatus(text: String) {
         scope.launch {
@@ -491,10 +624,30 @@ class BleClient(private val context: Context) {
         val sb = StringBuilder()
         for (b in bytes) {
             val v = b.toInt() and 0xFF
-            if (v in 32..126) {
-                sb.append(v.toChar())
-            }
+            if (v in 32..126) sb.append(v.toChar())
         }
         return sb.toString().trim()
+    }
+
+    private fun pushRawCfgChunk(s: String) {
+        when (s) {
+            "[BEGIN]" -> {
+                rawCfgInProgress = true
+                rawCfgBuf.clear()
+                _rawCfgText.value = "[BEGIN]"
+            }
+
+            "[END]" -> {
+                rawCfgInProgress = false
+                _rawCfgText.value = "[BEGIN]\n${rawCfgBuf}\n[END]"
+            }
+
+            else -> {
+                if (rawCfgInProgress) {
+                    rawCfgBuf.append(s)
+                    _rawCfgText.value = "[BEGIN]\n${rawCfgBuf}"
+                }
+            }
+        }
     }
 }
