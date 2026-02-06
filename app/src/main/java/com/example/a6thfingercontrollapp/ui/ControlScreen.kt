@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,16 +39,15 @@ import com.example.a6thfingercontrollapp.AuthViewModel
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.UiAuthState
+import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.ble.FlexSettings
 import com.example.a6thfingercontrollapp.ble.ServoSettings
 import kotlinx.coroutines.launch
-
 
 enum class VibMode {
     Constant,
     Pulse
 }
-
 
 @Composable
 fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
@@ -73,25 +71,21 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     var flexOpenPO by remember { mutableStateOf(false) }
     var servoOpenPO by remember { mutableStateOf(false) }
 
-    val rawCfg by vm.rawCfgText.collectAsState()
-
 
     var pairsCount by remember { mutableStateOf(1) }
 
+    var saveWarnOpen by remember { mutableStateOf(false) }
+    var saveWarnText by remember { mutableStateOf("") }
 
     val rawStatus = t.status.lowercase()
-
 
     val connected =
         when {
             "disconnected" in rawStatus -> false
-
             "subscribed" in rawStatus -> true
-
             "tele" in rawStatus -> true
             "config" in rawStatus -> true
             "ack" in rawStatus -> true
-
             else -> false
         }
 
@@ -105,6 +99,21 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
         pairsCount = activePairs.coerceIn(1, 4)
     }
 
+    val doSave: () -> Unit = {
+        val ok = vm.applyAndSaveToBoard()
+        if (ok && activeAddress.isNotEmpty() && authState is UiAuthState.LoggedIn) {
+            scope.launch {
+                try {
+                    authVm.pushSettingsForDeviceAddress(
+                        address = activeAddress,
+                        alias = alias.ifBlank { null },
+                        settings = vm.activeSettings.value
+                    )
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -123,23 +132,22 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
                 Button(
                     onClick = {
-                        val ok = vm.applyAndSaveToBoard()
-                        if (ok && activeAddress.isNotEmpty() && authState is UiAuthState.LoggedIn) {
-                            scope.launch {
-                                try {
-                                    authVm.pushSettingsForDeviceAddress(
-                                        address = activeAddress,
-                                        alias = alias.ifBlank { null },
-                                        settings = vm.activeSettings.value
-                                    )
-                                } catch (_: Exception) {
-                                }
-                            }
+                        val issues = findIncompletePairsIssuesVisibleOnly(
+                            s = s,
+                            pairsCount = pairsCount
+                        )
+
+                        if (issues.isNotEmpty()) {
+                            saveWarnText = issues.joinToString("\n\n") { it.toUiText() }
+                            saveWarnOpen = true
+                        } else {
+                            doSave()
                         }
                     },
                     enabled = connected && dirty,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (dirty) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        containerColor = if (dirty) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary
                     )
                 ) { Text(stringResource(R.string.device_save)) }
 
@@ -162,8 +170,35 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
 
+            item {
+                Text(
+                    "Устройство",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                val aliasSubtitle = when {
+                    activeAddress.isBlank() -> "Нет активного устройства"
+                    alias.isNotBlank() -> "Alias: $alias"
+                    else -> "Alias не задан, нажми"
+                }
+
+                SettingItem(
+                    title = "Alias платы",
+                    subtitle = aliasSubtitle
+                ) { renameOpen = true }
+
+                /*if (activeAddress.isNotBlank()) {
+                    Text(
+                        text = "addr: $activeAddress",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }*/
+
+                Divider(Modifier.padding(vertical = 8.dp))
+            }
+
+            item {
                 Text(
                     "FSR и вибра",
                     style = MaterialTheme.typography.titleMedium
@@ -182,7 +217,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             item {
                 Text(
                     "Диагностика fsr и силы",
-                    //stringResource(R.string.control_diagnostic),
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -193,15 +227,11 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 Divider(Modifier.padding(vertical = 8.dp))
             }
 
-
             item {
-                // Пара 1
                 Text(
                     "Пара 1",
                     style = MaterialTheme.typography.titleMedium
                 )
-
-
             }
 
             item {
@@ -218,7 +248,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             item {
                 Text(
                     "Диагностика flex и серво",
-                    //stringResource(R.string.control_diagnostic),
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -234,17 +263,13 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 )
             }
 
-            item {
+            /*item {
                 Text(
                     text = "DEBUG servoPins = " +
-                            s.servoSettings.joinToString(
-                                prefix = "[",
-                                postfix = "]"
-                            ) { it.servoPin.toString() },
+                            s.servoSettings.joinToString(prefix = "[", postfix = "]") { it.servoPin.toString() },
                     style = MaterialTheme.typography.bodySmall
                 )
-            }
-
+            }*/
 
             // Пары 2–4
             (1..3).forEach { pairIdx ->
@@ -253,7 +278,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
                 val hasFlex = flex != null && flex.flexPin != 0xFF
                 val hasServo = servo != null && servo.servoPin != 0xFF
-
 
                 val shouldShow = pairIdx < pairsCount || hasFlex || hasServo
                 if (!shouldShow) return@forEach
@@ -330,7 +354,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     }
                 }
             }
-
         }
     }
 
@@ -347,9 +370,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
     if (fsrOpen)
         FsrDialog(s = s, onDismiss = { fsrOpen = false }) { next ->
-            vm.updateActiveSettings(
-                flexIndex
-            ) { next }
+            vm.updateActiveSettings(flexIndex) { next }
         }
 
     if (flexOpen)
@@ -357,15 +378,14 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             s = s,
             index = flexIndex,
             currentFlexOhm = t.flexOhm[flexIndex],
-            onDismiss = { flexOpen = false }) { next ->
+            onDismiss = { flexOpen = false }
+        ) { next ->
             vm.updateActiveSettings(flexIndex) { next }
         }
 
     if (vibroOpen)
         VibroDialog(s = s, onDismiss = { vibroOpen = false }) { next ->
-            vm.updateActiveSettings(
-                flexIndex
-            ) { next }
+            vm.updateActiveSettings(flexIndex) { next }
         }
 
     if (servoOpen)
@@ -387,22 +407,53 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             onChange = { next -> vm.updateActiveSettings(0) { next } },
             onLiveChange = { next -> vm.applySettingsLive { next } }
         )
+
     if (flexOpenPO)
         FlexDialog(
             s = s,
             index = 0,
             currentFlexOhm = t.flexOhm[0],
-            onDismiss = { flexOpenPO = false }) { next ->
+            onDismiss = { flexOpenPO = false }
+        ) { next ->
             vm.updateActiveSettings(0) { next }
         }
-}
 
+    if (saveWarnOpen) {
+        AlertDialog(
+            onDismissRequest = { saveWarnOpen = false },
+            title = { Text("Предупреждение") },
+            text = {
+                Text(
+                    "Найдены видимые пары с неполной настройкой: " +
+                            "один из пинов оставлен заглушкой (255). " +
+                            "Из-за этого телеметрия/управление может работать некорректно.\n\n" +
+                            saveWarnText
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    saveWarnOpen = false
+                    doSave()
+                }) {
+                    Text("Все равно продолжить")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { saveWarnOpen = false }) {
+                    Text("Отменить")
+                }
+            }
+        )
+    }
+}
 
 @Composable
 private fun SettingItem(title: String, subtitle: String, onClick: () -> Unit) {
-    Card(Modifier
-        .fillMaxWidth()
-        .padding(top = 4.dp)) {
+    Card(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp)
+    ) {
         Row(
             Modifier
                 .padding(12.dp)
@@ -410,10 +461,11 @@ private fun SettingItem(title: String, subtitle: String, onClick: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall)
             }
+            Spacer(Modifier.width(12.dp))
             OutlinedButton(onClick = onClick) { Text(stringResource(R.string.device_open)) }
         }
     }
@@ -428,7 +480,6 @@ private fun DiagnosticRow(name: String, value: String) {
 }
 
 fun pretty(v: Float) = if (v.isFinite()) String.format("%.1f", v) else "--"
-
 
 @Composable
 private fun RenameDialog(current: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
@@ -498,5 +549,64 @@ fun SegmentedButtons(items: List<String>, selectedIndex: Int, onSelect: (Int) ->
                 OutlinedButton(onClick = { onSelect(i) }) { Text(label) }
             }
         }
+    }
+}
+
+
+private const val PIN_PLACEHOLDER = 0xFF
+
+private data class PairIssue(
+    val pairIdx: Int,
+    val missing: MissingPart
+)
+
+private enum class MissingPart { Flex, Servo }
+
+private fun findIncompletePairsIssuesVisibleOnly(
+    s: EspSettings,
+    pairsCount: Int
+): List<PairIssue> {
+    val res = mutableListOf<PairIssue>()
+
+    fun isVisible(i: Int): Boolean {
+        if (i == 0) return true
+
+        val flexPin = s.flexSettings.getOrNull(i)?.flexPin ?: PIN_PLACEHOLDER
+        val servoPin = s.servoSettings.getOrNull(i)?.servoPin ?: PIN_PLACEHOLDER
+
+        val hasFlex = flexPin != PIN_PLACEHOLDER
+        val hasServo = servoPin != PIN_PLACEHOLDER
+
+        return (i < pairsCount) || hasFlex || hasServo
+    }
+
+    for (i in 0 until 4) {
+        if (!isVisible(i)) continue
+
+        val flexPin = s.flexSettings.getOrNull(i)?.flexPin ?: PIN_PLACEHOLDER
+        val servoPin = s.servoSettings.getOrNull(i)?.servoPin ?: PIN_PLACEHOLDER
+
+        val flexSet = flexPin != PIN_PLACEHOLDER
+        val servoSet = servoPin != PIN_PLACEHOLDER
+
+        if ((flexSet || servoSet) && (flexSet xor servoSet)) {
+            res += PairIssue(
+                pairIdx = i,
+                missing = if (!flexSet) MissingPart.Flex else MissingPart.Servo
+            )
+        }
+    }
+
+    return res
+}
+
+private fun PairIssue.toUiText(): String {
+    val pairNum = pairIdx + 1
+    return when (missing) {
+        MissingPart.Flex ->
+            "Пара $pairNum: у Flex оставлена заглушка (255). Укажи flexPin, чтобы всё работало корректно."
+
+        MissingPart.Servo ->
+            "Пара $pairNum: у Servo оставлена заглушка (255). Укажи servoPin, чтобы всё работало корректно."
     }
 }
