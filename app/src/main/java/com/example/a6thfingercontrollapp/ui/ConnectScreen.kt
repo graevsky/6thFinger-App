@@ -20,6 +20,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.BleViewModel
@@ -37,6 +40,7 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
     val connectedText = stringResource(R.string.ble_connected)
 
     val rawStatus = status.status.lowercase()
+    val haptic = LocalHapticFeedback.current
 
     val isConnected =
         when {
@@ -54,7 +58,6 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
             isConnected -> connectedText
             else -> status.status
         }
-
 
     val lastAlias: String? =
         when (val ld = last) {
@@ -79,6 +82,7 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
                 last = last,
                 alias = lastAlias,
                 isConnected = isConnected,
+                haptic = haptic,
                 onConnect = { addr -> vm.connect(addr) },
                 onDisconnect = { vm.disconnect() }
             )
@@ -88,9 +92,15 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Button(
-                    onClick = { if (permissionsGranted && vm.isBleReady()) vm.scan() },
+                    onClick = {
+                        if (permissionsGranted && vm.isBleReady()) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            vm.scan()
+                        }
+                    },
                     enabled = permissionsGranted && !isConnected
                 ) { Text(stringResource(R.string.ble_scan)) }
+
                 if (!permissionsGranted) {
                     Text(stringResource(R.string.ble_access_denied))
                 }
@@ -131,6 +141,7 @@ private fun LastDeviceCard(
     last: LastDevice?,
     alias: String?,
     isConnected: Boolean,
+    haptic: HapticFeedback,
     onConnect: (String) -> Unit,
     onDisconnect: () -> Unit
 ) {
@@ -143,17 +154,24 @@ private fun LastDeviceCard(
                 val title = (alias ?: last.name).ifBlank { alias ?: last.name }
                 Text(title.ifBlank { stringResource(R.string.device_no_name) })
                 Text(last.address, style = MaterialTheme.typography.bodySmall)
+
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isConnected) {
-                        OutlinedButton(onClick = onDisconnect) {
+                        OutlinedButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.ToggleOff)
+                            onDisconnect()
+                        }) {
                             Text(stringResource(R.string.device_disconnect))
                         }
                     } else {
-                        Button(onClick = { onConnect(last.address) }) {
+                        Button(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                            onConnect(last.address)
+                        }) {
                             Text(stringResource(R.string.device_connect))
                         }
                     }

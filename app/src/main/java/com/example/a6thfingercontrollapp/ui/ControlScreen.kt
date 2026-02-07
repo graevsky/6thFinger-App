@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -32,6 +35,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -91,6 +97,8 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
     val dirty = s != applied
 
+    val haptic = LocalHapticFeedback.current
+
     LaunchedEffect(s) {
         val activePairs = (0 until 4).count { i ->
             s.flexSettings.getOrNull(i)?.flexPin != 0xFF ||
@@ -124,7 +132,10 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = { vm.resetToDefaults() }) {
+                OutlinedButton(onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                    vm.resetToDefaults()
+                }) {
                     Text(stringResource(R.string.device_reset))
                 }
 
@@ -132,6 +143,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
                 Button(
                     onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                         val issues = findIncompletePairsIssuesVisibleOnly(
                             s = s,
                             pairsCount = pairsCount
@@ -154,7 +166,12 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 Spacer(Modifier.width(12.dp))
 
                 Button(
-                    onClick = { if (pairsCount < 4) pairsCount++ },
+                    onClick = {
+                        if (pairsCount < 4) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            pairsCount++
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = pairsCount < 4
                 ) {
@@ -314,44 +331,53 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                         pretty(t.servoDeg[pairIdx])
                     )
 
-                    Button(
-                        onClick = {
-                            vm.updateActiveSettings(pairIdx) { current ->
-                                val newFlex = current.flexSettings.copyOf()
-                                val newServo = current.servoSettings.copyOf()
-
-                                newFlex[pairIdx] = FlexSettings(
-                                    flexPin = 0xFF,
-                                    flexPullupOhm = 0,
-                                    flexStraightOhm = 0,
-                                    flexBendOhm = 0
-                                )
-                                newServo[pairIdx] = ServoSettings(
-                                    servoPin = 0xFF,
-                                    servoMinDeg = 40,
-                                    servoMaxDeg = 180,
-                                    servoManual = 0,
-                                    servoManualDeg = 90,
-                                    servoMaxSpeedDegPerSec = 300.0f
-                                )
-
-                                current.copy(
-                                    flexSettings = newFlex,
-                                    servoSettings = newServo
-                                )
-                            }
-
-                            if (pairsCount > 1) {
-                                pairsCount--
-                            }
-                        },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
-                        )
+                        horizontalArrangement = Arrangement.End
                     ) {
-                        Text("Delete Pair ${pairIdx + 1}")
+                        Button(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                                vm.updateActiveSettings(pairIdx) { current ->
+                                    val newFlex = current.flexSettings.copyOf()
+                                    val newServo = current.servoSettings.copyOf()
+
+                                    newFlex[pairIdx] = FlexSettings(
+                                        flexPin = 0xFF,
+                                        flexPullupOhm = 0,
+                                        flexStraightOhm = 0,
+                                        flexBendOhm = 0
+                                    )
+                                    newServo[pairIdx] = ServoSettings(
+                                        servoPin = 0xFF,
+                                        servoMinDeg = 40,
+                                        servoMaxDeg = 180,
+                                        servoManual = 0,
+                                        servoManualDeg = 90,
+                                        servoMaxSpeedDegPerSec = 300.0f
+                                    )
+
+                                    current.copy(
+                                        flexSettings = newFlex,
+                                        servoSettings = newServo
+                                    )
+                                }
+
+                                if (pairsCount > 1) pairsCount--
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = "Delete pair"
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Delete Pair ${pairIdx + 1}")
+                        }
                     }
+
                 }
             }
         }
@@ -365,28 +391,42 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             onSave = { newName ->
                 vm.renameActive(newName)
                 renameOpen = false
-            }
+            },
+            haptic = haptic
         )
 
     if (fsrOpen)
-        FsrDialog(s = s, onDismiss = { fsrOpen = false }) { next ->
-            vm.updateActiveSettings(flexIndex) { next }
-        }
+        FsrDialog(
+            s = s,
+            onDismiss = { fsrOpen = false },
+            onChange = { next ->
+                vm.updateActiveSettings(flexIndex) { next }
+            },
+            haptic = haptic
+        )
 
     if (flexOpen)
         FlexDialog(
             s = s,
             index = flexIndex,
             currentFlexOhm = t.flexOhm[flexIndex],
-            onDismiss = { flexOpen = false }
-        ) { next ->
-            vm.updateActiveSettings(flexIndex) { next }
-        }
+            onDismiss = { flexOpen = false },
+            onChange = { next ->
+                vm.updateActiveSettings(flexIndex) { next }
+            },
+            haptic = haptic
+        )
 
     if (vibroOpen)
-        VibroDialog(s = s, onDismiss = { vibroOpen = false }) { next ->
-            vm.updateActiveSettings(flexIndex) { next }
-        }
+        VibroDialog(
+            s = s,
+            onDismiss = { vibroOpen = false },
+            onChange = { next ->
+                vm.updateActiveSettings(flexIndex) { next }
+            },
+            haptic = haptic
+        )
+
 
     if (servoOpen)
         ServoDialog(
@@ -395,7 +435,8 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             currentServoDeg = t.servoDeg[servoIndex],
             onDismiss = { servoOpen = false },
             onChange = { next -> vm.updateActiveSettings(servoIndex) { next } },
-            onLiveChange = { next -> vm.applySettingsLive { next } }
+            onLiveChange = { next -> vm.applySettingsLive { next } },
+            haptic = haptic
         )
 
     if (servoOpenPO)
@@ -405,18 +446,21 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             currentServoDeg = t.servoDeg[0],
             onDismiss = { servoOpenPO = false },
             onChange = { next -> vm.updateActiveSettings(0) { next } },
-            onLiveChange = { next -> vm.applySettingsLive { next } }
+            onLiveChange = { next -> vm.applySettingsLive { next } },
+            haptic = haptic
         )
 
     if (flexOpenPO)
         FlexDialog(
             s = s,
-            index = 0,
-            currentFlexOhm = t.flexOhm[0],
-            onDismiss = { flexOpenPO = false }
-        ) { next ->
-            vm.updateActiveSettings(0) { next }
-        }
+            index = flexIndex,
+            currentFlexOhm = t.flexOhm[flexIndex],
+            onDismiss = { flexOpen = false },
+            onChange = { next ->
+                vm.updateActiveSettings(flexIndex) { next }
+            },
+            haptic = haptic
+        )
 
     if (saveWarnOpen) {
         AlertDialog(
@@ -432,6 +476,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             },
             confirmButton = {
                 Button(onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                     saveWarnOpen = false
                     doSave()
                 }) {
@@ -439,7 +484,10 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { saveWarnOpen = false }) {
+                TextButton(onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                    saveWarnOpen = false
+                }) {
                     Text("Отменить")
                 }
             }
@@ -482,7 +530,12 @@ private fun DiagnosticRow(name: String, value: String) {
 fun pretty(v: Float) = if (v.isFinite()) String.format("%.1f", v) else "--"
 
 @Composable
-private fun RenameDialog(current: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+private fun RenameDialog(
+    current: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+    haptic: HapticFeedback
+) {
     var text by remember { mutableStateOf(TextFieldValue(current)) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -496,12 +549,18 @@ private fun RenameDialog(current: String, onDismiss: () -> Unit, onSave: (String
             )
         },
         confirmButton = {
-            Button(onClick = { onSave(text.text) }) {
+            Button(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                onSave(text.text)
+            }) {
                 Text(stringResource(R.string.device_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.device_cancel)) }
+            TextButton(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                onDismiss
+            }) { Text(stringResource(R.string.device_cancel)) }
         }
     )
 }
@@ -510,6 +569,7 @@ private fun RenameDialog(current: String, onDismiss: () -> Unit, onSave: (String
 fun BaseDialog(
     title: String,
     onDismiss: () -> Unit,
+    haptic: HapticFeedback,
     content: @Composable ColumnScope.() -> Unit
 ) {
     AlertDialog(
@@ -522,7 +582,10 @@ fun BaseDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.device_cancel)) }
+            TextButton(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                onDismiss
+            }) { Text(stringResource(R.string.device_cancel)) }
         }
     )
 }

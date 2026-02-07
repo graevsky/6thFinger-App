@@ -127,9 +127,11 @@ private fun SimulationContent(
             }
         }
 
-        Card(modifier = Modifier
-            .fillMaxWidth()
-            .weight(1f)) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
             Box(
                 modifier =
                     Modifier

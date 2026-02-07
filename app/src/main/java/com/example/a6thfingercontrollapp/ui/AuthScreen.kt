@@ -27,7 +27,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -49,56 +51,76 @@ private fun localizedError(key: String?, get: @Composable (Int) -> String): Stri
 
 @Composable
 fun StartScreen(
-        bleVm: BleViewModel,
-        authVm: AuthViewModel,
-        onLoginClick: () -> Unit,
-        onRegisterClick: () -> Unit,
-        onContinueAsGuest: () -> Unit
+    bleVm: BleViewModel,
+    authVm: AuthViewModel,
+    onLoginClick: () -> Unit,
+    onRegisterClick: () -> Unit,
+    onContinueAsGuest: () -> Unit
 ) {
     val lang by bleVm.appLanguage.collectAsState()
     var showLangDialog by remember { mutableStateOf(false) }
 
+    val haptic = LocalHapticFeedback.current
+
     Scaffold { inner ->
         Box(
-                modifier =
-                        Modifier.padding(inner)
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.background)
-                                .padding(24.dp),
-                contentAlignment = Alignment.Center
+            modifier = Modifier
+                .padding(inner)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
         ) {
             Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
-                        painter = painterResource(id = R.drawable.ic_logo),
-                        contentDescription = stringResource(R.string.app_name),
-                        modifier = Modifier.size(160.dp)
+                    painter = painterResource(id = R.drawable.ic_logo),
+                    contentDescription = stringResource(R.string.app_name),
+                    modifier = Modifier.size(160.dp)
                 )
 
                 Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onBackground
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
                 Spacer(Modifier.height(16.dp))
 
                 Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Button(modifier = Modifier.fillMaxWidth(), onClick = onLoginClick) {
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            onLoginClick()
+                        }
+                    ) {
                         Text(stringResource(R.string.auth_login))
                     }
 
-                    OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onRegisterClick) {
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            onRegisterClick()
+                        }
+                    ) {
                         Text(stringResource(R.string.auth_register))
                     }
 
-                    TextButton(modifier = Modifier.fillMaxWidth(), onClick = onContinueAsGuest) {
+                    TextButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            onContinueAsGuest()
+                        }
+                    ) {
                         Text(stringResource(R.string.auth_continue_guest))
                     }
                 }
@@ -106,14 +128,14 @@ fun StartScreen(
                 Spacer(modifier = Modifier.weight(1f))
 
                 TextButton(
-                        onClick = { showLangDialog = true },
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        showLangDialog = true
+                    },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
                     Text(
-                            text =
-                                    stringResource(R.string.settings_language) +
-                                            ": " +
-                                            lang.uppercase()
+                        text = stringResource(R.string.settings_language) + ": " + lang.uppercase()
                     )
                 }
             }
@@ -123,13 +145,13 @@ fun StartScreen(
     if (showLangDialog) {
         val activity = LocalContext.current as? MainActivity
         SettingsDialog(
-                currentLang = lang,
-                onDismiss = { showLangDialog = false },
-                onSelect = { newLang ->
-                    bleVm.setAppLanguage(newLang)
-                    showLangDialog = false
-                    activity?.recreateApp()
-                }
+            currentLang = lang,
+            onDismiss = { showLangDialog = false },
+            onSelect = { newLang ->
+                bleVm.setAppLanguage(newLang)
+                showLangDialog = false
+                activity?.recreateApp()
+            }
         )
     }
 }
@@ -142,40 +164,43 @@ fun LoginScreen(vm: AuthViewModel, initialUsername: String, onBack: () -> Unit) 
     var username by remember { mutableStateOf(initialUsername) }
     var password by remember { mutableStateOf("") }
 
+    val haptic = LocalHapticFeedback.current
+
     Scaffold { inner ->
         Box(
-                Modifier.padding(inner)
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
-                        .padding(24.dp),
-                contentAlignment = Alignment.Center
+            Modifier
+                .padding(inner)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
         ) {
             Column(
-                    Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                        text = stringResource(R.string.auth_sign_in),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onBackground
+                    text = stringResource(R.string.auth_sign_in),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
                 OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it.trim() },
-                        singleLine = true,
-                        label = { Text(stringResource(R.string.auth_username)) },
-                        modifier = Modifier.fillMaxWidth()
+                    value = username,
+                    onValueChange = { username = it.trim() },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.auth_username)) },
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        label = { Text(stringResource(R.string.auth_password)) },
-                        modifier = Modifier.fillMaxWidth()
+                    value = password,
+                    onValueChange = { password = it },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    label = { Text(stringResource(R.string.auth_password)) },
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 if (!error.isNullOrBlank()) {
@@ -186,14 +211,19 @@ fun LoginScreen(vm: AuthViewModel, initialUsername: String, onBack: () -> Unit) 
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     OutlinedButton(
-                            onClick = {
-                                vm.clearError()
-                                onBack()
-                            }
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            vm.clearError()
+                            onBack()
+                        }
                     ) { Text(stringResource(R.string.auth_back)) }
+
                     Button(
-                            onClick = { vm.login(username, password) },
-                            enabled = username.isNotBlank() && password.isNotBlank()
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            vm.login(username, password)
+                        },
+                        enabled = username.isNotBlank() && password.isNotBlank()
                     ) { Text(stringResource(R.string.auth_login)) }
                 }
             }
@@ -209,40 +239,43 @@ fun RegisterScreen(vm: AuthViewModel, onBack: () -> Unit, onRegistered: (String)
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
+    val haptic = LocalHapticFeedback.current
+
     Scaffold { inner ->
         Box(
-                Modifier.padding(inner)
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
-                        .padding(24.dp),
-                contentAlignment = Alignment.Center
+            Modifier
+                .padding(inner)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
         ) {
             Column(
-                    Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                        text = stringResource(R.string.auth_register),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onBackground
+                    text = stringResource(R.string.auth_register),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
                 OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it.trim() },
-                        singleLine = true,
-                        label = { Text(stringResource(R.string.auth_username)) },
-                        modifier = Modifier.fillMaxWidth()
+                    value = username,
+                    onValueChange = { username = it.trim() },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.auth_username)) },
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        label = { Text(stringResource(R.string.auth_password)) },
-                        modifier = Modifier.fillMaxWidth()
+                    value = password,
+                    onValueChange = { password = it },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    label = { Text(stringResource(R.string.auth_password)) },
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 if (!error.isNullOrBlank()) {
@@ -253,17 +286,20 @@ fun RegisterScreen(vm: AuthViewModel, onBack: () -> Unit, onRegistered: (String)
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     OutlinedButton(
-                            onClick = {
-                                vm.clearError()
-                                onBack()
-                            }
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            vm.clearError()
+                            onBack()
+                        }
                     ) { Text(stringResource(R.string.auth_back)) }
+
                     Button(
-                            onClick = {
-                                val normalized = username.trim().lowercase()
-                                vm.register(normalized, password) { onRegistered(normalized) }
-                            },
-                            enabled = username.isNotBlank() && password.isNotBlank()
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            val normalized = username.trim().lowercase()
+                            vm.register(normalized, password) { onRegistered(normalized) }
+                        },
+                        enabled = username.isNotBlank() && password.isNotBlank()
                     ) { Text(stringResource(R.string.auth_register)) }
                 }
             }

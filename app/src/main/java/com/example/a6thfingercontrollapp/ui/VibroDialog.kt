@@ -1,10 +1,21 @@
 package com.example.a6thfingercontrollapp.ui
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.R
@@ -12,7 +23,12 @@ import com.example.a6thfingercontrollapp.ble.EspSettings
 import kotlin.math.max
 
 @Composable
-fun VibroDialog(s: EspSettings, onDismiss: () -> Unit, onChange: (EspSettings) -> Unit) {
+fun VibroDialog(
+    s: EspSettings,
+    onDismiss: () -> Unit,
+    onChange: (EspSettings) -> Unit,
+    haptic: HapticFeedback
+) {
     var mode by remember {
         mutableStateOf(if (s.vibroMode == 0) VibMode.Constant else VibMode.Pulse)
     }
@@ -47,7 +63,7 @@ fun VibroDialog(s: EspSettings, onDismiss: () -> Unit, onChange: (EspSettings) -
         }
     }
 
-    BaseDialog(title = "Vibro Settings", onDismiss) {
+    BaseDialog(title = "Vibro Settings", onDismiss, haptic = haptic) {
         // Используем stringResource для текста
         NumberField(stringResource(R.string.vibro_pin), pin) { pin = it }
 
@@ -58,7 +74,10 @@ fun VibroDialog(s: EspSettings, onDismiss: () -> Unit, onChange: (EspSettings) -
         ) {
             Text(stringResource(R.string.vibro_mode))  // Переводим текст через stringResource
             SegmentedButtons(
-                items = listOf(stringResource(R.string.vibro_continuous), stringResource(R.string.vibro_pulse)),
+                items = listOf(
+                    stringResource(R.string.vibro_continuous),
+                    stringResource(R.string.vibro_pulse)
+                ),
                 selectedIndex = if (mode == VibMode.Constant) 0 else 1,
                 onSelect = { idx -> mode = if (idx == 0) VibMode.Constant else VibMode.Pulse }
             )
@@ -75,6 +94,7 @@ fun VibroDialog(s: EspSettings, onDismiss: () -> Unit, onChange: (EspSettings) -
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                     val (modeInt, freqHz, softPower, pulseBase) = toDeviceValues()
                     onChange(
                         s.copy(

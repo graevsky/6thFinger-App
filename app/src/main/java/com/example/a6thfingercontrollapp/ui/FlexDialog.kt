@@ -1,9 +1,21 @@
 package com.example.a6thfingercontrollapp.ui
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.ble.EspSettings
 
@@ -13,42 +25,71 @@ fun FlexDialog(
     index: Int,
     currentFlexOhm: Float,
     onDismiss: () -> Unit,
-    onChange: (EspSettings) -> Unit
+    onChange: (EspSettings) -> Unit,
+    haptic: HapticFeedback
 ) {
-    val flexSetting = s.flexSettings[index]
-    var pin by remember { mutableStateOf(flexSetting.flexPin.toString()) }
-    var pull by remember { mutableStateOf(flexSetting.flexPullupOhm.toString()) }
-    var straight by remember { mutableStateOf(flexSetting.flexStraightOhm.toString()) }
-    var bend by remember { mutableStateOf(flexSetting.flexBendOhm.toString()) }
+    val flexSetting = s.flexSettings.getOrNull(index) ?: return
 
-    BaseDialog(title = "Flex Settings", onDismiss = onDismiss) {
-        Text("Current pair: $index", style = MaterialTheme.typography.bodyMedium)
-        Text("Current Resistance: ${pretty(currentFlexOhm)} Ω", style = MaterialTheme.typography.bodyMedium)
+    // чтобы при смене index/настроек поля обновлялись
+    var pin by remember(
+        index,
+        flexSetting.flexPin
+    ) { mutableStateOf(flexSetting.flexPin.toString()) }
+    var pull by remember(
+        index,
+        flexSetting.flexPullupOhm
+    ) { mutableStateOf(flexSetting.flexPullupOhm.toString()) }
+    var straight by remember(
+        index,
+        flexSetting.flexStraightOhm
+    ) { mutableStateOf(flexSetting.flexStraightOhm.toString()) }
+    var bend by remember(
+        index,
+        flexSetting.flexBendOhm
+    ) { mutableStateOf(flexSetting.flexBendOhm.toString()) }
+
+    BaseDialog(
+        title = "Flex Settings",
+        onDismiss = onDismiss,
+        haptic = haptic
+    ) {
+        Text("Пара: ${index + 1}", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            "Текущее сопротивление: ${pretty(currentFlexOhm)} Ω",
+            style = MaterialTheme.typography.bodyMedium
+        )
+
         NumberField("Flex Pin", pin) { pin = it }
         NumberField("Flex Unfolded Resistance", straight) { straight = it }
         NumberField("Flex Folded Resistance", bend) { bend = it }
-        NumberField("FSR Pullup", pull) { pull = it }
+        NumberField("Flex Pullup", pull) { pull = it }
+
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = {
-                // Изменяем только элемент массива flexSettings по индексу
-                val updatedFlexSetting = flexSetting.copy(
-                    flexPin = pin.toIntOrNull() ?: flexSetting.flexPin,
-                    flexStraightOhm = straight.toIntOrNull() ?: flexSetting.flexStraightOhm,
-                    flexBendOhm = bend.toIntOrNull() ?: flexSetting.flexBendOhm,
-                    flexPullupOhm = pull.toIntOrNull() ?: flexSetting.flexPullupOhm
-                )
 
-                // Обновляем массив flexSettings
-                val updatedEspSettings = s.copy(
-                    flexSettings = s.flexSettings.toMutableList().apply {
-                        set(index, updatedFlexSetting)  // Заменяем элемент массива
-                    }.toTypedArray()
-                )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 
-                onChange(updatedEspSettings)
-                onDismiss()
-            }) { Text("OK") }
+                    val updatedFlex = flexSetting.copy(
+                        flexPin = pin.toIntOrNull() ?: flexSetting.flexPin,
+                        flexStraightOhm = straight.toIntOrNull() ?: flexSetting.flexStraightOhm,
+                        flexBendOhm = bend.toIntOrNull() ?: flexSetting.flexBendOhm,
+                        flexPullupOhm = pull.toIntOrNull() ?: flexSetting.flexPullupOhm
+                    )
+
+                    val newFlexArr = s.flexSettings.copyOf()
+                    newFlexArr[index] = updatedFlex
+
+                    onChange(s.copy(flexSettings = newFlexArr))
+                    onDismiss()
+                }
+            ) {
+                Text("OK")
+            }
         }
     }
 }
