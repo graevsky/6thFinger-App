@@ -61,6 +61,7 @@
     <string name="control_servo_manual">Пределы и ручной режим</string>
     <string name="control_diagnostic">Диагностика</string>
     <string name="device_reset">Сбросить</string>
+    <string name="add_pair">Добавить пару</string>
 
     <!-- FSR -->
     <string name="fsr_settings">Настройки FSRа</string>
@@ -130,4 +131,18 @@
     <string name="prosthesis_connected">Подключен</string>
     <string name="prosthesis_settings_for_device">Настройки протеза: %1$s</string>
     <string name="prosthesis_connect_hint">Подключите протез, чтобы можно было получить настройки с сервера.</string>
+    <string name="device">Устройство</string>
+    <string name="alias">Имя</string>
+    <string name="no_active">Нет активного устройства</string>
+    <string name="alias_not_set">Имя устройства не задано</string>
+    <string name="fsr_n_vibro_settings">Настройки FSR и Вибро</string>
+    <string name="fsr_n_force_curr_vals">Текущие показания FSR и силы</string>
+    <string name="pair_1">Пара 1</string>
+    <string name="flex_n_servo_curr_vals">Текущие показания Flex и сервы</string>
+    <string name="pair_no">Пара</string>
+    <string name="notification">Предупреждение</string>
+    <string name="setup_not_full">Найдены видимы пары с неполной настройкой - один из пинов имеет стандартное значение (255). Телеметрия\\управление может работать некорректно.</string>
+    <string name="continue_anyway">Все равно продолжить</string>
+    <string name="flex_not_set">Датчик изгиба имеен стандартное значение пина (255). Обновите его для корректной работы.</string>
+    <string name="servo_not_set">Сервопривод имеен стандартное значение пина (255). Обновите его для корректной работы.</string>
 </resources>

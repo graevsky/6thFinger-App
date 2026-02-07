@@ -63,8 +63,7 @@ fun VibroDialog(
         }
     }
 
-    BaseDialog(title = "Vibro Settings", onDismiss, haptic = haptic) {
-        // Используем stringResource для текста
+    BaseDialog(title =  stringResource(R.string.vibro_settings), onDismiss, haptic = haptic) {
         NumberField(stringResource(R.string.vibro_pin), pin) { pin = it }
 
         Row(
@@ -72,7 +71,7 @@ fun VibroDialog(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(stringResource(R.string.vibro_mode))  // Переводим текст через stringResource
+            Text(stringResource(R.string.vibro_mode))
             SegmentedButtons(
                 items = listOf(
                     stringResource(R.string.vibro_continuous),

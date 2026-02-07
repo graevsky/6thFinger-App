@@ -19,7 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.EspSettings
 import kotlin.math.max
 
@@ -73,20 +75,20 @@ fun ServoDialog(
         onLiveChange(next)
     }
 
-    BaseDialog(title = "Servo Settings", onDismiss = onDismiss, haptic = haptic) {
+    BaseDialog(title = stringResource(R.string.servo_settings), onDismiss = onDismiss, haptic = haptic) {
         Text(
-            "Current Angle: ${pretty(currentServoDeg)}°",
+            "${stringResource(R.string.servo_current_angle)}: ${pretty(currentServoDeg)}°",
             style = MaterialTheme.typography.bodyMedium
         )
-        NumberField("Servo Pin", pin) { pin = it }
-        NumberField("Min Angle", min) { min = it }
-        NumberField("Max Angle", max) { max = it }
+        NumberField(stringResource(R.string.servo_pin), pin) { pin = it }
+        NumberField(stringResource(R.string.servo_min_angle), min) { min = it }
+        NumberField(stringResource(R.string.servo_max_angle), max) { max = it }
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Manual Control")
+            Text(stringResource(R.string.servo_manual_control))
             Switch(checked = manual, onCheckedChange = {
                 manual = it
                 pushImmediate(slider.toInt())
@@ -109,7 +111,7 @@ fun ServoDialog(
                         ?: servoSetting.servoMinDeg)
                 )
             )
-            Text("Manual Angle: ${slider.toInt()}°", style = MaterialTheme.typography.bodySmall)
+            Text("${stringResource(R.string.servo_manual_angle)}: ${slider.toInt()}°", style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
@@ -118,7 +120,7 @@ fun ServoDialog(
                 val finalCfg = buildSettingsWith(slider.toInt())
                 onChange(finalCfg)
                 onDismiss()
-            }) { Text("OK") }
+            }) { Text(stringResource(R.string.generic_ok)) }
         }
     }
 }

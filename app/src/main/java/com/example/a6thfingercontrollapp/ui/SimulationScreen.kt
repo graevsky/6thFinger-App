@@ -149,7 +149,7 @@ private fun SimulationContent(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Пара ${selectedPairIndex + 1}", style = MaterialTheme.typography.bodyMedium)
+                Text("${stringResource(R.string.pair_no)} ${selectedPairIndex + 1}", style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.sim_angle, prettyValue(servoDeg)))
                 Text(stringResource(R.string.sim_flex, prettyValue(flexOhm)))
                 Text(stringResource(R.string.sim_force, prettyValue(fsrForceN)))
@@ -178,7 +178,7 @@ private fun PairSelector(
 
     Box {
         OutlinedButton(onClick = { expanded = true }) {
-            Text("Пара ${selectedPairIndex + 1}")
+            Text("${stringResource(R.string.pair_no)} ${selectedPairIndex + 1}")
         }
         DropdownMenu(
             expanded = expanded,
@@ -186,7 +186,7 @@ private fun PairSelector(
         ) {
             availablePairs.forEach { idx ->
                 DropdownMenuItem(
-                    text = { Text("Пара ${idx + 1}") },
+                    text = { Text("${stringResource(R.string.pair_no)} ${idx + 1}") },
                     onClick = {
                         expanded = false
                         onPairSelected(idx)

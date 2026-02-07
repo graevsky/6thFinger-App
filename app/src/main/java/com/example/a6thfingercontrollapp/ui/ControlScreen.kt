@@ -85,6 +85,10 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
     val rawStatus = t.status.lowercase()
 
+    val pairNoStr = stringResource(R.string.pair_no)
+    val flexNotSetStr = stringResource(R.string.flex_not_set)
+    val servoNotSetStr = stringResource(R.string.servo_not_set)
+
     val connected =
         when {
             "disconnected" in rawStatus -> false
@@ -150,7 +154,9 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                         )
 
                         if (issues.isNotEmpty()) {
-                            saveWarnText = issues.joinToString("\n\n") { it.toUiText() }
+                            saveWarnText = issues.joinToString("\n\n") {
+                                it.toUiText(pairNoStr, flexNotSetStr, servoNotSetStr)
+                            }
                             saveWarnOpen = true
                         } else {
                             doSave()
@@ -175,7 +181,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                     enabled = pairsCount < 4
                 ) {
-                    Text("Add Pair")
+                    Text(stringResource(R.string.add_pair))
                 }
             }
         }
@@ -190,18 +196,18 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
             item {
                 Text(
-                    "Устройство",
+                    stringResource(R.string.device),
                     style = MaterialTheme.typography.titleMedium
                 )
 
                 val aliasSubtitle = when {
-                    activeAddress.isBlank() -> "Нет активного устройства"
-                    alias.isNotBlank() -> "Alias: $alias"
-                    else -> "Alias не задан, нажми"
+                    activeAddress.isBlank() -> stringResource(R.string.no_active)/*"Нет активного устройства"*/
+                    alias.isNotBlank() -> "${stringResource(R.string.alias)} $alias"
+                    else -> stringResource(R.string.alias_not_set) /*"Alias не задан, нажми"*/
                 }
 
                 SettingItem(
-                    title = "Alias платы",
+                    title = stringResource(R.string.alias),
                     subtitle = aliasSubtitle
                 ) { renameOpen = true }
 
@@ -217,7 +223,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
             item {
                 Text(
-                    "FSR и вибра",
+                    stringResource(R.string.fsr_n_vibro_settings),
                     style = MaterialTheme.typography.titleMedium
                 )
 
@@ -233,7 +239,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             }
             item {
                 Text(
-                    "Диагностика fsr и силы",
+                    stringResource(R.string.fsr_n_force_curr_vals),
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -246,7 +252,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
             item {
                 Text(
-                    "Пара 1",
+                    stringResource(R.string.pair_1),
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -264,7 +270,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             }
             item {
                 Text(
-                    "Диагностика flex и серво",
+                    stringResource(R.string.flex_n_servo_curr_vals),
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -302,7 +308,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 item {
                     Divider(Modifier.padding(vertical = 8.dp))
                     Text(
-                        text = "Пара ${pairIdx + 1}",
+                        text = "${stringResource(R.string.pair_no)} ${pairIdx + 1}",
                         style = MaterialTheme.typography.titleMedium
                     )
 
@@ -374,7 +380,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                                 contentDescription = "Delete pair"
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("Delete Pair ${pairIdx + 1}")
+                            Text("${stringResource(R.string.pair_no)} ${pairIdx + 1}")
                         }
                     }
 
@@ -453,25 +459,24 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     if (flexOpenPO)
         FlexDialog(
             s = s,
-            index = flexIndex,
-            currentFlexOhm = t.flexOhm[flexIndex],
-            onDismiss = { flexOpen = false },
-            onChange = { next ->
-                vm.updateActiveSettings(flexIndex) { next }
-            },
+            index = 0,
+            currentFlexOhm = t.flexOhm[0],
+            onDismiss = { flexOpenPO = false },
+            onChange = { next -> vm.updateActiveSettings(0) { next } },
             haptic = haptic
         )
 
     if (saveWarnOpen) {
         AlertDialog(
             onDismissRequest = { saveWarnOpen = false },
-            title = { Text("Предупреждение") },
+            title = { Text(stringResource(R.string.notification)) },
             text = {
                 Text(
-                    "Найдены видимые пары с неполной настройкой: " +
+                    stringResource(R.string.setup_not_full) + saveWarnText
+                    /*"Найдены видимые пары с неполной настройкой: " +
                             "один из пинов оставлен заглушкой (255). " +
                             "Из-за этого телеметрия/управление может работать некорректно.\n\n" +
-                            saveWarnText
+                            saveWarnText*/
                 )
             },
             confirmButton = {
@@ -480,7 +485,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     saveWarnOpen = false
                     doSave()
                 }) {
-                    Text("Все равно продолжить")
+                    Text(stringResource(R.string.continue_anyway))
                 }
             },
             dismissButton = {
@@ -488,7 +493,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     haptic.performHapticFeedback(HapticFeedbackType.Reject)
                     saveWarnOpen = false
                 }) {
-                    Text("Отменить")
+                    Text(stringResource(R.string.device_cancel))
                 }
             }
         )
@@ -559,7 +564,7 @@ private fun RenameDialog(
         dismissButton = {
             TextButton(onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.Reject)
-                onDismiss
+                onDismiss()
             }) { Text(stringResource(R.string.device_cancel)) }
         }
     )
@@ -584,7 +589,7 @@ fun BaseDialog(
         dismissButton = {
             TextButton(onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.Reject)
-                onDismiss
+                onDismiss()
             }) { Text(stringResource(R.string.device_cancel)) }
         }
     )
@@ -663,13 +668,14 @@ private fun findIncompletePairsIssuesVisibleOnly(
     return res
 }
 
-private fun PairIssue.toUiText(): String {
+private fun PairIssue.toUiText(
+    pairNo: String,
+    flexNotSet: String,
+    servoNotSet: String
+): String {
     val pairNum = pairIdx + 1
     return when (missing) {
-        MissingPart.Flex ->
-            "Пара $pairNum: у Flex оставлена заглушка (255). Укажи flexPin, чтобы всё работало корректно."
-
-        MissingPart.Servo ->
-            "Пара $pairNum: у Servo оставлена заглушка (255). Укажи servoPin, чтобы всё работало корректно."
+        MissingPart.Flex -> "$pairNo $pairNum: $flexNotSet"
+        MissingPart.Servo -> "$pairNo $pairNum: $servoNotSet"
     }
 }

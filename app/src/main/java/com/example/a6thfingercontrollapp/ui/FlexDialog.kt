@@ -16,7 +16,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.EspSettings
 
 @Composable
@@ -30,7 +32,6 @@ fun FlexDialog(
 ) {
     val flexSetting = s.flexSettings.getOrNull(index) ?: return
 
-    // чтобы при смене index/настроек поля обновлялись
     var pin by remember(
         index,
         flexSetting.flexPin
@@ -49,20 +50,20 @@ fun FlexDialog(
     ) { mutableStateOf(flexSetting.flexBendOhm.toString()) }
 
     BaseDialog(
-        title = "Flex Settings",
+        title = stringResource(R.string.flex_settings),
         onDismiss = onDismiss,
         haptic = haptic
     ) {
-        Text("Пара: ${index + 1}", style = MaterialTheme.typography.bodyMedium)
+        Text("${stringResource(R.string.pair_no)}: ${index + 1}", style = MaterialTheme.typography.bodyMedium)
         Text(
-            "Текущее сопротивление: ${pretty(currentFlexOhm)} Ω",
+            "${stringResource(R.string.flex_current_resistance)}: ${pretty(currentFlexOhm)} Ω",
             style = MaterialTheme.typography.bodyMedium
         )
 
-        NumberField("Flex Pin", pin) { pin = it }
-        NumberField("Flex Unfolded Resistance", straight) { straight = it }
-        NumberField("Flex Folded Resistance", bend) { bend = it }
-        NumberField("Flex Pullup", pull) { pull = it }
+        NumberField(stringResource(R.string.flex_pin), pin) { pin = it }
+        NumberField(stringResource(R.string.flex_unfolded), straight) { straight = it }
+        NumberField(stringResource(R.string.flex_folded), bend) { bend = it }
+        NumberField(stringResource(R.string.fsr_pullup), pull) { pull = it }
 
         Spacer(Modifier.height(8.dp))
 
@@ -88,7 +89,7 @@ fun FlexDialog(
                     onDismiss()
                 }
             ) {
-                Text("OK")
+                Text(stringResource(R.string.generic_ok))
             }
         }
     }
