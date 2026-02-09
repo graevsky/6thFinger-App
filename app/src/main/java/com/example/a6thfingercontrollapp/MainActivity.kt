@@ -104,9 +104,7 @@ class MainActivity : ComponentActivity() {
                                     bleVm = vm,
                                     authVm = authVm,
                                     onLoginClick = { authFlowScreen = AuthFlowScreen.Login },
-                                    onRegisterClick = {
-                                        authFlowScreen = AuthFlowScreen.Register
-                                    },
+                                    onRegisterClick = { authFlowScreen = AuthFlowScreen.Register },
                                     onContinueAsGuest = { authVm.continueAsGuest() }
                                 )
                             }
@@ -145,24 +143,22 @@ class MainActivity : ComponentActivity() {
                         val currentRoute = backStack?.destination?.route ?: NavRoute.Connect.route
                         val bleState by vm.state.collectAsState()
 
-                        val rawStatus = bleState.status.lowercase()
+                        val unlocked by vm.controlUnlocked.collectAsState()
 
+                        val rawStatus = bleState.status.lowercase()
                         val connected =
                             when {
                                 "disconnected" in rawStatus -> false
-
                                 "subscribed" in rawStatus -> true
-
                                 "tele" in rawStatus -> true
                                 "config" in rawStatus -> true
                                 "ack" in rawStatus -> true
-
+                                "auth" in rawStatus -> true
                                 else -> false
                             }
 
-
-                        LaunchedEffect(connected, currentRoute) {
-                            if (!connected &&
+                        LaunchedEffect(connected, unlocked, currentRoute) {
+                            if ((!connected || !unlocked) &&
                                 (currentRoute == NavRoute.Control.route ||
                                         currentRoute == NavRoute.Sim.route)
                             ) {
@@ -182,7 +178,7 @@ class MainActivity : ComponentActivity() {
                                             when (r) {
                                                 NavRoute.Connect -> true
                                                 NavRoute.Account -> true
-                                                else -> connected
+                                                else -> connected && unlocked
                                             }
 
                                         NavigationBarItem(
@@ -192,34 +188,16 @@ class MainActivity : ComponentActivity() {
                                                     nav.navigate(r.route) {
                                                         launchSingleTop = true
                                                         restoreState = true
-                                                        popUpTo(
-                                                            nav.graph.startDestinationId
-                                                        ) { saveState = true }
+                                                        popUpTo(nav.graph.startDestinationId) { saveState = true }
                                                     }
                                                 }
                                             },
                                             icon = {
                                                 when (r) {
-                                                    NavRoute.Connect ->
-                                                        Icon(
-                                                            Icons.Default.Bluetooth,
-                                                            null
-                                                        )
-
-                                                    NavRoute.Control ->
-                                                        Icon(
-                                                            Icons.Default.Settings,
-                                                            null
-                                                        )
-
-                                                    NavRoute.Sim ->
-                                                        Icon(
-                                                            Icons.Default.PlayArrow,
-                                                            null
-                                                        )
-
-                                                    NavRoute.Account ->
-                                                        Icon(Icons.Default.Person, null)
+                                                    NavRoute.Connect -> Icon(Icons.Default.Bluetooth, null)
+                                                    NavRoute.Control -> Icon(Icons.Default.Settings, null)
+                                                    NavRoute.Sim -> Icon(Icons.Default.PlayArrow, null)
+                                                    NavRoute.Account -> Icon(Icons.Default.Person, null)
                                                 }
                                             },
                                             label = { Text(stringResource(r.labelRes)) },
@@ -240,7 +218,9 @@ class MainActivity : ComponentActivity() {
                                 composable(NavRoute.Control.route) {
                                     ControlScreen(vm = vm, authVm = authVm)
                                 }
-                                composable(NavRoute.Sim.route) { SimulationScreen(vm = vm) }
+                                composable(NavRoute.Sim.route) {
+                                    SimulationScreen(vm = vm)
+                                }
                                 composable(NavRoute.Account.route) {
                                     AccountScreen(
                                         vm = vm,
@@ -257,9 +237,7 @@ class MainActivity : ComponentActivity() {
                                             nav.navigate(NavRoute.Control.route) {
                                                 launchSingleTop = true
                                                 restoreState = true
-                                                popUpTo(nav.graph.startDestinationId) {
-                                                    saveState = true
-                                                }
+                                                popUpTo(nav.graph.startDestinationId) { saveState = true }
                                             }
                                         }
                                     )
@@ -270,12 +248,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    fun recreateApp() {
-        val intent = intent
-        finish()
-        startActivity(intent)
     }
 
     override fun onStart() {

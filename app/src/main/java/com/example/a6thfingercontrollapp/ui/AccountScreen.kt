@@ -1,5 +1,6 @@
 package com.example.a6thfingercontrollapp.ui
 
+import android.app.Activity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,7 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.AuthViewModel
 import com.example.a6thfingercontrollapp.BleViewModel
-import com.example.a6thfingercontrollapp.MainActivity
 import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.UiAuthState
 import com.example.a6thfingercontrollapp.ble.EspSettings
@@ -316,7 +316,7 @@ fun AccountScreen(
     }
 
     if (showSettings) {
-        val activity = LocalContext.current as? MainActivity
+        val activity = LocalContext.current as? Activity
 
         SettingsDialog(
             currentLang = lang,
@@ -334,7 +334,7 @@ fun AccountScreen(
                 }
 
                 showSettings = false
-                activity?.recreateApp()
+                activity?.recreate()
             }
         )
     }

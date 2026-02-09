@@ -145,4 +145,18 @@
     <string name="continue_anyway">Continue anyway</string>
     <string name="flex_not_set">Flex has default pin (255). Update flex pin.</string>
     <string name="servo_not_set">Servo has default pin (255). Update servo pin.</string>
+
+    <string name="pin_enabled">PIN set</string>
+    <string name="pin_disabled">PIN removed</string>
+    <string name="pin_reset">Reset PIN</string>
+
+    <string name="pin_title">PIN</string>
+    <string name="pin_hint">Enter 4 digits</string>
+    <string name="pin_wait">Checking PIN…</string>
+    <string name="pin_wait_btn">Please wait…</string>
+
+    <string name="pin_wrong">Wrong PIN</string>
+    <string name="pin_send_failed">Failed to send PIN. Try again.</string>
+    <string name="pin_timeout">No response from device. Try again.</string>
+    <string name="pin_bad_format">PIN must be 4 digits</string>
 </resources>

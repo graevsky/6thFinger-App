@@ -20,6 +20,12 @@ data class EspSettings(
     val vibroSoftPower: Int = 200,
     val vibroPulseBase: Int = 120,
 
+    // PIN (0000 == 0 == отключен)
+    val pinCode: Int = 0,
+
+    val pinSet: Boolean = false,
+    val authRequired: Boolean = false,
+
     val settingsVersion: Int = 1
 ) {
 
@@ -33,7 +39,6 @@ data class EspSettings(
             put("flexSettings", JSONArray().apply { flexSettings.forEach { put(it.toJson()) } })
             put("servoSettings", JSONArray().apply { servoSettings.forEach { put(it.toJson()) } })
 
-
             put("vibroPin", vibroPin)
             put("vibroMode", vibroMode)
             put("vibroFreqHz", vibroFreqHz)
@@ -41,6 +46,8 @@ data class EspSettings(
             put("vibroMinDuty", vibroMinDuty)
             put("vibroSoftPower", vibroSoftPower)
             put("vibroPulseBase", vibroPulseBase)
+
+            put("pinCode", pinCode)
 
             put("settingsVersion", settingsVersion)
         }
@@ -133,6 +140,10 @@ data class EspSettings(
             val flexArray = parseFlexArray(json)
             val servoArray = parseServoArray(json)
 
+            val pinCode = json.optInt("pinCode", 0)
+            val pinSet = json.optBoolean("pinSet", pinCode != 0)
+            val authRequired = json.optBoolean("authRequired", false)
+
             return EspSettings(
                 fsrPin = json.optInt("fsrPin", def.fsrPin),
                 fsrPullupOhm = json.optInt("fsrPullupOhm", def.fsrPullupOhm),
@@ -153,6 +164,10 @@ data class EspSettings(
                 vibroMinDuty = json.optInt("vibroMinDuty", def.vibroMinDuty),
                 vibroSoftPower = json.optInt("vibroSoftPower", def.vibroSoftPower),
                 vibroPulseBase = json.optInt("vibroPulseBase", def.vibroPulseBase),
+
+                pinCode = pinCode,
+                pinSet = pinSet,
+                authRequired = authRequired,
 
                 settingsVersion = json.optInt("settingsVersion", def.settingsVersion)
             )

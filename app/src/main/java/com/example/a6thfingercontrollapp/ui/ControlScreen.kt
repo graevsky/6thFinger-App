@@ -67,6 +67,8 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     val applied by vm.lastAppliedSettings.collectAsState()
 
     var renameOpen by remember { mutableStateOf(false) }
+    var pinOpen by remember { mutableStateOf(false) }
+
     var fsrOpen by remember { mutableStateOf(false) }
     var flexOpen by remember { mutableStateOf(false) }
     var vibroOpen by remember { mutableStateOf(false) }
@@ -76,7 +78,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
     var flexOpenPO by remember { mutableStateOf(false) }
     var servoOpenPO by remember { mutableStateOf(false) }
-
 
     var pairsCount by remember { mutableStateOf(1) }
 
@@ -96,6 +97,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             "tele" in rawStatus -> true
             "config" in rawStatus -> true
             "ack" in rawStatus -> true
+            "auth" in rawStatus -> true
             else -> false
         }
 
@@ -178,7 +180,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                             pairsCount++
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = pairsCount < 4
                 ) {
                     Text(stringResource(R.string.add_pair))
@@ -201,9 +202,9 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 )
 
                 val aliasSubtitle = when {
-                    activeAddress.isBlank() -> stringResource(R.string.no_active)/*"Нет активного устройства"*/
+                    activeAddress.isBlank() -> stringResource(R.string.no_active)
                     alias.isNotBlank() -> "${stringResource(R.string.alias)} $alias"
-                    else -> stringResource(R.string.alias_not_set) /*"Alias не задан, нажми"*/
+                    else -> stringResource(R.string.alias_not_set)
                 }
 
                 SettingItem(
@@ -211,12 +212,14 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     subtitle = aliasSubtitle
                 ) { renameOpen = true }
 
-                /*if (activeAddress.isNotBlank()) {
-                    Text(
-                        text = "addr: $activeAddress",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }*/
+                val pinSubtitle =
+                    if (s.pinSet || s.authRequired || s.pinCode != 0) stringResource(R.string.pin_enabled)
+                    else stringResource(R.string.pin_disabled)
+
+                SettingItem(
+                    title = stringResource(R.string.pin_title),
+                    subtitle = pinSubtitle
+                ) { pinOpen = true }
 
                 Divider(Modifier.padding(vertical = 8.dp))
             }
@@ -237,6 +240,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     subtitle = stringResource(R.string.control_vibro_mode)
                 ) { vibroOpen = true }
             }
+
             item {
                 Text(
                     stringResource(R.string.fsr_n_force_curr_vals),
@@ -268,6 +272,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     subtitle = stringResource(R.string.control_resistance_cal)
                 ) { flexOpenPO = true }
             }
+
             item {
                 Text(
                     stringResource(R.string.flex_n_servo_curr_vals),
@@ -276,23 +281,9 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             }
 
             item {
-                DiagnosticRow(
-                    stringResource(R.string.control_diag_flex_ohm),
-                    pretty(t.flexOhm[0])
-                )
-                DiagnosticRow(
-                    stringResource(R.string.control_diag_servo_deg),
-                    pretty(t.servoDeg[0])
-                )
+                DiagnosticRow(stringResource(R.string.control_diag_flex_ohm), pretty(t.flexOhm[0]))
+                DiagnosticRow(stringResource(R.string.control_diag_servo_deg), pretty(t.servoDeg[0]))
             }
-
-            /*item {
-                Text(
-                    text = "DEBUG servoPins = " +
-                            s.servoSettings.joinToString(prefix = "[", postfix = "]") { it.servoPin.toString() },
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }*/
 
             // Пары 2–4
             (1..3).forEach { pairIdx ->
@@ -328,14 +319,8 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                         flexOpen = true
                     }
 
-                    DiagnosticRow(
-                        stringResource(R.string.control_diag_flex_ohm),
-                        pretty(t.flexOhm[pairIdx])
-                    )
-                    DiagnosticRow(
-                        stringResource(R.string.control_diag_servo_deg),
-                        pretty(t.servoDeg[pairIdx])
-                    )
+                    DiagnosticRow(stringResource(R.string.control_diag_flex_ohm), pretty(t.flexOhm[pairIdx]))
+                    DiagnosticRow(stringResource(R.string.control_diag_servo_deg), pretty(t.servoDeg[pairIdx]))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -383,7 +368,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                             Text("${stringResource(R.string.pair_no)} ${pairIdx + 1}")
                         }
                     }
-
                 }
             }
         }
@@ -397,6 +381,17 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             onSave = { newName ->
                 vm.renameActive(newName)
                 renameOpen = false
+            },
+            haptic = haptic
+        )
+
+    if (pinOpen)
+        PinDialog(
+            currentPinCode = s.pinCode,
+            onDismiss = { pinOpen = false },
+            onSetPin = { newPin ->
+                vm.updateActiveSettings(0) { cur -> cur.copy(pinCode = newPin) }
+                pinOpen = false
             },
             haptic = haptic
         )
@@ -432,7 +427,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             },
             haptic = haptic
         )
-
 
     if (servoOpen)
         ServoDialog(
@@ -470,15 +464,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
         AlertDialog(
             onDismissRequest = { saveWarnOpen = false },
             title = { Text(stringResource(R.string.notification)) },
-            text = {
-                Text(
-                    stringResource(R.string.setup_not_full) + saveWarnText
-                    /*"Найдены видимые пары с неполной настройкой: " +
-                            "один из пинов оставлен заглушкой (255). " +
-                            "Из-за этого телеметрия/управление может работать некорректно.\n\n" +
-                            saveWarnText*/
-                )
-            },
+            text = { Text(stringResource(R.string.setup_not_full) + saveWarnText) },
             confirmButton = {
                 Button(onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -571,6 +557,56 @@ private fun RenameDialog(
 }
 
 @Composable
+private fun PinDialog(
+    currentPinCode: Int,
+    onDismiss: () -> Unit,
+    onSetPin: (Int) -> Unit,
+    haptic: HapticFeedback
+) {
+    var pin by remember {
+        mutableStateOf(if (currentPinCode == 0) "0000" else "%04d".format(currentPinCode))
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.pin_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { pin = it.filter(Char::isDigit).take(4) },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.pin_hint)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        pin = "0000"
+                    }
+                ) { Text(stringResource(R.string.pin_reset)) }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = pin.length == 4,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onSetPin(pin.toIntOrNull() ?: 0)
+                }
+            ) { Text(stringResource(R.string.device_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                onDismiss()
+            }) { Text(stringResource(R.string.device_cancel)) }
+        }
+    )
+}
+
+@Composable
 fun BaseDialog(
     title: String,
     onDismiss: () -> Unit,
@@ -619,7 +655,6 @@ fun SegmentedButtons(items: List<String>, selectedIndex: Int, onSelect: (Int) ->
         }
     }
 }
-
 
 private const val PIN_PLACEHOLDER = 0xFF
 

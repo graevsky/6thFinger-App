@@ -68,17 +68,15 @@ class BleClient(private val context: Context) {
     private val _settings = MutableStateFlow<EspSettings?>(null)
     val settings: StateFlow<EspSettings?> = _settings.asStateFlow()
 
-    private val _status = MutableStateFlow("Idle")
-
     private val _devices = MutableStateFlow<List<BleDeviceUi>>(emptyList())
     val devices: StateFlow<List<BleDeviceUi>> = _devices.asStateFlow()
 
     private val scanning = AtomicBoolean(false)
     private val connecting = AtomicBoolean(false)
 
-    private val teleParser = ChunkParser()
-    private val cfgParser = ChunkParser()
-    private val ackParser = ChunkParser()
+    private var teleParser = ChunkParser()
+    private var cfgParser = ChunkParser()
+    private var ackParser = ChunkParser()
 
     private val writeMutex = Any()
 
@@ -87,9 +85,30 @@ class BleClient(private val context: Context) {
     @Volatile
     private var lastWriteOk: Boolean = true
 
-
     @Volatile
     private var teleUnlocked: Boolean = false
+
+    private val _authRequired = MutableStateFlow(false)
+    val authRequired: StateFlow<Boolean> = _authRequired.asStateFlow()
+
+    private val _authSending = MutableStateFlow(false)
+    val authSending: StateFlow<Boolean> = _authSending.asStateFlow()
+
+    private val _pinError = MutableStateFlow<String?>(null)
+    val pinError: StateFlow<String?> = _pinError.asStateFlow()
+
+    private val _controlUnlocked = MutableStateFlow(false)
+    val controlUnlocked: StateFlow<Boolean> = _controlUnlocked.asStateFlow()
+
+    @Volatile
+    private var authAttemptId: Long = 0L
+
+    @Volatile
+    private var sessionAuthed: Boolean = false
+    @Volatile
+    private var devicePinSet: Boolean = false
+    @Volatile
+    private var seenTelemetry: Boolean = false
 
     fun start() { /* no-op */
     }
@@ -99,9 +118,7 @@ class BleClient(private val context: Context) {
         disconnectNow()
     }
 
-    fun disconnectNow() {
-        disconnect()
-    }
+    fun disconnectNow() = disconnect()
 
     fun isBleReady(): Boolean = adapter?.isEnabled == true
 
@@ -166,6 +183,49 @@ class BleClient(private val context: Context) {
             Log.d(TAG_CFG, "ANDROID_SEND_CFG_GET = $obj")
             writeJsonChunked(obj.toString())
         }
+    }
+
+    fun sendAuthPin(pin4: String): Boolean {
+        val pin = pin4.trim()
+        if (pin.length != 4 || !pin.all { it.isDigit() }) {
+            _pinError.value = "pin_bad_format"
+            return false
+        }
+        if (_authSending.value) return false
+
+        _pinError.value = null
+        _authSending.value = true
+        _authRequired.value = true
+        _controlUnlocked.value = false
+
+        val myAttempt = ++authAttemptId
+
+        scope.launch {
+            val obj = JSONObject().apply {
+                put("type", "auth")
+                put("pin", pin)
+            }
+            Log.d(TAG_CFG, "ANDROID_SEND_AUTH = $obj")
+
+            val sentOk = writeJsonChunked(obj.toString())
+            if (!sentOk) {
+                if (authAttemptId == myAttempt) {
+                    _authSending.value = false
+                    _pinError.value = "pin_send_failed"
+                }
+                return@launch
+            }
+
+            delay(5500)
+            if (authAttemptId == myAttempt && _authSending.value) {
+                _authSending.value = false
+                _pinError.value = "pin_timeout"
+                _authRequired.value = true
+                _controlUnlocked.value = false
+            }
+        }
+
+        return true
     }
 
     private fun sendCfgOkOnce() {
@@ -238,7 +298,23 @@ class BleClient(private val context: Context) {
     private fun connect(dev: BluetoothDevice) {
         if (connecting.getAndSet(true)) return
 
+        sessionAuthed = false
+        devicePinSet = false
+        seenTelemetry = false
         teleUnlocked = false
+        authAttemptId++
+
+        _controlUnlocked.value = false
+        _authRequired.value = false
+        _authSending.value = false
+        _pinError.value = null
+
+        teleParser = ChunkParser()
+        cfgParser = ChunkParser()
+        ackParser = ChunkParser()
+        rawCfgInProgress = false
+        rawCfgBuf.clear()
+        _rawCfgText.value = ""
 
         if (!hasConnPermission()) {
             connecting.set(false)
@@ -265,7 +341,21 @@ class BleClient(private val context: Context) {
     @SuppressLint("MissingPermission")
     private fun disconnect() {
         connecting.set(false)
+
+        sessionAuthed = false
+        devicePinSet = false
+        seenTelemetry = false
         teleUnlocked = false
+        authAttemptId++
+
+        _authRequired.value = false
+        _authSending.value = false
+        _pinError.value = null
+        _controlUnlocked.value = false
+
+        teleParser = ChunkParser()
+        cfgParser = ChunkParser()
+        ackParser = ChunkParser()
 
         try {
             if (hasConnPermission()) gatt?.disconnect()
@@ -299,6 +389,8 @@ class BleClient(private val context: Context) {
             if (status == BluetoothGatt.GATT_SUCCESS &&
                 newState == BluetoothProfile.STATE_CONNECTED
             ) {
+                connecting.set(false)
+
                 updateStatus("Discovering")
                 try {
                     g.discoverServices()
@@ -307,13 +399,14 @@ class BleClient(private val context: Context) {
                     disconnect()
                 }
             } else {
+                connecting.set(false)
                 disconnect()
             }
         }
 
         @SuppressLint("MissingPermission")
         override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
-            Log.d(TAG_CFG, "onServicesDiscovered status=$status")
+            connecting.set(false)
 
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 updateStatus("Service discovery failed")
@@ -328,8 +421,6 @@ class BleClient(private val context: Context) {
             }
 
             val svc = g.getService(NewBleConstants.SERVICE_UUID)
-            Log.d(TAG_CFG, "getService(${NewBleConstants.SERVICE_UUID}) = $svc")
-
             if (svc == null) {
                 updateStatus("Service not found")
                 disconnect()
@@ -340,15 +431,6 @@ class BleClient(private val context: Context) {
             chCfgOut = svc.getCharacteristic(NewBleConstants.CFG_OUT_UUID)
             chAck = svc.getCharacteristic(NewBleConstants.ACK_UUID)
             chTele = svc.getCharacteristic(NewBleConstants.TELE_UUID)
-
-            Log.d(
-                TAG_CFG,
-                "Characteristics: " +
-                        "CFG_IN=${chCfgIn != null} " +
-                        "CFG_OUT=${chCfgOut != null} " +
-                        "ACK=${chAck != null} " +
-                        "TELE=${chTele != null}"
-            )
 
             if (chCfgIn == null || chCfgOut == null || chAck == null || chTele == null) {
                 updateStatus("Characteristics missing")
@@ -369,11 +451,6 @@ class BleClient(private val context: Context) {
             descriptor: BluetoothGattDescriptor,
             status: Int
         ) {
-            Log.d(
-                TAG_CFG,
-                "onDescriptorWrite uuid=${descriptor.uuid}, char=${descriptor.characteristic.uuid}, status=$status"
-            )
-
             if (descriptor.uuid == NewBleConstants.CCC_UUID) {
                 if (notifyQueue.isNotEmpty()) notifyQueue.removeFirst()
 
@@ -381,7 +458,6 @@ class BleClient(private val context: Context) {
                     enableNextNotify(gatt)
                 } else {
                     updateStatus("Subscribed (tele/cfg/ack)")
-                    Log.d(TAG_CFG, "requestConfig() after subscribe")
                     requestConfig()
                 }
             }
@@ -405,7 +481,6 @@ class BleClient(private val context: Context) {
             characteristic: BluetoothGattCharacteristic,
             status: Int
         ) {
-            Log.d(TAG_CFG, "onCharacteristicWrite uuid=${characteristic.uuid} status=$status")
             lastWriteOk = (status == BluetoothGatt.GATT_SUCCESS)
             writeInProgress = false
         }
@@ -413,12 +488,11 @@ class BleClient(private val context: Context) {
 
     private fun handleNotify(uuid: java.util.UUID, bytes: ByteArray) {
         val text = decodeAscii(bytes)
-
         when (uuid) {
             NewBleConstants.TELE_UUID -> handleTeleStreamChunk(text)
             NewBleConstants.CFG_OUT_UUID -> handleCfgStreamChunk(text)
             NewBleConstants.ACK_UUID -> handleAckStreamChunk(text)
-            else -> Log.w(TAG_CFG, "notify/indicate from unexpected UUID=$uuid")
+            else -> Log.w(TAG_CFG, "notify from unexpected UUID=$uuid")
         }
     }
 
@@ -431,11 +505,8 @@ class BleClient(private val context: Context) {
     @SuppressLint("MissingPermission")
     private fun enableNotifyOrIndicate(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
         try {
-            Log.d(TAG_CFG, "enableNotifyOrIndicate for ${ch.uuid}")
             g.setCharacteristicNotification(ch, true)
-
             val ccc = ch.getDescriptor(NewBleConstants.CCC_UUID)
-            Log.d(TAG_CFG, "CCC descriptor for ${ch.uuid} = $ccc")
 
             if (ccc != null) {
                 val isIndicate =
@@ -447,23 +518,16 @@ class BleClient(private val context: Context) {
                     BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
 
                 val ok = g.writeDescriptor(ccc)
-                Log.d(TAG_CFG, "writeDescriptor(${ch.uuid}) started=$ok")
-
                 if (!ok) {
                     if (notifyQueue.isNotEmpty() && notifyQueue.first() == ch) notifyQueue.removeFirst()
                     enableNextNotify(g)
                 }
             } else {
-                updateStatus("No CCC for ${ch.uuid}")
                 if (notifyQueue.isNotEmpty() && notifyQueue.first() == ch) notifyQueue.removeFirst()
                 enableNextNotify(g)
             }
-        } catch (e: SecurityException) {
-            updateStatus("Notify denied")
-            Log.e(TAG_CFG, "Notify/Indicate denied for ${ch.uuid}", e)
-        } catch (e: Throwable) {
+        } catch (_: Throwable) {
             updateStatus("Notify error")
-            Log.e(TAG_CFG, "Notify/Indicate error for ${ch.uuid}", e)
         }
     }
 
@@ -477,7 +541,6 @@ class BleClient(private val context: Context) {
 
     private fun handleCfgStreamChunk(s: String) {
         Log.d(TAG_CFG, "cfg chunk='$s'")
-
         pushRawCfgChunk(s)
 
         if (!cfgParser.push(s)) return
@@ -497,8 +560,37 @@ class BleClient(private val context: Context) {
     private fun handleIncomingJson(json: JSONObject) {
         val type = json.optString("type", "")
 
-        when {
-            type == "cfg" || (type.isEmpty() && json.has("servoSettings")) -> {
+        when (type) {
+            "auth" -> {
+                val required = json.optBoolean("required", false)
+                if (required && !json.has("ok")) {
+                    _authRequired.value = true
+                    _controlUnlocked.value = false
+                    _authSending.value = false
+                    return
+                }
+
+                val ok = json.optBoolean("ok", false)
+                _authSending.value = false
+
+                if (ok) {
+                    sessionAuthed = true
+                    _pinError.value = null
+                    _authRequired.value = false
+                    _controlUnlocked.value = true
+                    updateStatus("AUTH OK")
+                    requestConfig()
+                } else {
+                    sessionAuthed = false
+                    _authRequired.value = true
+                    _controlUnlocked.value = false
+                    _pinError.value = json.optString("err").ifBlank { "pin_wrong" }
+                    updateStatus("AUTH FAIL")
+                }
+                return
+            }
+
+            "cfg" -> {
                 val cfg = try {
                     EspSettings.fromJson(json)
                 } catch (t: Throwable) {
@@ -506,13 +598,26 @@ class BleClient(private val context: Context) {
                     updateStatus("Config parse error")
                     return
                 }
+
                 _settings.value = cfg
                 updateStatus("Config updated")
 
-                sendCfgOkOnce()
+                devicePinSet = cfg.pinSet || (cfg.pinCode != 0)
+
+                val mustAuth = (cfg.authRequired || devicePinSet) && !sessionAuthed
+                if (mustAuth) {
+                    _authRequired.value = true
+                    _controlUnlocked.value = false
+                    _authSending.value = false
+                } else {
+                    _authRequired.value = false
+                    _controlUnlocked.value = true
+                    sendCfgOkOnce()
+                }
+                return
             }
 
-            type == "tele" || json.has("fsr_raw") || json.has("flex_raw_0") -> {
+            "tele" -> {
                 val t = try {
                     Telemetry.fromJson(json)
                 } catch (t: Throwable) {
@@ -520,32 +625,84 @@ class BleClient(private val context: Context) {
                     updateStatus("Tele parse error")
                     return
                 }
+
+                seenTelemetry = true
                 val prev = _telemetry.value
                 _telemetry.value = t.copy(status = prev.status)
+
+                if (!_controlUnlocked.value) {
+                    _authRequired.value = false
+                    _authSending.value = false
+                    _pinError.value = null
+                    _controlUnlocked.value = true
+                }
+                return
             }
 
-            type == "ack" || json.has("ok") -> {
+            "ack" -> {
                 val ok = json.optBoolean("ok", false)
-                Log.d(TAG_CFG, "ACK from board: ok=$ok")
                 updateStatus(if (ok) "ACK OK" else "ACK FAIL")
+                return
             }
 
-            else -> Log.w(TAG_CFG, "Unknown JSON type: $json")
+            else -> {
+                when {
+                    json.has("servoSettings") -> {
+                        val cfg = try {
+                            EspSettings.fromJson(json)
+                        } catch (t: Throwable) {
+                            Log.e(TAG_CFG, "Config parse error", t)
+                            updateStatus("Config parse error")
+                            return
+                        }
+
+                        _settings.value = cfg
+                        updateStatus("Config updated")
+
+                        devicePinSet = cfg.pinSet || (cfg.pinCode != 0)
+                        val mustAuth = (cfg.authRequired || devicePinSet) && !sessionAuthed
+                        if (mustAuth) {
+                            _authRequired.value = true
+                            _controlUnlocked.value = false
+                            _authSending.value = false
+                        } else {
+                            _authRequired.value = false
+                            _controlUnlocked.value = true
+                            sendCfgOkOnce()
+                        }
+                    }
+
+                    json.has("fsr_raw") || json.has("flex_raw_0") -> {
+                        val t = try {
+                            Telemetry.fromJson(json)
+                        } catch (t: Throwable) {
+                            Log.e(TAG_TELE, "Tele parse error", t)
+                            updateStatus("Tele parse error")
+                            return
+                        }
+                        seenTelemetry = true
+                        val prev = _telemetry.value
+                        _telemetry.value = t.copy(status = prev.status)
+
+                        if (!_controlUnlocked.value) {
+                            _authRequired.value = false
+                            _authSending.value = false
+                            _pinError.value = null
+                            _controlUnlocked.value = true
+                        }
+                    }
+
+                    else -> Log.w(TAG_CFG, "Unknown JSON type: $json")
+                }
+            }
         }
     }
 
     @SuppressLint("MissingPermission")
     private fun writeJsonChunked(json: String): Boolean =
         synchronized(writeMutex) {
-            val ch = chCfgIn ?: run {
-                updateStatus("No CFG_IN characteristic")
-                return false
-            }
-
-            val g = gatt ?: run {
-                updateStatus("No GATT")
-                return false
-            }
+            val ch = chCfgIn ?: run { updateStatus("No CFG_IN"); return false }
+            val g = gatt ?: run { updateStatus("No GATT"); return false }
 
             if (!hasConnPermission()) {
                 updateStatus("No write permission")
@@ -573,13 +730,6 @@ class BleClient(private val context: Context) {
                     }
                     waited += 20
                 }
-                if (writeInProgress) {
-                    Log.w(
-                        TAG_CFG,
-                        "safeWrite timeout waiting for onCharacteristicWrite, chunk='$str'"
-                    )
-                }
-
                 return !writeInProgress && lastWriteOk
             }
 
@@ -604,7 +754,6 @@ class BleClient(private val context: Context) {
                 if (!safeWrite("[END]")) {
                     updateStatus("Write END failed"); return false
                 }
-
                 true
             } catch (_: Throwable) {
                 updateStatus("Write failed")
@@ -615,7 +764,6 @@ class BleClient(private val context: Context) {
     private fun updateStatus(text: String) {
         scope.launch {
             val tPrev = _telemetry.value
-            _status.value = text
             _telemetry.value = tPrev.copy(status = text)
         }
     }

@@ -65,6 +65,20 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     val appLanguage: StateFlow<String> =
         appSettings.getLanguage().stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
 
+    val authRequired: StateFlow<Boolean> =
+        client.authRequired.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val pinSending: StateFlow<Boolean> =
+        client.authSending.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val pinError: StateFlow<String?> =
+        client.pinError.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val controlUnlocked: StateFlow<Boolean> =
+        client.controlUnlocked.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun sendPin(pin4: String): Boolean = client.sendAuthPin(pin4)
+
     init {
         viewModelScope.launch {
             client.settings.collect { fromBoard ->
@@ -81,15 +95,10 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun start() = client.start()
-
     fun stop() = client.stop()
-
     fun scan() = client.scan()
-
     fun connect(address: String) = client.connectByAddress(address)
-
     fun isBleReady(): Boolean = client.isBleReady()
-
     fun disconnect() = client.disconnectNow()
 
     fun aliasFlow(address: String): Flow<String?> = aliasStore.alias(address)
@@ -110,22 +119,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         val next = update(current)
 
         when (pairIndex) {
-            0 -> {
-                _uiSettings.value =
-                    next.copy(flexSettings = next.flexSettings, servoSettings = next.servoSettings)
-            }
-
-            1 -> {
-                _uiSettings.value =
-                    next.copy(flexSettings = next.flexSettings, servoSettings = next.servoSettings)
-            }
-
-            2 -> {
-                _uiSettings.value =
-                    next.copy(flexSettings = next.flexSettings, servoSettings = next.servoSettings)
-            }
-
-            3 -> {
+            0, 1, 2, 3 -> {
                 _uiSettings.value =
                     next.copy(flexSettings = next.flexSettings, servoSettings = next.servoSettings)
             }

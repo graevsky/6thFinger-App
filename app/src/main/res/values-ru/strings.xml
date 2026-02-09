@@ -61,7 +61,7 @@
     <string name="control_servo_manual">Пределы и ручной режим</string>
     <string name="control_diagnostic">Диагностика</string>
     <string name="device_reset">Сбросить</string>
-    <string name="add_pair">Добавить пару</string>
+    <string name="add_pair">Доб. пару</string>
 
     <!-- FSR -->
     <string name="fsr_settings">Настройки FSRа</string>
@@ -145,4 +145,19 @@
     <string name="continue_anyway">Все равно продолжить</string>
     <string name="flex_not_set">Датчик изгиба имеен стандартное значение пина (255). Обновите его для корректной работы.</string>
     <string name="servo_not_set">Сервопривод имеен стандартное значение пина (255). Обновите его для корректной работы.</string>
+
+    <string name="pin_enabled">PIN установлен</string>
+    <string name="pin_disabled">PIN снят</string>
+    <string name="pin_reset">СброситьPIN</string>
+
+    <string name="pin_title">PIN-код</string>
+    <string name="pin_hint">Введите 4 цифры</string>
+    <string name="pin_wait">Проверяем PIN…</string>
+    <string name="pin_wait_btn">Ждите…</string>
+
+    <string name="pin_wrong">Неверный PIN-код</string>
+    <string name="pin_send_failed">Не удалось отправить PIN. Попробуйте ещё раз.</string>
+    <string name="pin_timeout">Нет ответа от устройства. Попробуйте ещё раз.</string>
+    <string name="pin_bad_format">PIN должен быть из 4 цифр</string>
+
 </resources>

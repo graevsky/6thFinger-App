@@ -7,17 +7,26 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedback
@@ -36,6 +45,10 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
     val devices by vm.devices.collectAsState()
     val last by vm.lastDevice.collectAsState()
 
+    val authReq by vm.authRequired.collectAsState()
+    val pinSending by vm.pinSending.collectAsState()
+    val pinErrorKey by vm.pinError.collectAsState()
+
     val connectingText = stringResource(R.string.ble_connecting)
     val connectedText = stringResource(R.string.ble_connected)
 
@@ -49,6 +62,7 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
             "tele" in rawStatus -> true
             "config" in rawStatus -> true
             "ack" in rawStatus -> true
+            "auth" in rawStatus -> true
             else -> false
         }
 
@@ -64,6 +78,22 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
             null -> null
             else -> vm.aliasFlow(ld.address).collectAsState(initial = null).value
         }
+
+    var pinDialogOpen by remember { mutableStateOf(false) }
+    var pin by remember { mutableStateOf("") }
+
+
+    LaunchedEffect(authReq) {
+        pinDialogOpen = authReq
+        if (!pinDialogOpen) pin = ""
+    }
+
+    val pinErrorText = pinErrorUiText(pinErrorKey)
+    LaunchedEffect(pinErrorText) {
+        if (!pinErrorText.isNullOrBlank()) {
+            haptic.performHapticFeedback(HapticFeedbackType.Reject)
+        }
+    }
 
     Scaffold { inner ->
         Column(
@@ -133,6 +163,81 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
                 Text(stringResource(R.string.ble_press_to_scan))
             }
         }
+    }
+
+    if (pinDialogOpen) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text(stringResource(R.string.pin_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = pin,
+                        onValueChange = { pin = it.filter(Char::isDigit).take(4) },
+                        label = { Text(stringResource(R.string.pin_hint)) },
+                        singleLine = true,
+                        enabled = !pinSending,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (!pinErrorText.isNullOrBlank()) {
+                        Text(
+                            text = pinErrorText,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    if (pinSending) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                            Text(
+                                text = stringResource(R.string.pin_wait),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = (pin.length == 4) && !pinSending,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                        vm.sendPin(pin)
+                    }
+                ) {
+                    Text(
+                        if (pinSending) stringResource(R.string.pin_wait_btn)
+                        else stringResource(R.string.generic_ok)
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !pinSending,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                        vm.disconnect()
+                    }
+                ) { Text(stringResource(R.string.device_cancel)) }
+            }
+        )
+    }
+}
+
+@Composable
+private fun pinErrorUiText(key: String?): String? {
+    return when (key) {
+        null, "" -> null
+        "pin_wrong" -> stringResource(R.string.pin_wrong)
+        "pin_send_failed" -> stringResource(R.string.pin_send_failed)
+        "pin_timeout" -> stringResource(R.string.pin_timeout)
+        "pin_bad_format" -> stringResource(R.string.pin_bad_format)
+        else -> key
     }
 }
 

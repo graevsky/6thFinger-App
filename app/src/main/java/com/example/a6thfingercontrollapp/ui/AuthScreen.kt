@@ -1,5 +1,6 @@
 package com.example.a6thfingercontrollapp.ui
 
+import android.app.Activity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +37,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.AuthViewModel
 import com.example.a6thfingercontrollapp.BleViewModel
-import com.example.a6thfingercontrollapp.MainActivity
 import com.example.a6thfingercontrollapp.R
 
 @Composable
@@ -143,14 +143,14 @@ fun StartScreen(
     }
 
     if (showLangDialog) {
-        val activity = LocalContext.current as? MainActivity
+        val activity = LocalContext.current as? Activity
         SettingsDialog(
             currentLang = lang,
             onDismiss = { showLangDialog = false },
             onSelect = { newLang ->
                 bleVm.setAppLanguage(newLang)
                 showLangDialog = false
-                activity?.recreateApp()
+                activity?.recreate()
             }
         )
     }
