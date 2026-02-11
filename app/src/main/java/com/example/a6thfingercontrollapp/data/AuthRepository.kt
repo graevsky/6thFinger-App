@@ -2,6 +2,8 @@ package com.example.a6thfingercontrollapp.data
 
 import android.content.Context
 import com.example.a6thfingercontrollapp.ble.EspSettings
+import com.example.a6thfingercontrollapp.ble.FlexSettings
+import com.example.a6thfingercontrollapp.ble.ServoSettings
 import com.example.a6thfingercontrollapp.network.AppSettingsIn
 import com.example.a6thfingercontrollapp.network.BackendApi
 import com.example.a6thfingercontrollapp.network.DeviceCreate
@@ -21,7 +23,7 @@ sealed class AuthState {
     object Unauthenticated : AuthState()
     object Guest : AuthState()
     data class LoggedIn(val username: String, val accessToken: String, val refreshToken: String) :
-            AuthState()
+        AuthState()
 }
 
 class AuthRepository(context: Context) {
@@ -36,7 +38,8 @@ class AuthRepository(context: Context) {
         return when {
             s.isGuest -> AuthState.Guest
             s.accessToken != null && s.username != null && s.refreshToken != null ->
-                    AuthState.LoggedIn(s.username, s.accessToken, s.refreshToken)
+                AuthState.LoggedIn(s.username, s.accessToken, s.refreshToken)
+
             else -> AuthState.Unauthenticated
         }
     }
@@ -55,19 +58,19 @@ class AuthRepository(context: Context) {
             val ghex = params.g.trim()
 
             val reg =
-                    SrpRegister.generateVerifier(
-                            username = normalized,
-                            password = password,
-                            primeHex = Nhex,
-                            generatorHex = ghex
-                    )
+                SrpRegister.generateVerifier(
+                    username = normalized,
+                    password = password,
+                    primeHex = Nhex,
+                    generatorHex = ghex
+                )
 
             api.register(
-                    RegisterIn(
-                            username = normalized,
-                            salt = reg.saltHex,
-                            verifier = reg.verifierHex
-                    )
+                RegisterIn(
+                    username = normalized,
+                    salt = reg.saltHex,
+                    verifier = reg.verifierHex
+                )
             )
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
@@ -84,24 +87,24 @@ class AuthRepository(context: Context) {
             val ghex = start.g.trim()
 
             val loginRes =
-                    SrpLogin.clientLogin(
-                            username = normalized,
-                            password = password,
-                            saltHex = start.salt,
-                            BHex = start.B,
-                            primeHex = Nhex,
-                            generatorHex = ghex
-                    )
+                SrpLogin.clientLogin(
+                    username = normalized,
+                    password = password,
+                    saltHex = start.salt,
+                    BHex = start.B,
+                    primeHex = Nhex,
+                    generatorHex = ghex
+                )
 
             val finish =
-                    api.loginFinish(
-                            LoginFinishIn(
-                                    username = normalized,
-                                    A = loginRes.A,
-                                    M1 = loginRes.M1,
-                                    salt = start.salt
-                            )
+                api.loginFinish(
+                    LoginFinishIn(
+                        username = normalized,
+                        A = loginRes.A,
+                        M1 = loginRes.M1,
+                        salt = start.salt
                     )
+                )
 
             store.saveTokens(normalized, finish.access_token, finish.refresh_token)
             return AuthState.LoggedIn(normalized, finish.access_token, finish.refresh_token)
@@ -146,9 +149,9 @@ class AuthRepository(context: Context) {
 
         try {
             api.postDeviceSettings(
-                    auth = "Bearer $token",
-                    deviceId = deviceId,
-                    body = DeviceSettingsIn(payload = payload)
+                auth = "Bearer $token",
+                deviceId = deviceId,
+                body = DeviceSettingsIn(payload = payload)
             )
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
@@ -167,19 +170,47 @@ class AuthRepository(context: Context) {
         }
     }
 
+    private fun flexToMap(f: FlexSettings): Map<String, Any?> = mapOf(
+        "flexPin" to f.flexPin,
+        "flexPullupOhm" to f.flexPullupOhm,
+        "flexStraightOhm" to f.flexStraightOhm,
+        "flexBendOhm" to f.flexBendOhm
+    )
+
+    private fun servoToMap(s: ServoSettings): Map<String, Any?> = mapOf(
+        "servoPin" to s.servoPin,
+        "servoMinDeg" to s.servoMinDeg,
+        "servoMaxDeg" to s.servoMaxDeg,
+        "servoManual" to s.servoManual,
+        "servoManualDeg" to s.servoManualDeg,
+        "servoMaxSpeedDegPerSec" to s.servoMaxSpeedDegPerSec.toDouble()
+    )
+
     private fun espToPayload(settings: EspSettings): Map<String, Any?> {
-        return try {
-            val json = JSONObject(settings.toJsonString())
-            val out = mutableMapOf<String, Any?>()
-            val keys = json.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                out[k] = json.get(k)
-            }
-            out
-        } catch (_: Throwable) {
-            emptyMap()
-        }
+        return mapOf(
+            "fsrPin" to settings.fsrPin,
+            "fsrPullupOhm" to settings.fsrPullupOhm,
+            "fsrSoftThresholdN" to settings.fsrSoftThresholdN.toDouble(),
+            "fsrHardMaxN" to settings.fsrHardMaxN.toDouble(),
+
+            "flexSettings" to settings.flexSettings.map { flexToMap(it) },
+            "servoSettings" to settings.servoSettings.map { servoToMap(it) },
+
+            "vibroPin" to settings.vibroPin,
+            "vibroMode" to settings.vibroMode,
+            "vibroFreqHz" to settings.vibroFreqHz,
+            "vibroMaxDuty" to settings.vibroMaxDuty,
+            "vibroMinDuty" to settings.vibroMinDuty,
+            "vibroSoftPower" to settings.vibroSoftPower,
+            "vibroPulseBase" to settings.vibroPulseBase,
+
+            "pinCode" to settings.pinCode,
+
+            "pinSet" to settings.pinSet,
+            "authRequired" to settings.authRequired,
+
+            "settingsVersion" to settings.settingsVersion
+        )
     }
 
     private fun payloadToEsp(payload: Map<String, Any?>): EspSettings? {
@@ -198,17 +229,17 @@ class AuthRepository(context: Context) {
 
         try {
             val existing =
-                    api.listDevices(auth).firstOrNull {
-                        it.address.equals(address, ignoreCase = true)
-                    }
+                api.listDevices(auth).firstOrNull {
+                    it.address.equals(address, ignoreCase = true)
+                }
 
             if (existing != null) {
                 val desiredAlias = alias?.takeIf { it.isNotBlank() }
                 return if (desiredAlias != null && existing.alias != desiredAlias) {
                     api.updateDevice(
-                            auth = auth,
-                            deviceId = existing.id,
-                            body = DeviceUpdate(alias = desiredAlias)
+                        auth = auth,
+                        deviceId = existing.id,
+                        body = DeviceUpdate(alias = desiredAlias)
                     )
                 } else {
                     existing

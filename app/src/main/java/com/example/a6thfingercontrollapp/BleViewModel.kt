@@ -37,6 +37,9 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     private val _lastAppliedSettings = MutableStateFlow(_uiSettings.value)
     val lastAppliedSettings: StateFlow<EspSettings> = _lastAppliedSettings
 
+    private val _pendingBoardApply = MutableStateFlow(false)
+    val pendingBoardApply: StateFlow<Boolean> = _pendingBoardApply
+
     val state: StateFlow<Telemetry> =
         client.state.stateIn(viewModelScope, SharingStarted.Eagerly, Telemetry())
 
@@ -86,6 +89,8 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
                 if (fromBoard != null) {
                     _uiSettings.value = fromBoard
                     _lastAppliedSettings.value = fromBoard
+                    _pendingBoardApply.value = false
+
                     if (addr.isNotEmpty()) {
                         settingsStore.set(addr, fromBoard)
                     }
@@ -110,7 +115,6 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     fun renameActive(newAlias: String) {
         val addr = activeAddress.value
         if (addr.isEmpty()) return
-
         viewModelScope.launch { aliasStore.setAlias(addr, newAlias.trim()) }
     }
 
@@ -137,6 +141,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
         if (ok) {
             _lastAppliedSettings.value = cfg
+            _pendingBoardApply.value = false
             viewModelScope.launch { settingsStore.set(addr, cfg) }
         }
 
@@ -165,6 +170,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
     fun applySettingsFromCloud(settings: EspSettings) {
         _uiSettings.value = settings
+        _pendingBoardApply.value = true
     }
 
     fun setAppLanguage(language: String) {

@@ -94,9 +94,18 @@ fun AccountScreen(
     val activeAddress by vm.activeAddress.collectAsState()
     val activeAlias by vm.activeAlias.collectAsState()
 
+    val rawStatus = bleState.status.lowercase()
     val connected =
-        bleState.status.contains("Subscribed", true) ||
-                bleState.status.contains("Connected", true)
+        when {
+            "disconnected" in rawStatus -> false
+            "subscribed" in rawStatus -> true
+            "tele" in rawStatus -> true
+            "config" in rawStatus -> true
+            "ack" in rawStatus -> true
+            "auth" in rawStatus -> true
+            "connected" in rawStatus -> true
+            else -> false
+        }
 
     LaunchedEffect(username, activeAddress) {
         if (username == null) {
@@ -366,7 +375,12 @@ fun AccountScreen(
                         val fromServer = authVm.pullDeviceSettings(dev.id)
                         if (fromServer != null) {
                             dialogJson = settingsToPrettyJson(fromServer)
+
                             vm.applySettingsFromCloud(fromServer)
+
+                            showDeviceSettingsDialog = false
+                            selectedDevice = null
+                            onOpenControl()
                         } else {
                             dialogError = noSettingsMsg
                         }

@@ -31,7 +31,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,11 +43,9 @@ import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.AuthViewModel
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
-import com.example.a6thfingercontrollapp.UiAuthState
 import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.ble.FlexSettings
 import com.example.a6thfingercontrollapp.ble.ServoSettings
-import kotlinx.coroutines.launch
 
 enum class VibMode {
     Constant,
@@ -57,14 +54,14 @@ enum class VibMode {
 
 @Composable
 fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
-    val authState by authVm.auth.collectAsState()
     val activeAddress by vm.activeAddress.collectAsState()
     val alias by vm.activeAlias.collectAsState()
-    val scope = rememberCoroutineScope()
 
     val t by vm.state.collectAsState()
     val s by vm.activeSettings.collectAsState()
     val applied by vm.lastAppliedSettings.collectAsState()
+
+    val pendingBoardApply by vm.pendingBoardApply.collectAsState()
 
     var renameOpen by remember { mutableStateOf(false) }
     var pinOpen by remember { mutableStateOf(false) }
@@ -101,7 +98,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             else -> false
         }
 
-    val dirty = s != applied
+    val dirty = (s != applied) || pendingBoardApply
 
     val haptic = LocalHapticFeedback.current
 
@@ -114,19 +111,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     }
 
     val doSave: () -> Unit = {
-        val ok = vm.applyAndSaveToBoard()
-        if (ok && activeAddress.isNotEmpty() && authState is UiAuthState.LoggedIn) {
-            scope.launch {
-                try {
-                    authVm.pushSettingsForDeviceAddress(
-                        address = activeAddress,
-                        alias = alias.ifBlank { null },
-                        settings = vm.activeSettings.value
-                    )
-                } catch (_: Exception) {
-                }
-            }
-        }
+        vm.applyAndSaveToBoard()
     }
 
     Scaffold(
@@ -285,7 +270,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 DiagnosticRow(stringResource(R.string.control_diag_servo_deg), pretty(t.servoDeg[0]))
             }
 
-            // Пары 2–4
             (1..3).forEach { pairIdx ->
                 val flex = s.flexSettings.getOrNull(pairIdx)
                 val servo = s.servoSettings.getOrNull(pairIdx)
@@ -373,7 +357,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
         }
     }
 
-    // Диалоги
     if (renameOpen)
         RenameDialog(
             current = alias,
