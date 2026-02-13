@@ -1,7 +1,11 @@
 package com.example.a6thfingercontrollapp.ui
 
 import android.app.Activity
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,10 +20,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,21 +48,36 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
+import com.canhub.cropper.CropImageView.CropShape
+import com.canhub.cropper.CropImageView.Guidelines
 import com.example.a6thfingercontrollapp.AuthViewModel
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.UiAuthState
 import com.example.a6thfingercontrollapp.ble.EspSettings
+import com.example.a6thfingercontrollapp.data.AppSettingsStore
+import com.example.a6thfingercontrollapp.data.saveAvatarFromCroppedUri
 import com.example.a6thfingercontrollapp.network.DeviceOut
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import com.example.a6thfingercontrollapp.data.avatarFile as dataAvatarFile
+import com.example.a6thfingercontrollapp.data.deleteAvatarIfExists as dataDeleteAvatarIfExists
+import com.example.a6thfingercontrollapp.data.loadBitmapFromFile as dataLoadBitmapFromFile
 
 @Composable
 fun AccountScreen(
@@ -72,14 +95,111 @@ fun AccountScreen(
     val currentSettings by vm.activeSettings.collectAsState()
 
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val errFailedLoadDevices = stringResource(R.string.err_failed_load_devices)
+    val errFailedPullSettings = stringResource(R.string.err_failed_pull_settings)
+    val errFailedPushSettings = stringResource(R.string.err_failed_push_settings)
+
+    val avatarErrTitle = stringResource(R.string.avatar_error_title)
+    val avatarErrSaveFailed = stringResource(R.string.avatar_error_save_failed)
+    val avatarErrCropResult = stringResource(R.string.avatar_error_crop_result)
+
+    val cropTitle = stringResource(R.string.avatar_crop_title)
+    val cropDone = stringResource(R.string.avatar_crop_done)
+
+    val settingsStore = remember { AppSettingsStore(context.applicationContext) }
+    val avatarPath by settingsStore.getAvatarPath().collectAsState(initial = null)
+
+    var avatarBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(avatarPath) {
+        avatarBitmap = withContext(Dispatchers.IO) {
+            dataLoadBitmapFromFile(avatarPath, maxDim = 1024)?.asImageBitmap()
+        }
+    }
+
+    var avatarMenuOpen by remember { mutableStateOf(false) }
+    var showFullscreen by remember { mutableStateOf(false) }
+    var cropError by remember { mutableStateOf<String?>(null) }
+
+    val cropOptions = remember(cropTitle, cropDone) {
+        CropImageOptions().apply {
+            guidelines = Guidelines.ON
+            cropShape = CropShape.OVAL
+            fixAspectRatio = true
+            aspectRatioX = 1
+            aspectRatioY = 1
+            allowRotation = true
+            allowFlipping = false
+            outputCompressFormat = Bitmap.CompressFormat.JPEG
+            outputCompressQuality = 92
+
+            activityTitle = cropTitle
+            cropMenuCropButtonTitle = cropDone
+        }
+    }
+
+    val cropLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
+        if (result.isSuccessful) {
+            val uri = result.uriContent
+            if (uri != null) {
+                scope.launch {
+                    val savedPath = withContext(Dispatchers.IO) {
+                        runCatching { dataAvatarFile(context).delete() }
+                        saveAvatarFromCroppedUri(context, uri, outSize = 512, quality = 92)
+                    }
+
+                    if (!savedPath.isNullOrBlank()) {
+                        val newBmp = withContext(Dispatchers.IO) {
+                            dataLoadBitmapFromFile(savedPath, maxDim = 1024)?.asImageBitmap()
+                        }
+
+                        avatarBitmap = newBmp
+                        settingsStore.setAvatarPath(savedPath)
+                    } else {
+                        cropError = avatarErrSaveFailed
+                    }
+                }
+            } else {
+                cropError = avatarErrCropResult
+            }
+        } else {
+            val msg = result.error?.message
+            if (!msg.isNullOrBlank()) cropError = msg
+        }
+    }
+
+    val pickImageLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) {
+                cropLauncher.launch(CropImageContractOptions(uri, cropOptions))
+            }
+        }
+
+    fun startPickAndCrop() {
+        avatarMenuOpen = false
+        cropError = null
+        pickImageLauncher.launch("image/*")
+    }
+
+    fun removeAvatar() {
+        avatarMenuOpen = false
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                dataDeleteAvatarIfExists(avatarPath)
+                runCatching { dataAvatarFile(context).delete() }
+            }
+            avatarBitmap = null
+            settingsStore.setAvatarPath(null)
+        }
+    }
 
     val username: String? =
         when (authState) {
             is UiAuthState.LoggedIn -> (authState as UiAuthState.LoggedIn).username
             else -> null
         }
-
-    val scope = rememberCoroutineScope()
 
     var devices by remember { mutableStateOf<List<DeviceOut>>(emptyList()) }
     var devicesLoading by remember { mutableStateOf(false) }
@@ -131,12 +251,14 @@ fun AccountScreen(
             val list = authVm.fetchDevices()
             devices = list
         } catch (e: Exception) {
-            devicesError = e.message ?: "Failed to load devices"
+            devicesError = e.message ?: errFailedLoadDevices
             devices = emptyList()
         } finally {
             devicesLoading = false
         }
     }
+
+    val avatarSize = 180.dp
 
     Scaffold { inner ->
         Column(
@@ -157,7 +279,7 @@ fun AccountScreen(
                 )
                 IconButton(
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
                         showSettings = true
                     }
                 ) {
@@ -175,13 +297,61 @@ fun AccountScreen(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(120.dp)
+                        .size(avatarSize)
                         .clip(CircleShape)
+                        .clickable(enabled = avatarBitmap != null) { showFullscreen = true }
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_avatar_placeholder),
-                        contentDescription = stringResource(R.string.account_avatar)
-                    )
+                    if (avatarBitmap != null) {
+                        Image(
+                            bitmap = avatarBitmap!!,
+                            contentDescription = stringResource(R.string.account_avatar),
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_avatar_placeholder),
+                            contentDescription = stringResource(R.string.account_avatar),
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                    ) {
+                        IconButton(
+                            onClick = { avatarMenuOpen = true },
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = stringResource(R.string.avatar_change),
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = avatarMenuOpen,
+                            onDismissRequest = { avatarMenuOpen = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.avatar_choose_photo)) },
+                                onClick = { startPickAndCrop() }
+                            )
+                            if (avatarBitmap != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.avatar_remove_photo)) },
+                                    onClick = { removeAvatar() }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -207,31 +377,26 @@ fun AccountScreen(
                         OutlinedButton(
                             modifier = Modifier.weight(1f),
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
                                 onLoginClick()
                             }
-                        ) {
-                            Text(stringResource(R.string.auth_login))
-                        }
+                        ) { Text(stringResource(R.string.auth_login)) }
+
                         Button(
                             modifier = Modifier.weight(1f),
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
                                 onRegisterClick()
                             }
-                        ) {
-                            Text(stringResource(R.string.auth_register))
-                        }
+                        ) { Text(stringResource(R.string.auth_register)) }
                     }
                 } else {
                     Button(
                         onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                             authVm.logout()
                         }
-                    ) {
-                        Text(stringResource(R.string.auth_logout))
-                    }
+                    ) { Text(stringResource(R.string.auth_logout)) }
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -257,7 +422,7 @@ fun AccountScreen(
                         if (devicesLoading) {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = stringResource(R.string.loading),
+                                stringResource(R.string.loading),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         } else if (devicesError != null) {
@@ -281,7 +446,7 @@ fun AccountScreen(
                                     isConnected = connected,
                                     enabled = username != null,
                                     onOpen = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
                                         selectedDevice = dev
                                         dialogError = null
                                         dialogJson = settingsToPrettyJson(currentSettings)
@@ -298,7 +463,7 @@ fun AccountScreen(
                             ) {
                                 OutlinedButton(
                                     onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
                                         scope.launch {
                                             devicesLoading = true
                                             devicesError = null
@@ -306,7 +471,7 @@ fun AccountScreen(
                                                 val list = authVm.fetchDevices()
                                                 devices = list
                                             } catch (e: Exception) {
-                                                devicesError = e.message ?: "Failed to load devices"
+                                                devicesError = e.message ?: errFailedLoadDevices
                                                 devices = emptyList()
                                             } finally {
                                                 devicesLoading = false
@@ -324,17 +489,37 @@ fun AccountScreen(
         }
     }
 
+    if (cropError != null) {
+        AlertDialog(
+            onDismissRequest = { cropError = null },
+            title = { Text(avatarErrTitle) },
+            text = { Text(cropError ?: "") },
+            confirmButton = {
+                TextButton(onClick = { cropError = null }) {
+                    Text(stringResource(R.string.generic_ok))
+                }
+            }
+        )
+    }
+
+    if (showFullscreen && avatarBitmap != null) {
+        FullscreenImageDialog(
+            bitmap = avatarBitmap!!,
+            onDismiss = { showFullscreen = false }
+        )
+    }
+
     if (showSettings) {
         val activity = LocalContext.current as? Activity
 
         SettingsDialog(
             currentLang = lang,
             onDismiss = {
-                haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
                 showSettings = false
             },
             onSelect = { newLang: String ->
-                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                 vm.setAppLanguage(newLang)
 
                 val currentAuth = authState
@@ -358,26 +543,24 @@ fun AccountScreen(
             isPullEnabled = connected,
             error = dialogError,
             onDismiss = {
-                haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
                 showDeviceSettingsDialog = false
             },
             onPullClick = {
                 if (!connected) {
-                    haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Reject)
                     showConnectWarning = true
                     return@DeviceSettingsDialog
                 }
 
-                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                 scope.launch {
                     dialogError = null
                     try {
                         val fromServer = authVm.pullDeviceSettings(dev.id)
                         if (fromServer != null) {
                             dialogJson = settingsToPrettyJson(fromServer)
-
                             vm.applySettingsFromCloud(fromServer)
-
                             showDeviceSettingsDialog = false
                             selectedDevice = null
                             onOpenControl()
@@ -385,19 +568,19 @@ fun AccountScreen(
                             dialogError = noSettingsMsg
                         }
                     } catch (e: Exception) {
-                        dialogError = e.message ?: "Failed to pull settings"
+                        dialogError = e.message ?: errFailedPullSettings
                     }
                 }
             },
             onPushClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                 scope.launch {
                     dialogError = null
                     try {
                         authVm.pushDeviceSettings(dev.id, currentSettings)
                         dialogJson = settingsToPrettyJson(currentSettings)
                     } catch (e: Exception) {
-                        dialogError = e.message ?: "Failed to push settings"
+                        dialogError = e.message ?: errFailedPushSettings
                     }
                 }
             }
@@ -407,7 +590,7 @@ fun AccountScreen(
     if (showConnectWarning) {
         AlertDialog(
             onDismissRequest = {
-                haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
                 showConnectWarning = false
             },
             title = { Text(stringResource(R.string.prosthesis_not_connected_title)) },
@@ -415,7 +598,7 @@ fun AccountScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
                         showConnectWarning = false
                     }
                 ) {
@@ -427,12 +610,48 @@ fun AccountScreen(
 }
 
 @Composable
+private fun FullscreenImageDialog(
+    bitmap: ImageBitmap,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(androidx.compose.ui.graphics.Color.Black)
+        ) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .clip(CircleShape)
+                    .background(androidx.compose.ui.graphics.Color(0x66000000))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.settings_close),
+                    tint = androidx.compose.ui.graphics.Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun SettingsDialog(currentLang: String, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
     val haptic = LocalHapticFeedback.current
 
     AlertDialog(
         onDismissRequest = {
-            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
             onDismiss()
         },
         title = { Text(stringResource(R.string.settings_app)) },
@@ -447,7 +666,7 @@ fun SettingsDialog(currentLang: String, onDismiss: () -> Unit, onSelect: (String
                     title = stringResource(R.string.settings_russian),
                     selected = currentLang == "ru",
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                         onSelect("ru")
                     }
                 )
@@ -456,7 +675,7 @@ fun SettingsDialog(currentLang: String, onDismiss: () -> Unit, onSelect: (String
                     title = stringResource(R.string.settings_english),
                     selected = currentLang == "en",
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                         onSelect("en")
                     }
                 )
@@ -465,7 +684,7 @@ fun SettingsDialog(currentLang: String, onDismiss: () -> Unit, onSelect: (String
         confirmButton = {
             TextButton(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
                     onDismiss()
                 }
             ) { Text(stringResource(R.string.settings_close)) }
@@ -545,7 +764,7 @@ private fun DeviceSettingsDialog(
 
     AlertDialog(
         onDismissRequest = {
-            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
             onDismiss()
         },
         title = {
@@ -569,7 +788,7 @@ private fun DeviceSettingsDialog(
                 OutlinedTextField(
                     value = json,
                     onValueChange = {},
-                    label = { Text("JSON") },
+                    label = { Text(stringResource(R.string.label_json)) },
                     readOnly = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -592,7 +811,7 @@ private fun DeviceSettingsDialog(
                         modifier = Modifier.weight(1f),
                         enabled = isPullEnabled,
                         onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                             onPullClick()
                         }
                     ) { Text(text = stringResource(R.string.prosthesis_pull)) }
@@ -600,7 +819,7 @@ private fun DeviceSettingsDialog(
                     Button(
                         modifier = Modifier.weight(1f),
                         onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                             onPushClick()
                         }
                     ) { Text(text = stringResource(R.string.prosthesis_push)) }
@@ -617,7 +836,7 @@ private fun DeviceSettingsDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
                     onDismiss()
                 }
             ) { Text(stringResource(R.string.settings_close)) }

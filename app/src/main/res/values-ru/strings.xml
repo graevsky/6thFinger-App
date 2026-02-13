@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
 
     <!-- App -->
@@ -31,6 +32,19 @@
 
     <!-- Account -->
     <string name="account_avatar">Аватар</string>
+
+    <!-- Avatar (added) -->
+    <string name="avatar_change">Сменить аватар</string>
+    <string name="avatar_choose_photo">Выбрать фото</string>
+    <string name="avatar_remove_photo">Удалить фото</string>
+    <string name="avatar_crop_title">Обрезка аватара</string>
+    <string name="avatar_crop_done">Готово</string>
+    <string name="avatar_error_title">Ошибка</string>
+    <string name="avatar_error_save_failed">Не удалось сохранить аватар.</string>
+    <string name="avatar_error_crop_result">Не удалось получить результат обрезки.</string>
+
+    <!-- Generic labels (added) -->
+    <string name="label_json">JSON</string>
 
     <!-- BLE / Connectivity -->
     <string name="ble_connecting">Подключение</string>
@@ -112,6 +126,11 @@
     <string name="err_wrong_password">Неверный пароль</string>
     <string name="err_user_not_found">Пользователь не найден</string>
     <string name="err_unknown">Произошла ошибка</string>
+
+    <!-- Account/Device errors (added) -->
+    <string name="err_failed_load_devices">Не удалось загрузить устройства</string>
+    <string name="err_failed_pull_settings">Не удалось получить настройки</string>
+    <string name="err_failed_push_settings">Не удалось отправить настройки</string>
 
     <string name="control_diag_fsr_ohm">FSR, Ω</string>
     <string name="control_diag_flex_ohm">Гибкий датчик, Ω</string>

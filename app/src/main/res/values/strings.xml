@@ -32,6 +32,19 @@
     <!-- Account -->
     <string name="account_avatar">Avatar</string>
 
+    <!-- Avatar (NEW) -->
+    <string name="avatar_change">Change avatar</string>
+    <string name="avatar_choose_photo">Choose photo</string>
+    <string name="avatar_remove_photo">Remove photo</string>
+    <string name="avatar_crop_title">Crop avatar</string>
+    <string name="avatar_crop_done">Done</string>
+    <string name="avatar_error_title">Error</string>
+    <string name="avatar_error_save_failed">Failed to save avatar.</string>
+    <string name="avatar_error_crop_result">Failed to get crop result.</string>
+
+    <!-- Generic labels (NEW) -->
+    <string name="label_json">JSON</string>
+
     <!-- BLE / Connectivity -->
     <string name="ble_connecting">Connecting</string>
     <string name="ble_connected">Connected</string>
@@ -62,7 +75,6 @@
     <string name="control_diagnostic">Diagnostic</string>
     <string name="device_reset">Reset</string>
     <string name="add_pair">Add pair</string>
-
 
     <!-- FSR -->
     <string name="fsr_settings">FSR Settings</string>
@@ -113,6 +125,11 @@
     <string name="err_wrong_password">Wrong password</string>
     <string name="err_user_not_found">User does not exist</string>
     <string name="err_unknown">Something went wrong</string>
+
+    <!-- Account/Device errors (NEW) -->
+    <string name="err_failed_load_devices">Failed to load devices</string>
+    <string name="err_failed_pull_settings">Failed to pull settings</string>
+    <string name="err_failed_push_settings">Failed to push settings</string>
 
     <string name="control_diag_fsr_ohm">FSR, Ω</string>
     <string name="control_diag_flex_ohm">Flex, Ω</string>
@@ -201,8 +218,8 @@
     <string name="ble_status_auth_ok">PIN OK</string>
     <string name="ble_status_auth_fail">Wrong PIN</string>
 
-    <string name="ble_status_ack_ok">ACK OK</string>
-    <string name="ble_status_ack_fail">ACK FAIL</string>
+    <string name="ble_status_ack_ok">Connection established</string>
+    <string name="ble_status_ack_fail">Connection failed</string>
     <string name="ble_status_write_failed">Write failed</string>
 
     <string name="telemetry_placeholder">—</string>
