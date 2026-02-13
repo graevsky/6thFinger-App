@@ -51,6 +51,8 @@ import com.example.a6thfingercontrollapp.ble.ServoSettings
 import com.example.a6thfingercontrollapp.restartApp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.material3.Switch
+import androidx.compose.material3.CardDefaults
 
 enum class VibMode {
     Constant,
@@ -112,6 +114,8 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    val telemetryEnabled by vm.telemetryEnabled.collectAsState()
 
     LaunchedEffect(s) {
         val activePairs = (0 until 4).count { i ->
@@ -221,6 +225,16 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     title = stringResource(R.string.device_reboot),
                     subtitle = stringResource(R.string.device_reboot_subtitle)
                 ) { rebootOpen = true }
+
+                SettingToggleItem(
+                    title = stringResource(R.string.tele),
+                    subtitle = if (telemetryEnabled) stringResource(R.string.tele_on) else stringResource(R.string.tele_off),
+                    checked = telemetryEnabled,
+                    enabled = true
+                ) { next ->
+                    haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    vm.setTelemetryEnabled(next)
+                }
 
                 Divider(Modifier.padding(vertical = 8.dp))
             }
@@ -549,6 +563,36 @@ private fun SettingItem(title: String, subtitle: String, onClick: () -> Unit) {
         }
     }
 }
+
+@Composable
+private fun SettingToggleItem(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Card(
+        Modifier.fillMaxWidth().padding(top = 4.dp)
+    ) {
+        Row(
+            Modifier.padding(12.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(Modifier.width(12.dp))
+            Switch(
+                checked = checked,
+                onCheckedChange = if (enabled) onCheckedChange else null
+            )
+        }
+    }
+}
+
 
 @Composable
 private fun DiagnosticRow(name: String, value: String) {

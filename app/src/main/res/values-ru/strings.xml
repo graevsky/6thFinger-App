@@ -164,4 +164,10 @@
     <string name="device_reboot_subtitle">Перезапуск приложения + протеза</string>
     <string name="device_reboot_warning">Будет выполнен перезапуск приложения и ESP32.\nНастройки и хранилища не будут сброшены.\nПродолжить?</string>
     <string name="confirm">Подтвердить</string>
+
+    <string name="tele">Телеметрия</string>
+    <string name="tele_on">Телеметрия включена</string>
+    <string name="tele_off">Телеметрия отключена</string>
+    <string name="disconnected">Устройство отключено</string>
+    <string name="tele_off_turn_on">"Телеметрия выключена — включите её на странице управления</string>
 </resources>

@@ -71,6 +71,9 @@ class BleClient(private val context: Context) {
     private val _devices = MutableStateFlow<List<BleDeviceUi>>(emptyList())
     val devices: StateFlow<List<BleDeviceUi>> = _devices.asStateFlow()
 
+    private val _telemetryEnabled = MutableStateFlow(true)
+    val telemetryEnabled: StateFlow<Boolean> = _telemetryEnabled.asStateFlow()
+
     private val scanning = AtomicBoolean(false)
     private val connecting = AtomicBoolean(false)
 
@@ -233,9 +236,17 @@ class BleClient(private val context: Context) {
         teleUnlocked = true
 
         scope.launch {
-            val obj = JSONObject().apply { put("type", "cfg_ok") }
-            Log.d(TAG_CFG, "ANDROID_SEND_CFG_OK = $obj")
-            writeJsonChunked(obj.toString())
+            val okObj = JSONObject().apply { put("type", "cfg_ok") }
+            Log.d(TAG_CFG, "ANDROID_SEND_CFG_OK = $okObj")
+            val ok = writeJsonChunked(okObj.toString())
+            if (ok) {
+                val tObj = JSONObject().apply {
+                    put("type", "tele_set")
+                    put("enabled", _telemetryEnabled.value)
+                }
+                Log.d(TAG_CFG, "ANDROID_SEND_TELE_SET_AFTER_CFG_OK = $tObj")
+                writeJsonChunked(tObj.toString())
+            }
         }
     }
 
@@ -773,6 +784,29 @@ class BleClient(private val context: Context) {
             _telemetry.value = tPrev.copy(status = text)
         }
     }
+
+    fun setTelemetryEnabled(enabled: Boolean) {
+        _telemetryEnabled.value = enabled
+
+        if (!enabled) {
+            val prev = _telemetry.value
+            _telemetry.value = Telemetry(status = prev.status)
+        }
+
+        scope.launch {
+            if (gatt == null || chCfgIn == null) return@launch
+            if (!_controlUnlocked.value) return@launch
+            if (!hasConnPermission()) return@launch
+
+            val obj = JSONObject().apply {
+                put("type", "tele_set")
+                put("enabled", enabled)
+            }
+            Log.d(TAG_CFG, "ANDROID_SEND_TELE_SET = $obj")
+            writeJsonChunked(obj.toString())
+        }
+    }
+
 
     private fun decodeAscii(bytes: ByteArray): String {
         val sb = StringBuilder()

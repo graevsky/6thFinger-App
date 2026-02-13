@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +41,19 @@ import com.example.a6thfingercontrollapp.R
 fun SimulationScreen(vm: BleViewModel) {
     val t by vm.state.collectAsState()
     val s by vm.activeSettings.collectAsState()
+    val telemetryEnabled by vm.telemetryEnabled.collectAsState()
+
+    val rawStatus = t.status.lowercase()
+    val connected =
+        when {
+            "disconnected" in rawStatus -> false
+            "subscribed" in rawStatus -> true
+            "tele" in rawStatus -> true
+            "config" in rawStatus -> true
+            "ack" in rawStatus -> true
+            "auth" in rawStatus -> true
+            else -> false
+        }
 
     val servoArray = t.servoDeg
     val flexArray = t.flexOhm
@@ -51,8 +66,10 @@ fun SimulationScreen(vm: BleViewModel) {
 
     var selectedPair by remember(availablePairs) { mutableStateOf(availablePairs.first()) }
 
-    if (selectedPair !in availablePairs) {
-        selectedPair = availablePairs.first()
+    LaunchedEffect(availablePairs) {
+        if (selectedPair !in availablePairs) {
+            selectedPair = availablePairs.first()
+        }
     }
 
     val hasMultiplePairs = availablePairs.size > 1
@@ -61,6 +78,8 @@ fun SimulationScreen(vm: BleViewModel) {
     val currentFlexOhm = flexArray.getOrNull(selectedPair) ?: Float.NaN
 
     SimulationContent(
+        connected = connected,
+        telemetryEnabled = telemetryEnabled,
         selectedPairIndex = selectedPair,
         hasMultiplePairs = hasMultiplePairs,
         availablePairs = availablePairs,
@@ -74,6 +93,8 @@ fun SimulationScreen(vm: BleViewModel) {
 
 @Composable
 private fun SimulationContent(
+    connected: Boolean,
+    telemetryEnabled: Boolean,
     selectedPairIndex: Int,
     hasMultiplePairs: Boolean,
     availablePairs: List<Int>,
@@ -102,7 +123,6 @@ private fun SimulationContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // заголовок + справа либо надпись "Пара 1", либо выпадашка
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -127,6 +147,12 @@ private fun SimulationContent(
             }
         }
 
+        if (!connected) {
+            StatusBanner(stringResource(R.string.disconnected))
+        } else if (!telemetryEnabled) {
+            StatusBanner(stringResource(R.string.tele_off_turn_on))
+        }
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -149,7 +175,10 @@ private fun SimulationContent(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("${stringResource(R.string.pair_no)} ${selectedPairIndex + 1}", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "${stringResource(R.string.pair_no)} ${selectedPairIndex + 1}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 Text(stringResource(R.string.sim_angle, prettyValue(servoDeg)))
                 Text(stringResource(R.string.sim_flex, prettyValue(flexOhm)))
                 Text(stringResource(R.string.sim_force, prettyValue(fsrForceN)))
@@ -165,6 +194,23 @@ private fun SimulationContent(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun StatusBanner(text: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(12.dp),
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 

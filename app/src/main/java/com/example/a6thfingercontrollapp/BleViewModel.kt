@@ -80,6 +80,11 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     val controlUnlocked: StateFlow<Boolean> =
         client.controlUnlocked.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    val telemetryEnabled: StateFlow<Boolean> =
+        client.telemetryEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun setTelemetryEnabled(enabled: Boolean) = client.setTelemetryEnabled(enabled)
+
     fun sendPin(pin4: String): Boolean = client.sendAuthPin(pin4)
 
     init {

@@ -165,4 +165,10 @@
     <string name="device_reboot_subtitle">Restart app + ESP</string>
     <string name="device_reboot_warning">The app and ESP32 will be restared.\nSettings will not be reset.\nContinue?</string>
     <string name="confirm">Confirm</string>
+
+    <string name="tele">Telemetry</string>
+    <string name="tele_on">Telemetry on</string>
+    <string name="tele_off">Telemetry off</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="tele_off_turn_on">"Telemetry is off - you can turn in on in Control section</string>
 </resources>
