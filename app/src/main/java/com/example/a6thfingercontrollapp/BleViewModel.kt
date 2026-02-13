@@ -106,6 +106,8 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     fun isBleReady(): Boolean = client.isBleReady()
     fun disconnect() = client.disconnectNow()
 
+    fun rebootEsp(): Boolean = client.rebootEsp()
+
     fun aliasFlow(address: String): Flow<String?> = aliasStore.alias(address)
 
     fun saveLastDevice(name: String, address: String) {

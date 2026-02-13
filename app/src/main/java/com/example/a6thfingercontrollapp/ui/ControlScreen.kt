@@ -31,11 +31,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
@@ -46,6 +48,9 @@ import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.ble.FlexSettings
 import com.example.a6thfingercontrollapp.ble.ServoSettings
+import com.example.a6thfingercontrollapp.restartApp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 enum class VibMode {
     Constant,
@@ -101,6 +106,12 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     val dirty = (s != applied) || pendingBoardApply
 
     val haptic = LocalHapticFeedback.current
+
+    var rebootOpen by remember { mutableStateOf(false) }
+    var rebooting by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(s) {
         val activePairs = (0 until 4).count { i ->
@@ -205,6 +216,11 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     title = stringResource(R.string.pin_title),
                     subtitle = pinSubtitle
                 ) { pinOpen = true }
+
+                SettingItem(
+                    title = stringResource(R.string.device_reboot),
+                    subtitle = stringResource(R.string.device_reboot_subtitle)
+                ) { rebootOpen = true }
 
                 Divider(Modifier.padding(vertical = 8.dp))
             }
@@ -356,6 +372,47 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             }
         }
     }
+    if (rebootOpen) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!rebooting) rebootOpen = false
+            },
+            title = { Text(stringResource(R.string.device_reboot)) },
+            text = { Text(stringResource(R.string.device_reboot_warning)) },
+            confirmButton = {
+                Button(
+                    enabled = !rebooting,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                        rebooting = true
+
+                        scope.launch {
+                            if (connected) {
+                                vm.rebootEsp()
+                                delay(250)
+                            } else {
+                                delay(50)
+                            }
+
+                            restartApp(context)
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !rebooting,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                        rebootOpen = false
+                    }
+                ) { Text(stringResource(R.string.device_cancel)) }
+            }
+        )
+    }
+
 
     if (renameOpen)
         RenameDialog(

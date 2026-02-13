@@ -160,4 +160,8 @@
     <string name="pin_timeout">Нет ответа от устройства. Попробуйте ещё раз.</string>
     <string name="pin_bad_format">PIN должен быть из 4 цифр</string>
 
+    <string name="device_reboot">Перезапуск</string>
+    <string name="device_reboot_subtitle">Перезапуск приложения + протеза</string>
+    <string name="device_reboot_warning">Будет выполнен перезапуск приложения и ESP32.\nНастройки и хранилища не будут сброшены.\nПродолжить?</string>
+    <string name="confirm">Подтвердить</string>
 </resources>

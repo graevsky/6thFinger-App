@@ -557,6 +557,12 @@ class BleClient(private val context: Context) {
         handleIncomingJson(json)
     }
 
+    fun rebootEsp(): Boolean {
+        val obj = JSONObject().apply { put("type", "reboot") }
+        Log.d(TAG_CFG, "ANDROID_SEND_REBOOT = $obj")
+        return writeJsonChunked(obj.toString())
+    }
+
     private fun handleIncomingJson(json: JSONObject) {
         val type = json.optString("type", "")
 

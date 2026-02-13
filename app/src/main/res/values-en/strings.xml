@@ -159,4 +159,9 @@
     <string name="pin_send_failed">Failed to send PIN. Try again.</string>
     <string name="pin_timeout">No response from device. Try again.</string>
     <string name="pin_bad_format">PIN must be 4 digits</string>
+
+    <string name="device_reboot">Reboot</string>
+    <string name="device_reboot_subtitle">Restart app + ESP</string>
+    <string name="device_reboot_warning">The app and ESP32 will be restared.\nSettings will not be reset.\nContinue?</string>
+    <string name="confirm">Confirm</string>
 </resources>
