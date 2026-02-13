@@ -170,5 +170,43 @@
     <string name="tele_on">Telemetry on</string>
     <string name="tele_off">Telemetry off</string>
     <string name="disconnected">Disconnected</string>
-    <string name="tele_off_turn_on">"Telemetry is off - you can turn in on in Control section</string>
+    <string name="tele_off_turn_on">Telemetry is off - you can turn in on in Control section</string>
+
+    <string name="please_wait">Please wait…</string>
+
+    <string name="ble_status_idle">Idle</string>
+    <string name="ble_status_scanning">Scanning…</string>
+    <string name="ble_status_discovering">Discovering services…</string>
+
+    <string name="ble_status_bluetooth_off">Bluetooth is off</string>
+    <string name="ble_status_no_scan_permission">No scan permission</string>
+    <string name="ble_status_scan_denied">Scan denied</string>
+    <string name="ble_status_scan_error">Scan error</string>
+    <string name="ble_status_scan_failed">Scan failed</string>
+
+    <string name="ble_status_invalid_device">Invalid device</string>
+    <string name="ble_status_connect_failed">Connect failed</string>
+    <string name="ble_status_no_connect_permission">No connect permission</string>
+
+    <string name="ble_status_service_discovery_failed">Service discovery failed</string>
+    <string name="ble_status_service_discovery_error">Service discovery error</string>
+    <string name="ble_status_service_not_found">Service not found</string>
+    <string name="ble_status_characteristics_missing">Characteristics missing</string>
+    <string name="ble_status_notify_error">Notify error</string>
+
+    <string name="ble_status_config_updated">Config updated</string>
+    <string name="ble_status_config_parse_error">Config parse error</string>
+    <string name="ble_status_tele_parse_error">Telemetry parse error</string>
+
+    <string name="ble_status_auth_ok">PIN OK</string>
+    <string name="ble_status_auth_fail">Wrong PIN</string>
+
+    <string name="ble_status_ack_ok">ACK OK</string>
+    <string name="ble_status_ack_fail">ACK FAIL</string>
+    <string name="ble_status_write_failed">Write failed</string>
+
+    <string name="telemetry_placeholder">—</string>
+    <string name="telemetry_wait">Waiting for telemetry…</string>
+    <string name="telemetry_wait_after_save">Applying settings… telemetry will start soon</string>
+    <string name="telemetry_disabled_short">Telemetry is off</string>
 </resources>

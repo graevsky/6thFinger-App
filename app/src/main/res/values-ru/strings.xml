@@ -169,5 +169,43 @@
     <string name="tele_on">Телеметрия включена</string>
     <string name="tele_off">Телеметрия отключена</string>
     <string name="disconnected">Устройство отключено</string>
-    <string name="tele_off_turn_on">"Телеметрия выключена — включите её на странице управления</string>
+    <string name="tele_off_turn_on">Телеметрия выключена — включите её на странице управления</string>
+
+    <string name="please_wait">Ожидайте…</string>
+
+    <string name="ble_status_idle">Ожидание</string>
+    <string name="ble_status_scanning">Сканирование…</string>
+    <string name="ble_status_discovering">Поиск сервисов…</string>
+
+    <string name="ble_status_bluetooth_off">Bluetooth выключен</string>
+    <string name="ble_status_no_scan_permission">Нет прав на сканирование</string>
+    <string name="ble_status_scan_denied">Сканирование запрещено</string>
+    <string name="ble_status_scan_error">Ошибка сканирования</string>
+    <string name="ble_status_scan_failed">Сканирование не удалось</string>
+
+    <string name="ble_status_invalid_device">Некорректное устройство</string>
+    <string name="ble_status_connect_failed">Не удалось подключиться</string>
+    <string name="ble_status_no_connect_permission">Нет прав на подключение</string>
+
+    <string name="ble_status_service_discovery_failed">Не удалось найти сервисы</string>
+    <string name="ble_status_service_discovery_error">Ошибка поиска сервисов</string>
+    <string name="ble_status_service_not_found">Сервис не найден</string>
+    <string name="ble_status_characteristics_missing">Нет нужных характеристик</string>
+    <string name="ble_status_notify_error">Ошибка подписки на уведомления</string>
+
+    <string name="ble_status_config_updated">Конфиг получен</string>
+    <string name="ble_status_config_parse_error">Ошибка разбора конфига</string>
+    <string name="ble_status_tele_parse_error">Ошибка разбора телеметрии</string>
+
+    <string name="ble_status_auth_ok">PIN принят</string>
+    <string name="ble_status_auth_fail">Неверный PIN</string>
+
+    <string name="ble_status_ack_ok">Подключение установлено</string>
+    <string name="ble_status_ack_fail">Подключение не установлено</string>
+    <string name="ble_status_write_failed">Ошибка записи</string>
+
+    <string name="telemetry_placeholder">—</string>
+    <string name="telemetry_wait">Ожидаем телеметрию…</string>
+    <string name="telemetry_wait_after_save">Применяем настройки… телеметрия скоро появится</string>
+    <string name="telemetry_disabled_short">Телеметрия выключена</string>
 </resources>

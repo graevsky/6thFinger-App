@@ -85,6 +85,7 @@ class BleClient(private val context: Context) {
 
     @Volatile
     private var writeInProgress: Boolean = false
+
     @Volatile
     private var lastWriteOk: Boolean = true
 
@@ -108,8 +109,10 @@ class BleClient(private val context: Context) {
 
     @Volatile
     private var sessionAuthed: Boolean = false
+
     @Volatile
     private var devicePinSet: Boolean = false
+
     @Volatile
     private var seenTelemetry: Boolean = false
 
@@ -779,9 +782,53 @@ class BleClient(private val context: Context) {
         }
 
     private fun updateStatus(text: String) {
+        val key = normalizeStatusKey(text)
         scope.launch {
             val tPrev = _telemetry.value
-            _telemetry.value = tPrev.copy(status = text)
+            _telemetry.value = tPrev.copy(status = key)
+        }
+    }
+
+    private fun normalizeStatusKey(text: String): String {
+        val t = text.trim().lowercase()
+
+        return when {
+            t.startsWith("disconnected") -> "disconnected"
+            t.startsWith("connecting") -> "connecting"
+            t.startsWith("discovering") -> "discovering"
+            t.startsWith("scanning") -> "scanning"
+
+            t.startsWith("bluetooth off") -> "bluetooth_off"
+            t.startsWith("no scan permission") -> "no_scan_permission"
+            t.startsWith("scan denied") -> "scan_denied"
+            t.startsWith("scan error") -> "scan_error"
+            t.startsWith("scan failed") -> "scan_failed"
+
+            t.startsWith("invalid device") -> "invalid_device"
+            t.startsWith("connect failed") -> "connect_failed"
+            t.startsWith("no connect permission") -> "no_connect_permission"
+
+            t.startsWith("service discovery failed") -> "service_discovery_failed"
+            t.startsWith("service discovery error") -> "service_discovery_error"
+            t.startsWith("service not found") -> "service_not_found"
+            t.startsWith("characteristics missing") -> "characteristics_missing"
+            t.startsWith("notify error") -> "notify_error"
+
+            t.startsWith("subscribed") -> "subscribed"
+
+            t.startsWith("auth ok") -> "auth_ok"
+            t.startsWith("auth fail") -> "auth_fail"
+
+            t.startsWith("config updated") -> "config_updated"
+            t.startsWith("config parse error") -> "config_parse_error"
+            t.startsWith("tele parse error") -> "tele_parse_error"
+
+            t.startsWith("ack ok") -> "ack_ok"
+            t.startsWith("ack fail") -> "ack_fail"
+
+            t.startsWith("write") -> "write_failed"
+
+            else -> t.replace(Regex("[^a-z0-9]+"), "_").trim('_')
         }
     }
 

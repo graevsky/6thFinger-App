@@ -48,9 +48,7 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
     val authReq by vm.authRequired.collectAsState()
     val pinSending by vm.pinSending.collectAsState()
     val pinErrorKey by vm.pinError.collectAsState()
-
-    val connectingText = stringResource(R.string.ble_connecting)
-    val connectedText = stringResource(R.string.ble_connected)
+    val unlocked by vm.controlUnlocked.collectAsState()
 
     val rawStatus = status.status.lowercase()
     val haptic = LocalHapticFeedback.current
@@ -66,12 +64,7 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
             else -> false
         }
 
-    val uiStatus =
-        when {
-            "discover" in rawStatus -> connectingText
-            isConnected -> connectedText
-            else -> status.status
-        }
+    val uiStatus = bleStatusUiText(status.status)
 
     val lastAlias: String? =
         when (val ld = last) {
@@ -82,10 +75,14 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
     var pinDialogOpen by remember { mutableStateOf(false) }
     var pin by remember { mutableStateOf("") }
 
-
-    LaunchedEffect(authReq) {
-        pinDialogOpen = authReq
-        if (!pinDialogOpen) pin = ""
+    LaunchedEffect(authReq, unlocked, pinSending) {
+        if (pinSending) {
+            pinDialogOpen = false
+        } else {
+            val shouldOpen = authReq && !unlocked
+            pinDialogOpen = shouldOpen
+            if (!shouldOpen) pin = ""
+        }
     }
 
     val pinErrorText = pinErrorUiText(pinErrorKey)
@@ -207,13 +204,11 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
                     enabled = (pin.length == 4) && !pinSending,
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                        vm.sendPin(pin)
+                        val started = vm.sendPin(pin)
+                        if (started) pinDialogOpen = false
                     }
                 ) {
-                    Text(
-                        if (pinSending) stringResource(R.string.pin_wait_btn)
-                        else stringResource(R.string.generic_ok)
-                    )
+                    Text(stringResource(R.string.generic_ok))
                 }
             },
             dismissButton = {
@@ -222,11 +217,24 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.Reject)
                         vm.disconnect()
+                        pinDialogOpen = false
                     }
                 ) { Text(stringResource(R.string.device_cancel)) }
             }
         )
     }
+
+    val statusKey = status.status.lowercase()
+    val waitingStage1 = !pinDialogOpen && !unlocked && !pinSending && (
+            statusKey == "connecting" ||
+                    statusKey == "discovering" ||
+                    statusKey == "subscribed" ||
+                    statusKey == "config_updated" ||
+                    isConnected
+            )
+
+    val showWait = pinSending || waitingStage1
+    BlockingProgressDialog(visible = showWait)
 }
 
 @Composable

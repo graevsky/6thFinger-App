@@ -1,5 +1,6 @@
 package com.example.a6thfingercontrollapp.ui
 
+import android.os.SystemClock
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -23,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,11 +50,12 @@ import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.ble.FlexSettings
 import com.example.a6thfingercontrollapp.ble.ServoSettings
+import com.example.a6thfingercontrollapp.ble.Telemetry
 import com.example.a6thfingercontrollapp.restartApp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.material3.Switch
-import androidx.compose.material3.CardDefaults
+import kotlinx.coroutines.withContext
 
 enum class VibMode {
     Constant,
@@ -112,10 +115,67 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     var rebootOpen by remember { mutableStateOf(false) }
     var rebooting by remember { mutableStateOf(false) }
 
+    var busy by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     val telemetryEnabled by vm.telemetryEnabled.collectAsState()
+
+    var waitTeleAfterSave by remember { mutableStateOf(false) }
+
+    var saveTeleSig by remember { mutableStateOf(telemetrySignature(t)) }
+    var saveStartedMs by remember { mutableStateOf(0L) }
+
+    val hasTeleData = hasTelemetryData(t)
+
+    val nowMs = SystemClock.elapsedRealtime()
+
+    var lastTeleSig by remember { mutableStateOf(telemetrySignature(t)) }
+    var lastTeleMs by remember { mutableStateOf(nowMs) }
+
+    LaunchedEffect(t) {
+        val sig = telemetrySignature(t)
+        if (sig != lastTeleSig) {
+            lastTeleSig = sig
+            lastTeleMs = SystemClock.elapsedRealtime()
+        }
+    }
+
+    LaunchedEffect(telemetryEnabled) {
+        if (!telemetryEnabled) waitTeleAfterSave = false
+    }
+
+    LaunchedEffect(waitTeleAfterSave, telemetryEnabled, lastTeleMs, saveStartedMs) {
+        if (!telemetryEnabled) {
+            waitTeleAfterSave = false
+            return@LaunchedEffect
+        }
+        if (waitTeleAfterSave && saveStartedMs > 0L) {
+            if (lastTeleMs > saveStartedMs) {
+                waitTeleAfterSave = false
+            }
+        }
+    }
+
+    val isTeleStale = telemetryEnabled && (nowMs - lastTeleMs) > 1200L
+
+    val showTelePlaceholder =
+        !telemetryEnabled || waitTeleAfterSave || !hasTeleData || isTeleStale
+
+    val teleReasonText: String? =
+        when {
+            !telemetryEnabled -> stringResource(R.string.telemetry_disabled_short)
+            waitTeleAfterSave -> stringResource(R.string.telemetry_wait_after_save)
+            !hasTeleData -> stringResource(R.string.telemetry_wait)
+            isTeleStale -> stringResource(R.string.telemetry_wait)
+            else -> null
+        }
+
+    val telePlaceholder = stringResource(R.string.telemetry_placeholder)
+    val telePretty: (Float) -> String = { v ->
+        if (showTelePlaceholder) telePlaceholder else pretty(v)
+    }
 
     LaunchedEffect(s) {
         val activePairs = (0 until 4).count { i ->
@@ -126,7 +186,20 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     }
 
     val doSave: () -> Unit = {
-        vm.applyAndSaveToBoard()
+        scope.launch {
+            busy = true
+
+            saveTeleSig = telemetrySignature(t)
+            saveStartedMs = SystemClock.elapsedRealtime()
+            waitTeleAfterSave = telemetryEnabled
+
+            val ok = withContext(Dispatchers.IO) {
+                vm.applyAndSaveToBoard()
+            }
+
+            busy = false
+            if (!ok) waitTeleAfterSave = false
+        }
     }
 
     Scaffold(
@@ -138,10 +211,18 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.Reject)
-                    vm.resetToDefaults()
-                }) {
+                OutlinedButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                        scope.launch {
+                            busy = true
+                            vm.resetToDefaults()
+                            delay(200)
+                            busy = false
+                        }
+                    },
+                    enabled = !busy
+                ) {
                     Text(stringResource(R.string.device_reset))
                 }
 
@@ -164,7 +245,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                             doSave()
                         }
                     },
-                    enabled = connected && dirty,
+                    enabled = connected && dirty && !busy,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (dirty) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.primary
@@ -180,7 +261,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                             pairsCount++
                         }
                     },
-                    enabled = pairsCount < 4
+                    enabled = pairsCount < 4 && !busy
                 ) {
                     Text(stringResource(R.string.add_pair))
                 }
@@ -228,7 +309,9 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
                 SettingToggleItem(
                     title = stringResource(R.string.tele),
-                    subtitle = if (telemetryEnabled) stringResource(R.string.tele_on) else stringResource(R.string.tele_off),
+                    subtitle = if (telemetryEnabled) stringResource(R.string.tele_on) else stringResource(
+                        R.string.tele_off
+                    ),
                     checked = telemetryEnabled,
                     enabled = true
                 ) { next ->
@@ -261,11 +344,17 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     stringResource(R.string.fsr_n_force_curr_vals),
                     style = MaterialTheme.typography.titleMedium
                 )
+                if (teleReasonText != null) {
+                    Text(teleReasonText, style = MaterialTheme.typography.bodySmall)
+                }
             }
 
             item {
-                DiagnosticRow(stringResource(R.string.control_diag_fsr_ohm), pretty(t.fsrOhm))
-                DiagnosticRow(stringResource(R.string.control_diag_force_n), pretty(t.fsrForceN))
+                DiagnosticRow(stringResource(R.string.control_diag_fsr_ohm), telePretty(t.fsrOhm))
+                DiagnosticRow(
+                    stringResource(R.string.control_diag_force_n),
+                    telePretty(t.fsrForceN)
+                )
                 Divider(Modifier.padding(vertical = 8.dp))
             }
 
@@ -293,11 +382,20 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     stringResource(R.string.flex_n_servo_curr_vals),
                     style = MaterialTheme.typography.titleMedium
                 )
+                if (teleReasonText != null) {
+                    Text(teleReasonText, style = MaterialTheme.typography.bodySmall)
+                }
             }
 
             item {
-                DiagnosticRow(stringResource(R.string.control_diag_flex_ohm), pretty(t.flexOhm[0]))
-                DiagnosticRow(stringResource(R.string.control_diag_servo_deg), pretty(t.servoDeg[0]))
+                DiagnosticRow(
+                    stringResource(R.string.control_diag_flex_ohm),
+                    telePretty(t.flexOhm[0])
+                )
+                DiagnosticRow(
+                    stringResource(R.string.control_diag_servo_deg),
+                    telePretty(t.servoDeg[0])
+                )
             }
 
             (1..3).forEach { pairIdx ->
@@ -333,8 +431,14 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                         flexOpen = true
                     }
 
-                    DiagnosticRow(stringResource(R.string.control_diag_flex_ohm), pretty(t.flexOhm[pairIdx]))
-                    DiagnosticRow(stringResource(R.string.control_diag_servo_deg), pretty(t.servoDeg[pairIdx]))
+                    DiagnosticRow(
+                        stringResource(R.string.control_diag_flex_ohm),
+                        telePretty(t.flexOhm[pairIdx])
+                    )
+                    DiagnosticRow(
+                        stringResource(R.string.control_diag_servo_deg),
+                        telePretty(t.servoDeg[pairIdx])
+                    )
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -386,6 +490,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             }
         }
     }
+
     if (rebootOpen) {
         AlertDialog(
             onDismissRequest = {
@@ -426,7 +531,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             }
         )
     }
-
 
     if (renameOpen)
         RenameDialog(
@@ -538,6 +642,8 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             }
         )
     }
+
+    BlockingProgressDialog(visible = busy)
 }
 
 @Composable
@@ -573,10 +679,14 @@ private fun SettingToggleItem(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Card(
-        Modifier.fillMaxWidth().padding(top = 4.dp)
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp)
     ) {
         Row(
-            Modifier.padding(12.dp).fillMaxWidth(),
+            Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -592,7 +702,6 @@ private fun SettingToggleItem(
         }
     }
 }
-
 
 @Composable
 private fun DiagnosticRow(name: String, value: String) {
@@ -797,4 +906,34 @@ private fun PairIssue.toUiText(
         MissingPart.Flex -> "$pairNo $pairNum: $flexNotSet"
         MissingPart.Servo -> "$pairNo $pairNum: $servoNotSet"
     }
+}
+
+private fun hasTelemetryData(t: Telemetry): Boolean {
+    if (t.fsrOhm.isFinite()) return true
+    if (t.fsrForceN.isFinite()) return true
+    if (t.flexOhm.any { it.isFinite() }) return true
+    if (t.servoDeg.any { it.isFinite() }) return true
+    return false
+}
+
+private fun telemetrySignature(t: Telemetry): Int {
+    var h = 1
+    fun addInt(x: Int) {
+        h = 31 * h + x
+    }
+
+    fun addFloat(x: Float) {
+        addInt(x.toRawBits())
+    }
+
+    addFloat(t.fsrOhm)
+    addFloat(t.fsrForceN)
+
+    for (i in 0 until 4) addFloat(t.flexOhm[i])
+    for (i in 0 until 4) addFloat(t.servoDeg[i])
+
+    addInt(t.vibroDuty)
+    addInt(t.vibroMode)
+
+    return h
 }
