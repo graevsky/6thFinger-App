@@ -157,6 +157,10 @@ fun AccountScreen(
 
                         avatarBitmap = newBmp
                         settingsStore.setAvatarPath(savedPath)
+
+                        if (authState is UiAuthState.LoggedIn) {
+                            authVm.scheduleAvatarUpload(savedPath)
+                        }
                     } else {
                         cropError = avatarErrSaveFailed
                     }
@@ -192,6 +196,10 @@ fun AccountScreen(
             }
             avatarBitmap = null
             settingsStore.setAvatarPath(null)
+
+            if (authState is UiAuthState.LoggedIn) {
+                authVm.deleteAvatarRemote()
+            }
         }
     }
 

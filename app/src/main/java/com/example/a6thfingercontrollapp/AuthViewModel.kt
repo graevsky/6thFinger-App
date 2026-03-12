@@ -37,18 +37,25 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     private val pendingAppSettingsUpload = MutableStateFlow<Map<String, Any?>?>(null)
 
+    private val pendingAvatarUploadPath = MutableStateFlow<String?>(null)
+
     init {
         viewModelScope.launch {
             val st = repo.resolveInitialState()
             _auth.value =
-                    when (st) {
-                        is AuthState.Guest -> UiAuthState.Guest
-                        is AuthState.LoggedIn -> UiAuthState.LoggedIn(st.username)
-                        is AuthState.Unauthenticated -> UiAuthState.Unauthenticated
-                    }
+                when (st) {
+                    is AuthState.Guest -> UiAuthState.Guest
+                    is AuthState.LoggedIn -> UiAuthState.LoggedIn(st.username)
+                    is AuthState.Unauthenticated -> UiAuthState.Unauthenticated
+                }
+
+            if (st is AuthState.LoggedIn) {
+                tryPullAvatarToLocal()
+            }
         }
 
         viewModelScope.launch { uploadSettingsWorker() }
+        viewModelScope.launch { uploadAvatarWorker() }
 
         viewModelScope.launch {
             auth.collectLatest { state ->
@@ -95,6 +102,8 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                     _auth.value = UiAuthState.LoggedIn(st.username)
                     _error.value = null
                     syncAppSettingsOnLogin(st.username)
+
+                    tryPullAvatarToLocal()
                 }
             } catch (e: Exception) {
                 _error.value = e.message
@@ -108,6 +117,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             _auth.value = UiAuthState.Unauthenticated
             _error.value = null
             pendingAppSettingsUpload.value = null
+            pendingAvatarUploadPath.value = null
         }
     }
 
@@ -117,6 +127,61 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             pendingAppSettingsUpload.value = payload
         }
     }
+
+
+    fun scheduleAvatarUpload(localPath: String) {
+        val state = _auth.value
+        if (state is UiAuthState.LoggedIn) {
+            pendingAvatarUploadPath.value = localPath
+        }
+    }
+
+    fun deleteAvatarRemote() {
+        val state = _auth.value
+        if (state !is UiAuthState.LoggedIn) return
+
+        viewModelScope.launch {
+            try {
+                repo.deleteAvatarRemote()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun uploadAvatarWorker() {
+        viewModelScope.launch {
+            val retryDelayMs = 30_000L
+            while (true) {
+                val path = pendingAvatarUploadPath.value
+                val state = auth.value
+
+                if (path.isNullOrBlank() || state !is UiAuthState.LoggedIn) {
+                    delay(1_000L)
+                    continue
+                }
+
+                try {
+                    repo.uploadAvatar(path)
+                    pendingAvatarUploadPath.value = null
+                } catch (_: Exception) {
+                    delay(retryDelayMs)
+                }
+            }
+        }
+    }
+
+    private fun tryPullAvatarToLocal() {
+        viewModelScope.launch {
+            try {
+                val path = repo.downloadAvatarToLocal()
+                if (!path.isNullOrBlank()) {
+                    appSettings.setAvatarPath(path)
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
 
     private suspend fun syncAppSettingsOnLogin(username: String) {
         val localLang = appSettings.getLanguage().first()
@@ -158,7 +223,8 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                     val lang = payload["language"].toString()
                     appSettings.setLanguage(lang)
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -182,9 +248,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun fetchDevices(): List<DeviceOut> {
-        return repo.listDevices()
-    }
+    suspend fun fetchDevices(): List<DeviceOut> = repo.listDevices()
 
     suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings) {
         repo.pushDeviceSettings(deviceId, settings)
@@ -199,9 +263,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     suspend fun pushSettingsForDeviceAddress(
-            address: String,
-            alias: String?,
-            settings: EspSettings
+        address: String,
+        alias: String?,
+        settings: EspSettings
     ) {
         val dev = repo.ensureDevice(address, alias)
         repo.pushDeviceSettings(dev.id, settings)

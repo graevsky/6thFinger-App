@@ -17,7 +17,11 @@ import com.example.a6thfingercontrollapp.security.srp.SrpLogin
 import com.example.a6thfingercontrollapp.security.srp.SrpRegister
 import com.example.a6thfingercontrollapp.utils.parseBackendError
 import kotlinx.coroutines.flow.first
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
+import java.io.File
 
 sealed class AuthState {
     object Unauthenticated : AuthState()
@@ -30,6 +34,8 @@ class AuthRepository(context: Context) {
 
     private val api = BackendApi.create()
     private val store = AuthStore(context.applicationContext)
+
+    private val appContext = context.applicationContext
 
     val stored = store.authState
 
@@ -165,6 +171,58 @@ class AuthRepository(context: Context) {
         return try {
             val res = api.getDeviceSettings(auth = "Bearer $token", deviceId = deviceId)
             payloadToEsp(res.payload)
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun uploadAvatar(localPath: String) {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+
+        val f = File(localPath)
+        if (!f.exists()) throw Exception("Avatar file not found")
+
+        val mediaType = "image/jpeg".toMediaType()
+        val body = f.asRequestBody(mediaType)
+        val part = MultipartBody.Part.createFormData("file", f.name, body)
+
+        try {
+            api.uploadAvatar("Bearer $token", part)
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun downloadAvatarToLocal(): String? {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+
+        val resp = try {
+            api.downloadAvatar("Bearer $token")
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+
+        if (resp.code() == 404) return null
+        if (!resp.isSuccessful) {
+            throw Exception("Avatar download failed (${resp.code()})")
+        }
+
+        val bytes = resp.body()?.bytes() ?: return null
+
+        val outFile = avatarFile(appContext)
+        outFile.parentFile?.mkdirs()
+        outFile.writeBytes(bytes)
+
+        return outFile.absolutePath
+    }
+
+    suspend fun deleteAvatarRemote() {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+        try {
+            api.deleteAvatar("Bearer $token")
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
