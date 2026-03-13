@@ -10,8 +10,17 @@ import com.example.a6thfingercontrollapp.network.DeviceCreate
 import com.example.a6thfingercontrollapp.network.DeviceOut
 import com.example.a6thfingercontrollapp.network.DeviceSettingsIn
 import com.example.a6thfingercontrollapp.network.DeviceUpdate
+import com.example.a6thfingercontrollapp.network.EmailConfirmIn
+import com.example.a6thfingercontrollapp.network.EmailRemoveConfirmIn
+import com.example.a6thfingercontrollapp.network.EmailStartAddIn
 import com.example.a6thfingercontrollapp.network.LoginFinishIn
 import com.example.a6thfingercontrollapp.network.LoginStartIn
+import com.example.a6thfingercontrollapp.network.PasswordResetEmailSendIn
+import com.example.a6thfingercontrollapp.network.PasswordResetEmailVerifyIn
+import com.example.a6thfingercontrollapp.network.PasswordResetFinishIn
+import com.example.a6thfingercontrollapp.network.PasswordResetRecoveryVerifyIn
+import com.example.a6thfingercontrollapp.network.PasswordResetStartIn
+import com.example.a6thfingercontrollapp.network.PasswordResetStartOut
 import com.example.a6thfingercontrollapp.network.RegisterIn
 import com.example.a6thfingercontrollapp.security.srp.SrpLogin
 import com.example.a6thfingercontrollapp.security.srp.SrpRegister
@@ -34,7 +43,6 @@ class AuthRepository(context: Context) {
 
     private val api = BackendApi.create()
     private val store = AuthStore(context.applicationContext)
-
     private val appContext = context.applicationContext
 
     val stored = store.authState
@@ -55,7 +63,7 @@ class AuthRepository(context: Context) {
         return AuthState.Guest
     }
 
-    suspend fun register(username: String, password: String) {
+    suspend fun register(username: String, password: String): List<String> {
         try {
             val normalized = username.trim().lowercase()
 
@@ -71,13 +79,15 @@ class AuthRepository(context: Context) {
                     generatorHex = ghex
                 )
 
-            api.register(
+            val out = api.register(
                 RegisterIn(
                     username = normalized,
                     salt = reg.saltHex,
                     verifier = reg.verifierHex
                 )
             )
+
+            return out.recovery_codes
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
@@ -223,6 +233,128 @@ class AuthRepository(context: Context) {
         val token = s.accessToken ?: throw Exception("Not authenticated")
         try {
             api.deleteAvatar("Bearer $token")
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun emailStartAdd(email: String) {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+        try {
+            api.emailStartAdd("Bearer $token", EmailStartAddIn(email.trim()))
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun emailConfirmAdd(email: String, code: String) {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+        try {
+            api.emailConfirmAdd("Bearer $token", EmailConfirmIn(email.trim(), code.trim()))
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun emailStartRemove() {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+        try {
+            api.emailStartRemove("Bearer $token")
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun emailConfirmRemove(code: String?, recoveryCode: String?) {
+        val s = stored.first()
+        val token = s.accessToken ?: throw Exception("Not authenticated")
+        try {
+            api.emailConfirmRemove(
+                "Bearer $token",
+                EmailRemoveConfirmIn(
+                    code = code?.trim()?.takeIf { it.isNotBlank() },
+                    recovery_code = recoveryCode?.trim()?.takeIf { it.isNotBlank() }
+                )
+            )
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun passwordResetStart(username: String): PasswordResetStartOut {
+        try {
+            return api.passwordResetStart(PasswordResetStartIn(username.trim().lowercase()))
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun passwordResetEmailSend(username: String, email: String) {
+        try {
+            api.passwordResetEmailSend(
+                PasswordResetEmailSendIn(
+                    username = username.trim().lowercase(),
+                    email = email.trim().lowercase()
+                )
+            )
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun passwordResetEmailVerify(username: String, email: String, code: String): String {
+        try {
+            val out = api.passwordResetEmailVerify(
+                PasswordResetEmailVerifyIn(
+                    username = username.trim().lowercase(),
+                    email = email.trim().lowercase(),
+                    code = code.trim()
+                )
+            )
+            return out.reset_session_id
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun passwordResetRecoveryVerify(username: String, recoveryCode: String): String {
+        try {
+            val out = api.passwordResetRecoveryVerify(
+                PasswordResetRecoveryVerifyIn(
+                    username = username.trim().lowercase(),
+                    recovery_code = recoveryCode.trim()
+                )
+            )
+            return out.reset_session_id
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun passwordResetFinish(resetSessionId: String, username: String, newPassword: String) {
+        try {
+            val params = api.getSrpParams()
+            val Nhex = params.N.replace("\\s+".toRegex(), "")
+            val ghex = params.g.trim()
+
+            val reg =
+                SrpRegister.generateVerifier(
+                    username = username.trim().lowercase(),
+                    password = newPassword,
+                    primeHex = Nhex,
+                    generatorHex = ghex
+                )
+
+            api.passwordResetFinish(
+                PasswordResetFinishIn(
+                    reset_session_id = resetSessionId,
+                    new_salt = reg.saltHex,
+                    new_verifier = reg.verifierHex
+                )
+            )
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }

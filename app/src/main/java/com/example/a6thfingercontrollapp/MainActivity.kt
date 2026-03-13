@@ -29,6 +29,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -43,17 +44,26 @@ import com.example.a6thfingercontrollapp.ui.ConnectScreen
 import com.example.a6thfingercontrollapp.ui.ControlScreen
 import com.example.a6thfingercontrollapp.ui.LoginScreen
 import com.example.a6thfingercontrollapp.ui.NavRoute
+import com.example.a6thfingercontrollapp.ui.PasswordResetScreen
+import com.example.a6thfingercontrollapp.ui.PostRegisterAddEmailScreen
+import com.example.a6thfingercontrollapp.ui.PostRegisterVerifyEmailScreen
+import com.example.a6thfingercontrollapp.ui.RecoveryCodesScreen
 import com.example.a6thfingercontrollapp.ui.RegisterScreen
 import com.example.a6thfingercontrollapp.ui.SimulationScreen
 import com.example.a6thfingercontrollapp.ui.StartScreen
 import com.example.a6thfingercontrollapp.ui.theme._6thFingerControllAppTheme
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 private enum class AuthFlowScreen {
     Start,
     Login,
-    Register
+    Register,
+    RecoveryCodes,
+    PostRegisterEmail,
+    PostRegisterEmailCode,
+    ForgotPassword
 }
 
 class MainActivity : ComponentActivity() {
@@ -74,6 +84,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             _6thFingerControllAppTheme {
                 val nav = rememberNavController()
+                val scope = rememberCoroutineScope()
 
                 val permissions = remember { requiredPermissions() }
                 var granted by remember { mutableStateOf(false) }
@@ -85,9 +96,147 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) { launcher.launch(permissions) }
 
                 val authState by authVm.auth.collectAsState()
+                val pendingRecovery by authVm.pendingRecoveryCodes.collectAsState()
 
                 var authFlowScreen by rememberSaveable { mutableStateOf(AuthFlowScreen.Start) }
                 var prefillUsername by rememberSaveable { mutableStateOf("") }
+
+                var postEmail by rememberSaveable { mutableStateOf("") }
+                var postCode by rememberSaveable { mutableStateOf("") }
+                var postLoading by remember { mutableStateOf(false) }
+                var postErr by remember { mutableStateOf<String?>(null) }
+
+                LaunchedEffect(authFlowScreen, pendingRecovery) {
+                    if (
+                        (authFlowScreen == AuthFlowScreen.RecoveryCodes ||
+                                authFlowScreen == AuthFlowScreen.PostRegisterEmail ||
+                                authFlowScreen == AuthFlowScreen.PostRegisterEmailCode) &&
+                        pendingRecovery == null
+                    ) {
+                        authFlowScreen = AuthFlowScreen.Login
+                    }
+                }
+
+                val overlayActive =
+                    when (authFlowScreen) {
+                        AuthFlowScreen.RecoveryCodes -> pendingRecovery != null
+                        AuthFlowScreen.PostRegisterEmail -> true
+                        AuthFlowScreen.PostRegisterEmailCode -> true
+                        AuthFlowScreen.ForgotPassword -> true
+                        else -> false
+                    }
+
+                if (overlayActive) {
+                    when (authFlowScreen) {
+                        AuthFlowScreen.RecoveryCodes -> {
+                            val data = pendingRecovery!!
+                            RecoveryCodesScreen(
+                                username = data.username,
+                                codes = data.codes,
+                                onBack = { authFlowScreen = AuthFlowScreen.Register },
+                                onContinue = {
+                                    prefillUsername = data.username
+                                    postErr = null
+                                    authFlowScreen = AuthFlowScreen.PostRegisterEmail
+                                }
+                            )
+                        }
+
+                        AuthFlowScreen.PostRegisterEmail -> {
+                            PostRegisterAddEmailScreen(
+                                initialEmail = postEmail,
+                                loading = postLoading,
+                                error = postErr,
+                                onBack = { authFlowScreen = AuthFlowScreen.RecoveryCodes },
+                                onSkip = {
+                                    postErr = null
+                                    postLoading = true
+                                    scope.launch {
+                                        try {
+                                            authVm.postRegisterFinishWithoutEmail()
+                                            authFlowScreen = AuthFlowScreen.Start
+                                        } catch (e: Exception) {
+                                            postErr = e.message
+                                        } finally {
+                                            postLoading = false
+                                        }
+                                    }
+                                },
+                                onStartAdd = { email ->
+                                    postEmail = email
+                                    postErr = null
+                                    postLoading = true
+                                    scope.launch {
+                                        try {
+                                            authVm.postRegisterEmailStart(email)
+                                            postCode = ""
+                                            authFlowScreen = AuthFlowScreen.PostRegisterEmailCode
+                                        } catch (e: Exception) {
+                                            postErr = e.message
+                                        } finally {
+                                            postLoading = false
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+                        AuthFlowScreen.PostRegisterEmailCode -> {
+                            PostRegisterVerifyEmailScreen(
+                                email = postEmail,
+                                loading = postLoading,
+                                error = postErr,
+                                code = postCode,
+                                onCodeChange = { postCode = it },
+                                onBackChangeEmail = {
+                                    authFlowScreen = AuthFlowScreen.PostRegisterEmail
+                                },
+                                onResend = {
+                                    postErr = null
+                                    postLoading = true
+                                    scope.launch {
+                                        try {
+                                            authVm.emailStartAdd(postEmail)
+                                        } catch (e: Exception) {
+                                            postErr = e.message
+                                        } finally {
+                                            postLoading = false
+                                        }
+                                    }
+                                },
+                                onConfirm = {
+                                    postErr = null
+                                    postLoading = true
+                                    scope.launch {
+                                        try {
+                                            authVm.postRegisterEmailConfirm(postEmail, postCode)
+                                            authFlowScreen = AuthFlowScreen.Start
+                                        } catch (e: Exception) {
+                                            postErr = e.message
+                                        } finally {
+                                            postLoading = false
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+                        AuthFlowScreen.ForgotPassword -> {
+                            PasswordResetScreen(
+                                authVm = authVm,
+                                initialUsername = prefillUsername,
+                                onBack = { authFlowScreen = AuthFlowScreen.Login },
+                                onFinishedGoToLogin = { u ->
+                                    prefillUsername = u
+                                    authFlowScreen = AuthFlowScreen.Login
+                                }
+                            )
+                        }
+
+                        else -> Unit
+                    }
+                    return@_6thFingerControllAppTheme
+                }
 
                 when (authState) {
                     is UiAuthState.Loading -> {
@@ -113,7 +262,11 @@ class MainActivity : ComponentActivity() {
                                 LoginScreen(
                                     vm = authVm,
                                     initialUsername = prefillUsername,
-                                    onBack = { authFlowScreen = AuthFlowScreen.Start }
+                                    onBack = { authFlowScreen = AuthFlowScreen.Start },
+                                    onForgotPassword = { u ->
+                                        prefillUsername = u
+                                        authFlowScreen = AuthFlowScreen.ForgotPassword
+                                    }
                                 )
                             }
 
@@ -123,10 +276,15 @@ class MainActivity : ComponentActivity() {
                                     onBack = { authFlowScreen = AuthFlowScreen.Start },
                                     onRegistered = { username ->
                                         prefillUsername = username
-                                        authFlowScreen = AuthFlowScreen.Login
+                                        authFlowScreen = AuthFlowScreen.RecoveryCodes
                                     }
                                 )
                             }
+
+                            AuthFlowScreen.RecoveryCodes,
+                            AuthFlowScreen.PostRegisterEmail,
+                            AuthFlowScreen.PostRegisterEmailCode,
+                            AuthFlowScreen.ForgotPassword -> Unit
                         }
                     }
 
@@ -142,7 +300,6 @@ class MainActivity : ComponentActivity() {
                         val backStack by nav.currentBackStackEntryAsState()
                         val currentRoute = backStack?.destination?.route ?: NavRoute.Connect.route
                         val bleState by vm.state.collectAsState()
-
                         val unlocked by vm.controlUnlocked.collectAsState()
 
                         val rawStatus = bleState.status.lowercase()
@@ -188,16 +345,33 @@ class MainActivity : ComponentActivity() {
                                                     nav.navigate(r.route) {
                                                         launchSingleTop = true
                                                         restoreState = true
-                                                        popUpTo(nav.graph.startDestinationId) { saveState = true }
+                                                        popUpTo(nav.graph.startDestinationId) {
+                                                            saveState = true
+                                                        }
                                                     }
                                                 }
                                             },
                                             icon = {
                                                 when (r) {
-                                                    NavRoute.Connect -> Icon(Icons.Default.Bluetooth, null)
-                                                    NavRoute.Control -> Icon(Icons.Default.Settings, null)
-                                                    NavRoute.Sim -> Icon(Icons.Default.PlayArrow, null)
-                                                    NavRoute.Account -> Icon(Icons.Default.Person, null)
+                                                    NavRoute.Connect -> Icon(
+                                                        Icons.Default.Bluetooth,
+                                                        null
+                                                    )
+
+                                                    NavRoute.Control -> Icon(
+                                                        Icons.Default.Settings,
+                                                        null
+                                                    )
+
+                                                    NavRoute.Sim -> Icon(
+                                                        Icons.Default.PlayArrow,
+                                                        null
+                                                    )
+
+                                                    NavRoute.Account -> Icon(
+                                                        Icons.Default.Person,
+                                                        null
+                                                    )
                                                 }
                                             },
                                             label = { Text(stringResource(r.labelRes)) },
@@ -237,7 +411,9 @@ class MainActivity : ComponentActivity() {
                                             nav.navigate(NavRoute.Control.route) {
                                                 launchSingleTop = true
                                                 restoreState = true
-                                                popUpTo(nav.graph.startDestinationId) { saveState = true }
+                                                popUpTo(nav.graph.startDestinationId) {
+                                                    saveState = true
+                                                }
                                             }
                                         }
                                     )

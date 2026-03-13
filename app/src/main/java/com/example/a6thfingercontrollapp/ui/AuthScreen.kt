@@ -41,10 +41,13 @@ import com.example.a6thfingercontrollapp.R
 
 @Composable
 private fun localizedError(key: String?, get: @Composable (Int) -> String): String {
-    return when (key) {
-        "username_taken" -> get(R.string.err_username_taken)
-        "wrong_password" -> get(R.string.err_wrong_password)
-        "user_not_found" -> get(R.string.err_user_not_found)
+    val k = key?.trim()?.lowercase()
+    return when (k) {
+        "username_taken", "username_taken.", "username_taken\n",
+        "username_taken_error", "username_taken " -> get(R.string.err_username_taken)
+
+        "wrong_password", "wrong_password.", "invalid_username_or_password" -> get(R.string.err_wrong_password)
+        "user_not_found", "user_not_found.", "not_found" -> get(R.string.err_user_not_found)
         else -> get(R.string.err_unknown)
     }
 }
@@ -59,7 +62,6 @@ fun StartScreen(
 ) {
     val lang by bleVm.appLanguage.collectAsState()
     var showLangDialog by remember { mutableStateOf(false) }
-
     val haptic = LocalHapticFeedback.current
 
     Scaffold { inner ->
@@ -100,9 +102,7 @@ fun StartScreen(
                             haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                             onLoginClick()
                         }
-                    ) {
-                        Text(stringResource(R.string.auth_login))
-                    }
+                    ) { Text(stringResource(R.string.auth_login)) }
 
                     OutlinedButton(
                         modifier = Modifier.fillMaxWidth(),
@@ -110,9 +110,7 @@ fun StartScreen(
                             haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                             onRegisterClick()
                         }
-                    ) {
-                        Text(stringResource(R.string.auth_register))
-                    }
+                    ) { Text(stringResource(R.string.auth_register)) }
 
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),
@@ -120,9 +118,7 @@ fun StartScreen(
                             haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                             onContinueAsGuest()
                         }
-                    ) {
-                        Text(stringResource(R.string.auth_continue_guest))
-                    }
+                    ) { Text(stringResource(R.string.auth_continue_guest)) }
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -134,9 +130,7 @@ fun StartScreen(
                     },
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
-                    Text(
-                        text = stringResource(R.string.settings_language) + ": " + lang.uppercase()
-                    )
+                    Text(text = stringResource(R.string.settings_language) + ": " + lang.uppercase())
                 }
             }
         }
@@ -157,13 +151,17 @@ fun StartScreen(
 }
 
 @Composable
-fun LoginScreen(vm: AuthViewModel, initialUsername: String, onBack: () -> Unit) {
+fun LoginScreen(
+    vm: AuthViewModel,
+    initialUsername: String,
+    onBack: () -> Unit,
+    onForgotPassword: (String) -> Unit
+) {
     val rawError by vm.error.collectAsState()
     val error = rawError?.let { localizedError(it) { id -> stringResource(id) } }
 
     var username by remember { mutableStateOf(initialUsername) }
     var password by remember { mutableStateOf("") }
-
     val haptic = LocalHapticFeedback.current
 
     Scaffold { inner ->
@@ -207,6 +205,15 @@ fun LoginScreen(vm: AuthViewModel, initialUsername: String, onBack: () -> Unit) 
                     Text(error, color = MaterialTheme.colorScheme.error)
                 }
 
+                TextButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        vm.clearError()
+                        onForgotPassword(username.trim())
+                    },
+                    modifier = Modifier.align(Alignment.End)
+                ) { Text(stringResource(R.string.auth_forgot_password)) }
+
                 Spacer(Modifier.height(8.dp))
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -232,13 +239,16 @@ fun LoginScreen(vm: AuthViewModel, initialUsername: String, onBack: () -> Unit) 
 }
 
 @Composable
-fun RegisterScreen(vm: AuthViewModel, onBack: () -> Unit, onRegistered: (String) -> Unit) {
+fun RegisterScreen(
+    vm: AuthViewModel,
+    onBack: () -> Unit,
+    onRegistered: (String) -> Unit
+) {
     val rawError by vm.error.collectAsState()
     val error = rawError?.let { localizedError(it) { id -> stringResource(id) } }
 
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-
     val haptic = LocalHapticFeedback.current
 
     Scaffold { inner ->

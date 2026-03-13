@@ -17,8 +17,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
@@ -33,7 +34,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,6 +71,7 @@ import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.data.AppSettingsStore
 import com.example.a6thfingercontrollapp.data.saveAvatarFromCroppedUri
 import com.example.a6thfingercontrollapp.network.DeviceOut
+import com.example.a6thfingercontrollapp.network.PasswordResetStartOut
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,6 +79,11 @@ import org.json.JSONObject
 import com.example.a6thfingercontrollapp.data.avatarFile as dataAvatarFile
 import com.example.a6thfingercontrollapp.data.deleteAvatarIfExists as dataDeleteAvatarIfExists
 import com.example.a6thfingercontrollapp.data.loadBitmapFromFile as dataLoadBitmapFromFile
+
+private enum class EmailDialogMode { None, Add, Remove, Change }
+private enum class AddStep { EnterEmail, EnterCode }
+private enum class RemoveStep { ChooseMethod, EnterEmailCode, EnterRecoveryCode }
+private enum class ChangeStep { ChooseOldMethod, EnterOldEmailCode, EnterOldRecoveryCode, EnterNewEmail, EnterNewEmailCode }
 
 @Composable
 fun AccountScreen(
@@ -134,7 +140,6 @@ fun AccountScreen(
             allowFlipping = false
             outputCompressFormat = Bitmap.CompressFormat.JPEG
             outputCompressQuality = 92
-
             activityTitle = cropTitle
             cropMenuCropButtonTitle = cropDone
         }
@@ -209,6 +214,85 @@ fun AccountScreen(
             else -> null
         }
 
+    var emailInfo by remember { mutableStateOf<PasswordResetStartOut?>(null) }
+    var emailLoading by remember { mutableStateOf(false) }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var emailRefreshTick by remember { mutableStateOf(0) }
+    fun refreshEmailInfo() {
+        emailRefreshTick++
+    }
+
+    LaunchedEffect(username, emailRefreshTick) {
+        if (username.isNullOrBlank()) {
+            emailInfo = null
+            emailError = null
+            return@LaunchedEffect
+        }
+        emailLoading = true
+        emailError = null
+        try {
+            emailInfo = authVm.passwordResetStart(username)
+        } catch (e: Exception) {
+            emailError = e.message
+        } finally {
+            emailLoading = false
+        }
+    }
+
+    val hasEmail = emailInfo?.has_email == true
+    val emailShown = emailInfo?.email
+
+    var emailDialogMode by remember { mutableStateOf(EmailDialogMode.None) }
+
+    var addStep by remember { mutableStateOf(AddStep.EnterEmail) }
+    var addEmail by remember { mutableStateOf("") }
+    var addCode by remember { mutableStateOf("") }
+    var addErr by remember { mutableStateOf<String?>(null) }
+    var addBusy by remember { mutableStateOf(false) }
+
+    var removeStep by remember { mutableStateOf(RemoveStep.ChooseMethod) }
+    var removeCode by remember { mutableStateOf("") }
+    var removeRecovery by remember { mutableStateOf("") }
+    var removeErr by remember { mutableStateOf<String?>(null) }
+    var removeBusy by remember { mutableStateOf(false) }
+
+    var changeStep by remember { mutableStateOf(ChangeStep.ChooseOldMethod) }
+    var changeOldCode by remember { mutableStateOf("") }
+    var changeOldRecovery by remember { mutableStateOf("") }
+    var changeNewEmail by remember { mutableStateOf("") }
+    var changeNewCode by remember { mutableStateOf("") }
+    var changeErr by remember { mutableStateOf<String?>(null) }
+    var changeBusy by remember { mutableStateOf(false) }
+
+    fun openAddEmail() {
+        emailDialogMode = EmailDialogMode.Add
+        addStep = AddStep.EnterEmail
+        addEmail = ""
+        addCode = ""
+        addErr = null
+        addBusy = false
+    }
+
+    fun openRemoveEmail() {
+        emailDialogMode = EmailDialogMode.Remove
+        removeStep = RemoveStep.ChooseMethod
+        removeCode = ""
+        removeRecovery = ""
+        removeErr = null
+        removeBusy = false
+    }
+
+    fun openChangeEmail() {
+        emailDialogMode = EmailDialogMode.Change
+        changeStep = ChangeStep.ChooseOldMethod
+        changeOldCode = ""
+        changeOldRecovery = ""
+        changeNewEmail = ""
+        changeNewCode = ""
+        changeErr = null
+        changeBusy = false
+    }
+
     var devices by remember { mutableStateOf<List<DeviceOut>>(emptyList()) }
     var devicesLoading by remember { mutableStateOf(false) }
     var devicesError by remember { mutableStateOf<String?>(null) }
@@ -246,18 +330,15 @@ fun AccountScreen(
         devicesError = null
         try {
             if (activeAddress.isNotEmpty()) {
-                try {
+                runCatching {
                     authVm.ensureDevice(
                         address = activeAddress,
                         alias = activeAlias.ifBlank { null }
                     )
-                } catch (e: Exception) {
-                    devicesError = e.message
-                }
+                }.onFailure { e -> devicesError = e.message }
             }
 
-            val list = authVm.fetchDevices()
-            devices = list
+            devices = authVm.fetchDevices()
         } catch (e: Exception) {
             devicesError = e.message ?: errFailedLoadDevices
             devices = emptyList()
@@ -266,15 +347,17 @@ fun AccountScreen(
         }
     }
 
+    val scroll = rememberScrollState()
     val avatarSize = 180.dp
 
     Scaffold { inner ->
         Column(
-            Modifier
+            modifier = Modifier
                 .padding(inner)
+                .verticalScroll(scroll)
                 .padding(16.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -300,8 +383,7 @@ fun AccountScreen(
 
             Column(
                 Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
                     modifier = Modifier
@@ -362,25 +444,23 @@ fun AccountScreen(
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
-
                 Text(
                     text = username ?: stringResource(R.string.auth_guest),
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(top = 12.dp)
                 )
-
-                Spacer(Modifier.height(12.dp))
 
                 if (username == null) {
                     Text(
                         text = stringResource(R.string.auth_guest_hint),
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
-                    Spacer(Modifier.height(8.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedButton(
                             modifier = Modifier.weight(1f),
@@ -403,98 +483,642 @@ fun AccountScreen(
                         onClick = {
                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                             authVm.logout()
-                        }
+                        },
+                        modifier = Modifier.padding(top = 8.dp)
                     ) { Text(stringResource(R.string.auth_logout)) }
                 }
+            }
 
-                Spacer(Modifier.height(24.dp))
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                ) {
+            if (username != null) {
+                Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            stringResource(R.string.prosthesis_settings),
+                            text = stringResource(R.string.account_email_title),
                             style = MaterialTheme.typography.titleMedium
                         )
-                        Text(
-                            text = stringResource(R.string.prosthesis_settings_descr),
-                            style = MaterialTheme.typography.bodySmall
-                        )
 
-                        if (devicesLoading) {
-                            Spacer(Modifier.height(8.dp))
+                        if (emailLoading) {
                             Text(
                                 stringResource(R.string.loading),
                                 style = MaterialTheme.typography.bodySmall
                             )
-                        } else if (devicesError != null) {
-                            Spacer(Modifier.height(8.dp))
+                        } else if (!emailError.isNullOrBlank()) {
                             Text(
-                                text = devicesError ?: "",
+                                text = emailError ?: "",
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall
                             )
-                        } else if (devices.isEmpty()) {
-                            Spacer(Modifier.height(8.dp))
+                        } else {
                             Text(
-                                text = stringResource(R.string.prosthesis_no_devices),
+                                text = if (hasEmail && !emailShown.isNullOrBlank())
+                                    stringResource(R.string.account_email_current, emailShown ?: "")
+                                else
+                                    stringResource(R.string.account_email_not_set),
                                 style = MaterialTheme.typography.bodySmall
                             )
-                        } else {
-                            Spacer(Modifier.height(8.dp))
-                            devices.forEach { dev ->
-                                DeviceRow(
-                                    device = dev,
-                                    isConnected = connected,
-                                    enabled = username != null,
-                                    onOpen = {
-                                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
-                                        selectedDevice = dev
-                                        dialogError = null
-                                        dialogJson = settingsToPrettyJson(currentSettings)
-                                        showDeviceSettingsDialog = true
-                                    }
-                                )
-                            }
                         }
 
-                        if (username != null) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (!hasEmail) {
                                 OutlinedButton(
-                                    onClick = {
-                                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
-                                        scope.launch {
-                                            devicesLoading = true
-                                            devicesError = null
-                                            try {
-                                                val list = authVm.fetchDevices()
-                                                devices = list
-                                            } catch (e: Exception) {
-                                                devicesError = e.message ?: errFailedLoadDevices
-                                                devices = emptyList()
-                                            } finally {
-                                                devicesLoading = false
-                                            }
-                                        }
-                                    }
-                                ) { Text(stringResource(R.string.refresh)) }
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = { openAddEmail() }
+                                ) { Text(stringResource(R.string.account_email_add)) }
+                            } else {
+                                OutlinedButton(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = { openChangeEmail() }
+                                ) { Text(stringResource(R.string.account_email_change)) }
+
+                                OutlinedButton(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = { openRemoveEmail() }
+                                ) { Text(stringResource(R.string.account_email_remove)) }
                             }
                         }
                     }
                 }
             }
 
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.prosthesis_settings),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        stringResource(R.string.prosthesis_settings_descr),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    if (devicesLoading) {
+                        Text(
+                            stringResource(R.string.loading),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else if (devicesError != null) {
+                        Text(
+                            text = devicesError ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else if (devices.isEmpty()) {
+                        Text(
+                            stringResource(R.string.prosthesis_no_devices),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else {
+                        devices.forEach { dev ->
+                            DeviceRow(
+                                device = dev,
+                                isConnected = connected,
+                                enabled = username != null,
+                                onOpen = {
+                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                                    selectedDevice = dev
+                                    dialogError = null
+                                    dialogJson = settingsToPrettyJson(currentSettings)
+                                    showDeviceSettingsDialog = true
+                                }
+                            )
+                        }
+                    }
+
+                    if (username != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                                    scope.launch {
+                                        devicesLoading = true
+                                        devicesError = null
+                                        try {
+                                            devices = authVm.fetchDevices()
+                                        } catch (e: Exception) {
+                                            devicesError = e.message ?: errFailedLoadDevices
+                                            devices = emptyList()
+                                        } finally {
+                                            devicesLoading = false
+                                        }
+                                    }
+                                }
+                            ) { Text(stringResource(R.string.refresh)) }
+                        }
+                    }
+
+                    if (!connected) {
+                        Text(
+                            stringResource(R.string.prosthesis_connect_hint),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
         }
+    }
+
+    if (emailDialogMode == EmailDialogMode.Add) {
+        AlertDialog(
+            onDismissRequest = { if (!addBusy) emailDialogMode = EmailDialogMode.None },
+            title = { Text(stringResource(R.string.account_email_add)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (addStep == AddStep.EnterEmail) {
+                        OutlinedTextField(
+                            value = addEmail,
+                            onValueChange = { addEmail = it.trim() },
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.postreg_email_label)) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        if (!addErr.isNullOrBlank()) {
+                            Text(addErr ?: "", color = MaterialTheme.colorScheme.error)
+                        }
+
+                        Button(
+                            enabled = !addBusy && addEmail.isNotBlank(),
+                            onClick = {
+                                addBusy = true
+                                addErr = null
+                                scope.launch {
+                                    try {
+                                        authVm.emailStartAdd(addEmail)
+                                        addCode = ""
+                                        addStep = AddStep.EnterCode
+                                    } catch (e: Exception) {
+                                        addErr = e.message
+                                    } finally {
+                                        addBusy = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(stringResource(R.string.account_email_send_code)) }
+                    } else {
+                        Text(stringResource(R.string.postreg_email_code_hint, addEmail))
+
+                        OutlinedTextField(
+                            value = addCode,
+                            onValueChange = { addCode = it.trim() },
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.postreg_email_code_label)) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        if (!addErr.isNullOrBlank()) {
+                            Text(addErr ?: "", color = MaterialTheme.colorScheme.error)
+                        }
+
+                        OutlinedButton(
+                            enabled = !addBusy,
+                            onClick = {
+                                addBusy = true
+                                addErr = null
+                                scope.launch {
+                                    try {
+                                        authVm.emailStartAdd(addEmail)
+                                    } catch (e: Exception) {
+                                        addErr = e.message
+                                    } finally {
+                                        addBusy = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(stringResource(R.string.postreg_email_resend)) }
+
+                        TextButton(
+                            enabled = !addBusy,
+                            onClick = { addStep = AddStep.EnterEmail }
+                        ) { Text(stringResource(R.string.postreg_email_change)) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !addBusy && addStep == AddStep.EnterCode && addCode.isNotBlank(),
+                    onClick = {
+                        addBusy = true
+                        addErr = null
+                        scope.launch {
+                            try {
+                                authVm.emailConfirmAdd(addEmail, addCode)
+                                emailDialogMode = EmailDialogMode.None
+                                refreshEmailInfo()
+                            } catch (e: Exception) {
+                                addErr = e.message
+                            } finally {
+                                addBusy = false
+                            }
+                        }
+                    }
+                ) { Text(stringResource(R.string.account_email_confirm)) }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !addBusy,
+                    onClick = { emailDialogMode = EmailDialogMode.None }
+                ) { Text(stringResource(R.string.settings_close)) }
+            }
+        )
+    }
+
+    if (emailDialogMode == EmailDialogMode.Remove) {
+        AlertDialog(
+            onDismissRequest = { if (!removeBusy) emailDialogMode = EmailDialogMode.None },
+            title = { Text(stringResource(R.string.account_email_remove)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = stringResource(R.string.account_email_remove_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+
+                    when (removeStep) {
+                        RemoveStep.ChooseMethod -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    enabled = !removeBusy,
+                                    onClick = {
+                                        removeBusy = true
+                                        removeErr = null
+                                        scope.launch {
+                                            try {
+                                                authVm.emailStartRemove()
+                                                removeCode = ""
+                                                removeStep = RemoveStep.EnterEmailCode
+                                            } catch (e: Exception) {
+                                                removeErr = e.message
+                                            } finally {
+                                                removeBusy = false
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text(stringResource(R.string.account_email_method_email)) }
+
+                                OutlinedButton(
+                                    enabled = !removeBusy,
+                                    onClick = { removeStep = RemoveStep.EnterRecoveryCode },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text(stringResource(R.string.account_email_method_recovery)) }
+                            }
+                        }
+
+                        RemoveStep.EnterEmailCode -> {
+                            val hintEmail = emailShown ?: ""
+                            if (hintEmail.isNotBlank()) {
+                                Text(stringResource(R.string.postreg_email_code_hint, hintEmail))
+                            }
+
+                            OutlinedTextField(
+                                value = removeCode,
+                                onValueChange = { removeCode = it.trim() },
+                                singleLine = true,
+                                label = { Text(stringResource(R.string.postreg_email_code_label)) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            OutlinedButton(
+                                enabled = !removeBusy,
+                                onClick = {
+                                    removeBusy = true
+                                    removeErr = null
+                                    scope.launch {
+                                        try {
+                                            authVm.emailStartRemove()
+                                        } catch (e: Exception) {
+                                            removeErr = e.message
+                                        } finally {
+                                            removeBusy = false
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(stringResource(R.string.postreg_email_resend)) }
+
+                            TextButton(
+                                enabled = !removeBusy,
+                                onClick = { removeStep = RemoveStep.ChooseMethod }
+                            ) { Text(stringResource(R.string.auth_back)) }
+                        }
+
+                        RemoveStep.EnterRecoveryCode -> {
+                            OutlinedTextField(
+                                value = removeRecovery,
+                                onValueChange = { removeRecovery = it },
+                                singleLine = true,
+                                label = { Text(stringResource(R.string.account_email_recovery_code)) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            TextButton(
+                                enabled = !removeBusy,
+                                onClick = { removeStep = RemoveStep.ChooseMethod }
+                            ) { Text(stringResource(R.string.auth_back)) }
+                        }
+                    }
+
+                    if (!removeErr.isNullOrBlank()) {
+                        Text(removeErr ?: "", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                val canConfirm =
+                    !removeBusy && (
+                            (removeStep == RemoveStep.EnterEmailCode && removeCode.isNotBlank()) ||
+                                    (removeStep == RemoveStep.EnterRecoveryCode && removeRecovery.isNotBlank())
+                            )
+
+                TextButton(
+                    enabled = canConfirm,
+                    onClick = {
+                        removeBusy = true
+                        removeErr = null
+                        scope.launch {
+                            try {
+                                when (removeStep) {
+                                    RemoveStep.EnterEmailCode ->
+                                        authVm.emailConfirmRemove(
+                                            code = removeCode,
+                                            recoveryCode = null
+                                        )
+
+                                    RemoveStep.EnterRecoveryCode ->
+                                        authVm.emailConfirmRemove(
+                                            code = null,
+                                            recoveryCode = removeRecovery
+                                        )
+
+                                    else -> Unit
+                                }
+
+                                emailDialogMode = EmailDialogMode.None
+                                refreshEmailInfo()
+                            } catch (e: Exception) {
+                                removeErr = e.message
+                            } finally {
+                                removeBusy = false
+                            }
+                        }
+                    }
+                ) { Text(stringResource(R.string.confirm)) }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !removeBusy,
+                    onClick = { emailDialogMode = EmailDialogMode.None }
+                ) { Text(stringResource(R.string.settings_close)) }
+            }
+        )
+    }
+
+    if (emailDialogMode == EmailDialogMode.Change) {
+        AlertDialog(
+            onDismissRequest = { if (!changeBusy) emailDialogMode = EmailDialogMode.None },
+            title = { Text(stringResource(R.string.account_email_change)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    when (changeStep) {
+                        ChangeStep.ChooseOldMethod -> {
+                            Text(stringResource(R.string.account_email_change_step_old))
+
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    enabled = !changeBusy,
+                                    onClick = {
+                                        changeBusy = true
+                                        changeErr = null
+                                        scope.launch {
+                                            try {
+                                                authVm.emailStartRemove()
+                                                changeOldCode = ""
+                                                changeStep = ChangeStep.EnterOldEmailCode
+                                            } catch (e: Exception) {
+                                                changeErr = e.message
+                                            } finally {
+                                                changeBusy = false
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text(stringResource(R.string.account_email_method_email)) }
+
+                                OutlinedButton(
+                                    enabled = !changeBusy,
+                                    onClick = { changeStep = ChangeStep.EnterOldRecoveryCode },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text(stringResource(R.string.account_email_method_recovery)) }
+                            }
+                        }
+
+                        ChangeStep.EnterOldEmailCode -> {
+                            val hintEmail = emailShown ?: ""
+                            if (hintEmail.isNotBlank()) {
+                                Text(stringResource(R.string.postreg_email_code_hint, hintEmail))
+                            }
+
+                            OutlinedTextField(
+                                value = changeOldCode,
+                                onValueChange = { changeOldCode = it.trim() },
+                                singleLine = true,
+                                label = { Text(stringResource(R.string.postreg_email_code_label)) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            OutlinedButton(
+                                enabled = !changeBusy,
+                                onClick = {
+                                    changeBusy = true
+                                    changeErr = null
+                                    scope.launch {
+                                        try {
+                                            authVm.emailStartRemove()
+                                        } catch (e: Exception) {
+                                            changeErr = e.message
+                                        } finally {
+                                            changeBusy = false
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(stringResource(R.string.postreg_email_resend)) }
+
+                            TextButton(
+                                enabled = !changeBusy,
+                                onClick = { changeStep = ChangeStep.ChooseOldMethod }
+                            ) { Text(stringResource(R.string.auth_back)) }
+                        }
+
+                        ChangeStep.EnterOldRecoveryCode -> {
+                            OutlinedTextField(
+                                value = changeOldRecovery,
+                                onValueChange = { changeOldRecovery = it },
+                                singleLine = true,
+                                label = { Text(stringResource(R.string.account_email_recovery_code)) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            TextButton(
+                                enabled = !changeBusy,
+                                onClick = { changeStep = ChangeStep.ChooseOldMethod }
+                            ) { Text(stringResource(R.string.auth_back)) }
+                        }
+
+                        ChangeStep.EnterNewEmail -> {
+                            Text(stringResource(R.string.account_email_change_step_new))
+
+                            OutlinedTextField(
+                                value = changeNewEmail,
+                                onValueChange = { changeNewEmail = it.trim() },
+                                singleLine = true,
+                                label = { Text(stringResource(R.string.postreg_email_label)) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Button(
+                                enabled = !changeBusy && changeNewEmail.isNotBlank(),
+                                onClick = {
+                                    changeBusy = true
+                                    changeErr = null
+                                    scope.launch {
+                                        try {
+                                            authVm.emailStartAdd(changeNewEmail)
+                                            changeNewCode = ""
+                                            changeStep = ChangeStep.EnterNewEmailCode
+                                        } catch (e: Exception) {
+                                            changeErr = e.message
+                                        } finally {
+                                            changeBusy = false
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(stringResource(R.string.account_email_send_code)) }
+                        }
+
+                        ChangeStep.EnterNewEmailCode -> {
+                            Text(stringResource(R.string.postreg_email_code_hint, changeNewEmail))
+
+                            OutlinedTextField(
+                                value = changeNewCode,
+                                onValueChange = { changeNewCode = it.trim() },
+                                singleLine = true,
+                                label = { Text(stringResource(R.string.postreg_email_code_label)) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            OutlinedButton(
+                                enabled = !changeBusy,
+                                onClick = {
+                                    changeBusy = true
+                                    changeErr = null
+                                    scope.launch {
+                                        try {
+                                            authVm.emailStartAdd(changeNewEmail)
+                                        } catch (e: Exception) {
+                                            changeErr = e.message
+                                        } finally {
+                                            changeBusy = false
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(stringResource(R.string.postreg_email_resend)) }
+
+                            TextButton(
+                                enabled = !changeBusy,
+                                onClick = { changeStep = ChangeStep.EnterNewEmail }
+                            ) { Text(stringResource(R.string.postreg_email_change)) }
+                        }
+                    }
+
+                    if (!changeErr.isNullOrBlank()) {
+                        Text(changeErr ?: "", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                val canConfirm =
+                    !changeBusy && when (changeStep) {
+                        ChangeStep.EnterOldEmailCode -> changeOldCode.isNotBlank()
+                        ChangeStep.EnterOldRecoveryCode -> changeOldRecovery.isNotBlank()
+                        ChangeStep.EnterNewEmailCode -> changeNewCode.isNotBlank()
+                        else -> false
+                    }
+
+                TextButton(
+                    enabled = canConfirm,
+                    onClick = {
+                        changeBusy = true
+                        changeErr = null
+                        scope.launch {
+                            try {
+                                when (changeStep) {
+                                    ChangeStep.EnterOldEmailCode -> {
+                                        authVm.emailConfirmRemove(
+                                            code = changeOldCode,
+                                            recoveryCode = null
+                                        )
+                                        changeStep = ChangeStep.EnterNewEmail
+                                    }
+
+                                    ChangeStep.EnterOldRecoveryCode -> {
+                                        authVm.emailConfirmRemove(
+                                            code = null,
+                                            recoveryCode = changeOldRecovery
+                                        )
+                                        changeStep = ChangeStep.EnterNewEmail
+                                    }
+
+                                    ChangeStep.EnterNewEmailCode -> {
+                                        authVm.emailConfirmAdd(changeNewEmail, changeNewCode)
+                                        emailDialogMode = EmailDialogMode.None
+                                        refreshEmailInfo()
+                                    }
+
+                                    else -> Unit
+                                }
+                            } catch (e: Exception) {
+                                changeErr = e.message
+                            } finally {
+                                changeBusy = false
+                            }
+                        }
+                    }
+                ) {
+                    Text(
+                        when (changeStep) {
+                            ChangeStep.EnterOldEmailCode,
+                            ChangeStep.EnterOldRecoveryCode -> stringResource(R.string.confirm)
+
+                            ChangeStep.EnterNewEmailCode -> stringResource(R.string.account_email_confirm)
+                            else -> stringResource(R.string.confirm)
+                        }
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !changeBusy,
+                    onClick = { emailDialogMode = EmailDialogMode.None }
+                ) { Text(stringResource(R.string.settings_close)) }
+            }
+        )
     }
 
     if (cropError != null) {
@@ -511,10 +1135,7 @@ fun AccountScreen(
     }
 
     if (showFullscreen && avatarBitmap != null) {
-        FullscreenImageDialog(
-            bitmap = avatarBitmap!!,
-            onDismiss = { showFullscreen = false }
-        )
+        FullscreenImageDialog(bitmap = avatarBitmap!!, onDismiss = { showFullscreen = false })
     }
 
     if (showSettings) {
@@ -609,9 +1230,7 @@ fun AccountScreen(
                         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
                         showConnectWarning = false
                     }
-                ) {
-                    Text(stringResource(R.string.generic_ok))
-                }
+                ) { Text(stringResource(R.string.generic_ok)) }
             }
         )
     }
@@ -650,68 +1269,6 @@ private fun FullscreenImageDialog(
                 )
             }
         }
-    }
-}
-
-@Composable
-fun SettingsDialog(currentLang: String, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
-    val haptic = LocalHapticFeedback.current
-
-    AlertDialog(
-        onDismissRequest = {
-            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
-            onDismiss()
-        },
-        title = { Text(stringResource(R.string.settings_app)) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("${stringResource(R.string.settings_language)}:")
-
-                LanguageOptionRow(
-                    title = stringResource(R.string.settings_russian),
-                    selected = currentLang == "ru",
-                    onClick = {
-                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
-                        onSelect("ru")
-                    }
-                )
-
-                LanguageOptionRow(
-                    title = stringResource(R.string.settings_english),
-                    selected = currentLang == "en",
-                    onClick = {
-                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
-                        onSelect("en")
-                    }
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
-                    onDismiss()
-                }
-            ) { Text(stringResource(R.string.settings_close)) }
-        }
-    )
-}
-
-@Composable
-private fun LanguageOptionRow(title: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(selected = selected, onClick = onClick)
-        Spacer(Modifier.width(8.dp))
-        Text(title, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
@@ -831,13 +1388,6 @@ private fun DeviceSettingsDialog(
                             onPushClick()
                         }
                     ) { Text(text = stringResource(R.string.prosthesis_push)) }
-                }
-
-                if (!isPullEnabled) {
-                    Text(
-                        text = stringResource(R.string.prosthesis_connect_hint),
-                        style = MaterialTheme.typography.bodySmall
-                    )
                 }
             }
         },

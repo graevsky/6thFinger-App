@@ -226,4 +226,76 @@
     <string name="telemetry_wait">Waiting for telemetry…</string>
     <string name="telemetry_wait_after_save">Applying settings… telemetry will start soon</string>
     <string name="telemetry_disabled_short">Telemetry is off</string>
+
+    <string name="auth_forgot_password">Forgot password?</string>
+
+    <string name="recovery_codes_title">Recovery codes</string>
+    <string name="recovery_codes_subtitle">Save these 10 one-time codes. You will NOT be able to view them again.</string>
+    <string name="recovery_codes_warning">If you lose your password AND these codes — account recovery is impossible.</string>
+    <string name="recovery_codes_copy">Copy</string>
+    <string name="recovery_codes_download">Download .txt</string>
+    <string name="recovery_codes_saved_checkbox">I saved the codes</string>
+    <string name="recovery_codes_continue">Continue</string>
+    <string name="recovery_codes_copied">Copied to clipboard</string>
+    <string name="recovery_codes_saved_file_ok">Saved</string>
+    <string name="recovery_codes_saved_file_fail">Failed to save file</string>
+
+    <string name="password_reset_title">Password recovery</string>
+    <string name="password_reset_next">Next</string>
+    <string name="password_reset_enter_username">Enter your username</string>
+    <string name="password_reset_choose_method">Choose recovery method</string>
+    <string name="password_reset_by_recovery">Use recovery code</string>
+    <string name="password_reset_by_email">Use email</string>
+    <string name="password_reset_email_hint">Email on account: %1$s</string>
+    <string name="password_reset_email_not_available">Email recovery is not available for this account</string>
+    <string name="password_reset_enter_recovery">Enter a recovery code</string>
+    <string name="password_reset_recovery_code">Recovery code</string>
+    <string name="password_reset_enter_email">Enter your email</string>
+    <string name="password_reset_email">Email</string>
+    <string name="password_reset_enter_email_code">Enter code from email</string>
+    <string name="password_reset_code">Code</string>
+    <string name="password_reset_resend">Resend code</string>
+    <string name="password_reset_new_password">Set a new password</string>
+    <string name="password_reset_password1">New password</string>
+    <string name="password_reset_password2">Repeat password</string>
+    <string name="password_reset_passwords_mismatch">Passwords do not match</string>
+    <string name="password_reset_done">Password updated. You can log in now.</string>
+    <string name="password_reset_no_reset_session">Reset session is missing. Try again.</string>
+
+    <!-- Account: Email (EN) -->
+    <string name="account_email_title">Email</string>
+    <string name="account_email_current">Current email: %1$s</string>
+    <string name="account_email_not_set">Email is not set</string>
+    <string name="account_email_add">Add email</string>
+    <string name="account_email_remove">Remove email</string>
+    <string name="account_email_change">Change email</string>
+    <string name="account_email_refresh">Refresh</string>
+    <string name="account_email_send_code">Send code</string>
+    <string name="account_email_confirm">Confirm</string>
+    <string name="account_email_method_email">By email code</string>
+    <string name="account_email_method_recovery">By recovery code</string>
+    <string name="account_email_recovery_code">Recovery code</string>
+    <string name="account_email_remove_warning">After removing email you will lose the ability to recover access via email. You can still recover via one-time recovery codes.</string>
+    <string name="account_email_change_step_old">Step 1/2: confirm removal of the old email</string>
+    <string name="account_email_change_step_new">Step 2/2: add and confirm the new email</string>
+
+
+    <!-- Post-register email -->
+    <string name="postreg_email_title">Add email</string>
+    <string name="postreg_email_subtitle">Email is optional, but it enables password recovery via email.</string>
+    <string name="postreg_email_label">Email</string>
+    <string name="postreg_email_skip">Continue without email</string>
+    <string name="postreg_email_add">Add email</string>
+
+    <string name="postreg_email_code_title">Verify email</string>
+    <string name="postreg_email_code_hint">We sent a code to: %1$s</string>
+    <string name="postreg_email_code_label">Code</string>
+    <string name="postreg_email_resend">Resend code</string>
+    <string name="postreg_email_change">Change email</string>
+    <string name="postreg_email_confirm">Confirm</string>
+
+    <!-- Recovery codes file text -->
+    <string name="recovery_codes_file_username">Username: %1$s</string>
+    <string name="recovery_codes_file_codes_title">Recovery codes (one-time):</string>
+
 </resources>

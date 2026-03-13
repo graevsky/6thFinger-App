@@ -227,4 +227,76 @@
     <string name="telemetry_wait">Ожидаем телеметрию…</string>
     <string name="telemetry_wait_after_save">Применяем настройки… телеметрия скоро появится</string>
     <string name="telemetry_disabled_short">Телеметрия выключена</string>
+
+    <string name="auth_forgot_password">Забыли пароль?</string>
+
+    <string name="recovery_codes_title">Резервные коды</string>
+    <string name="recovery_codes_subtitle">Сохраните эти 10 одноразовых кодов. Посмотреть их повторно будет нельзя.</string>
+    <string name="recovery_codes_warning">Если потеряете пароль И эти коды — восстановление аккаунта невозможно.</string>
+    <string name="recovery_codes_copy">Скопировать</string>
+    <string name="recovery_codes_download">Скачать .txt</string>
+    <string name="recovery_codes_saved_checkbox">Я сохранил(а) коды</string>
+    <string name="recovery_codes_continue">Продолжить</string>
+    <string name="recovery_codes_copied">Скопировано в буфер</string>
+    <string name="recovery_codes_saved_file_ok">Файл сохранён</string>
+    <string name="recovery_codes_saved_file_fail">Не удалось сохранить файл</string>
+
+    <string name="password_reset_title">Восстановление пароля</string>
+    <string name="password_reset_next">Далее</string>
+    <string name="password_reset_enter_username">Введите логин</string>
+    <string name="password_reset_choose_method">Выберите способ восстановления</string>
+    <string name="password_reset_by_recovery">По резервному коду</string>
+    <string name="password_reset_by_email">По почте</string>
+    <string name="password_reset_email_hint">Почта аккаунта: %1$s</string>
+    <string name="password_reset_email_not_available">Восстановление по почте недоступно для этого аккаунта</string>
+    <string name="password_reset_enter_recovery">Введите резервный код</string>
+    <string name="password_reset_recovery_code">Резервный код</string>
+    <string name="password_reset_enter_email">Введите почту</string>
+    <string name="password_reset_email">Почта</string>
+    <string name="password_reset_enter_email_code">Введите код из письма</string>
+    <string name="password_reset_code">Код</string>
+    <string name="password_reset_resend">Отправить код ещё раз</string>
+    <string name="password_reset_new_password">Установите новый пароль</string>
+    <string name="password_reset_password1">Новый пароль</string>
+    <string name="password_reset_password2">Повторите пароль</string>
+    <string name="password_reset_passwords_mismatch">Пароли не совпадают</string>
+    <string name="password_reset_done">Пароль обновлён. Теперь можно войти.</string>
+    <string name="password_reset_no_reset_session">Не найдена сессия сброса. Попробуйте ещё раз.</string>
+
+    <!-- Account: Email (RU) -->
+    <string name="account_email_title">Почта</string>
+    <string name="account_email_current">Текущая почта: %1$s</string>
+    <string name="account_email_not_set">Почта не задана</string>
+    <string name="account_email_add">Добавить почту</string>
+    <string name="account_email_remove">Удалить почту</string>
+    <string name="account_email_change">Изменить почту</string>
+    <string name="account_email_refresh">Обновить</string>
+    <string name="account_email_send_code">Отправить код</string>
+    <string name="account_email_confirm">Подтвердить</string>
+    <string name="account_email_method_email">По коду из письма</string>
+    <string name="account_email_method_recovery">По резервному коду</string>
+    <string name="account_email_recovery_code">Резервный код</string>
+    <string name="account_email_remove_warning">После удаления почты вы потеряете возможность восстановления через email. Восстановление по одноразовым резервным кодам останется доступным.</string>
+    <string name="account_email_change_step_old">Шаг 1/2: подтвердите удаление старой почты</string>
+    <string name="account_email_change_step_new">Шаг 2/2: добавьте и подтвердите новую почту</string>
+
+
+    <!-- Post-register email -->
+    <string name="postreg_email_title">Добавить почту</string>
+    <string name="postreg_email_subtitle">Почта необязательна, но она позволит восстановить пароль через email.</string>
+    <string name="postreg_email_label">Почта</string>
+    <string name="postreg_email_skip">Продолжить без почты</string>
+    <string name="postreg_email_add">Добавить почту</string>
+
+    <string name="postreg_email_code_title">Подтверждение почты</string>
+    <string name="postreg_email_code_hint">Мы отправили код на: %1$s</string>
+    <string name="postreg_email_code_label">Код</string>
+    <string name="postreg_email_resend">Отправить код ещё раз</string>
+    <string name="postreg_email_change">Изменить почту</string>
+    <string name="postreg_email_confirm">Подтвердить</string>
+
+    <!-- Recovery codes file text -->
+    <string name="recovery_codes_file_username">Логин: %1$s</string>
+    <string name="recovery_codes_file_codes_title">Резервные коды (одноразовые):</string>
+
 </resources>

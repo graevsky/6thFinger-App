@@ -24,7 +24,7 @@ interface BackendApi {
     suspend fun getSrpParams(): RegisterParamsOut
 
     @POST("/auth/register")
-    suspend fun register(@Body body: RegisterIn)
+    suspend fun register(@Body body: RegisterIn): RegisterOut
 
     @POST("/auth/login/start")
     suspend fun loginStart(@Body body: LoginStartIn): LoginStartOut
@@ -87,6 +87,55 @@ interface BackendApi {
         @Header("Authorization") auth: String
     ): Response<Unit>
 
+    @POST("/auth/email/start-add")
+    suspend fun emailStartAdd(
+        @Header("Authorization") auth: String,
+        @Body body: EmailStartAddIn
+    ): GenericOk
+
+    @POST("/auth/email/confirm-add")
+    suspend fun emailConfirmAdd(
+        @Header("Authorization") auth: String,
+        @Body body: EmailConfirmIn
+    ): GenericOk
+
+    @POST("/auth/email/start-remove")
+    suspend fun emailStartRemove(
+        @Header("Authorization") auth: String
+    ): GenericOk
+
+    @POST("/auth/email/confirm-remove")
+    suspend fun emailConfirmRemove(
+        @Header("Authorization") auth: String,
+        @Body body: EmailRemoveConfirmIn
+    ): GenericOk
+
+
+    @POST("/auth/password-reset/start")
+    suspend fun passwordResetStart(
+        @Body body: PasswordResetStartIn
+    ): PasswordResetStartOut
+
+    @POST("/auth/password-reset/email/send")
+    suspend fun passwordResetEmailSend(
+        @Body body: PasswordResetEmailSendIn
+    ): GenericOk
+
+    @POST("/auth/password-reset/email/verify")
+    suspend fun passwordResetEmailVerify(
+        @Body body: PasswordResetEmailVerifyIn
+    ): PasswordResetVerifyOut
+
+    @POST("/auth/password-reset/recovery/verify")
+    suspend fun passwordResetRecoveryVerify(
+        @Body body: PasswordResetRecoveryVerifyIn
+    ): PasswordResetVerifyOut
+
+    @POST("/auth/password-reset/finish")
+    suspend fun passwordResetFinish(
+        @Body body: PasswordResetFinishIn
+    ): GenericOk
+
     companion object {
         private const val BASE_URL =
             "http://192.168.31.215:8000" // temp stub "http://10.0.2.2:8000" or pc ip
@@ -96,7 +145,9 @@ interface BackendApi {
             val logging =
                 HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
 
-            val client = OkHttpClient.Builder().addInterceptor(logging).build()
+            val client = OkHttpClient.Builder()
+                .addInterceptor(logging)
+                .build()
 
             val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
 

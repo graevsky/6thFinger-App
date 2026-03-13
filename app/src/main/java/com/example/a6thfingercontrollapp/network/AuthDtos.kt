@@ -4,6 +4,11 @@ data class RegisterParamsOut(val N: String, val g: String)
 
 data class RegisterIn(val username: String, val salt: String, val verifier: String)
 
+data class RegisterOut(
+    val detail: String,
+    val recovery_codes: List<String>
+)
+
 data class LoginStartIn(val username: String)
 
 data class LoginStartOut(val salt: String, val B: String, val N: String, val g: String)
@@ -53,3 +58,36 @@ data class AvatarOut(
     val key: String,
     val content_type: String
 )
+
+
+data class EmailStartAddIn(val email: String)
+data class EmailConfirmIn(val email: String, val code: String)
+
+data class EmailRemoveConfirmIn(
+    val code: String? = null,
+    val recovery_code: String? = null
+)
+
+data class PasswordResetStartIn(val username: String)
+
+data class PasswordResetStartOut(
+    val has_email: Boolean,
+    val email: String? = null,
+    val has_recovery: Boolean
+)
+
+data class PasswordResetEmailSendIn(val username: String, val email: String)
+
+data class PasswordResetEmailVerifyIn(val username: String, val email: String, val code: String)
+
+data class PasswordResetRecoveryVerifyIn(val username: String, val recovery_code: String)
+
+data class PasswordResetVerifyOut(val reset_session_id: String)
+
+data class PasswordResetFinishIn(
+    val reset_session_id: String,
+    val new_salt: String,
+    val new_verifier: String
+)
+
+data class GenericOk(val detail: String)
