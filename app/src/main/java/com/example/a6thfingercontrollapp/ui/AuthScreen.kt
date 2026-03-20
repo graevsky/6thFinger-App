@@ -13,7 +13,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -34,23 +39,13 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.AuthViewModel
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
-
-@Composable
-private fun localizedError(key: String?, get: @Composable (Int) -> String): String {
-    val k = key?.trim()?.lowercase()
-    return when (k) {
-        "username_taken", "username_taken.", "username_taken\n",
-        "username_taken_error", "username_taken " -> get(R.string.err_username_taken)
-
-        "wrong_password", "wrong_password.", "invalid_username_or_password" -> get(R.string.err_wrong_password)
-        "user_not_found", "user_not_found.", "not_found" -> get(R.string.err_user_not_found)
-        else -> get(R.string.err_unknown)
-    }
-}
+import com.example.a6thfingercontrollapp.utils.PasswordPolicy
+import com.example.a6thfingercontrollapp.utils.uiErrorText
 
 @Composable
 fun StartScreen(
@@ -158,10 +153,11 @@ fun LoginScreen(
     onForgotPassword: (String) -> Unit
 ) {
     val rawError by vm.error.collectAsState()
-    val error = rawError?.let { localizedError(it) { id -> stringResource(id) } }
+    val error = uiErrorText(rawError) ?: rawError
 
     var username by remember { mutableStateOf(initialUsername) }
     var password by remember { mutableStateOf("") }
+    var pwVisible by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
 
     Scaffold { inner ->
@@ -196,7 +192,18 @@ fun LoginScreen(
                     value = password,
                     onValueChange = { password = it },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (pwVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { pwVisible = !pwVisible }) {
+                            Icon(
+                                imageVector = if (pwVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (pwVisible)
+                                    stringResource(R.string.auth_password_hide)
+                                else
+                                    stringResource(R.string.auth_password_show)
+                            )
+                        }
+                    },
                     label = { Text(stringResource(R.string.auth_password)) },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -242,13 +249,18 @@ fun LoginScreen(
 fun RegisterScreen(
     vm: AuthViewModel,
     onBack: () -> Unit,
-    onRegistered: (String) -> Unit
+    onRegistered: (String) -> Unit,
+    onGoToLogin: (String) -> Unit
 ) {
     val rawError by vm.error.collectAsState()
-    val error = rawError?.let { localizedError(it) { id -> stringResource(id) } }
+    val errorKey = rawError?.trim()?.lowercase()
+    val error = uiErrorText(rawError) ?: rawError
 
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var pwVisible by remember { mutableStateOf(false) }
+    val rules = remember(password) { PasswordPolicy.check(password) }
+
     val haptic = LocalHapticFeedback.current
 
     Scaffold { inner ->
@@ -283,13 +295,35 @@ fun RegisterScreen(
                     value = password,
                     onValueChange = { password = it },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (pwVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { pwVisible = !pwVisible }) {
+                            Icon(
+                                imageVector = if (pwVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (pwVisible)
+                                    stringResource(R.string.auth_password_hide)
+                                else
+                                    stringResource(R.string.auth_password_show)
+                            )
+                        }
+                    },
                     label = { Text(stringResource(R.string.auth_password)) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                PasswordRulesHint(rules = rules)
+
                 if (!error.isNullOrBlank()) {
                     Text(error, color = MaterialTheme.colorScheme.error)
+                }
+
+                if (errorKey == "username_taken") {
+                    TextButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            onGoToLogin(username.trim().lowercase())
+                        }
+                    ) { Text(stringResource(R.string.auth_login)) }
                 }
 
                 Spacer(Modifier.height(8.dp))
@@ -309,7 +343,7 @@ fun RegisterScreen(
                             val normalized = username.trim().lowercase()
                             vm.register(normalized, password) { onRegistered(normalized) }
                         },
-                        enabled = username.isNotBlank() && password.isNotBlank()
+                        enabled = username.isNotBlank() && rules.ok
                     ) { Text(stringResource(R.string.auth_register)) }
                 }
             }

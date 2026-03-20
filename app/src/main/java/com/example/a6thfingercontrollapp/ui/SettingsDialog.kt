@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -25,7 +26,16 @@ import com.example.a6thfingercontrollapp.R
 fun SettingsDialog(
     currentLang: String,
     onDismiss: () -> Unit,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+
+    isLoggedIn: Boolean = false,
+    emailLine: String? = null,
+    emailErrorLine: String? = null,
+    hasEmail: Boolean = false,
+    onAddEmail: (() -> Unit)? = null,
+    onChangeEmail: (() -> Unit)? = null,
+    onRemoveEmail: (() -> Unit)? = null,
+    onChangePassword: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -59,6 +69,47 @@ fun SettingsDialog(
                         onSelect("en")
                     }
                 )
+
+                if (isLoggedIn) {
+                    Divider(modifier = Modifier.padding(top = 4.dp))
+                    Text(
+                        stringResource(R.string.settings_account),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+
+                    if (!emailLine.isNullOrBlank()) {
+                        Text(emailLine, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (!emailErrorLine.isNullOrBlank()) {
+                        Text(
+                            emailErrorLine,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    if (!hasEmail) {
+                        TextButton(
+                            onClick = { onAddEmail?.invoke() },
+                            enabled = onAddEmail != null
+                        ) { Text(stringResource(R.string.account_email_add)) }
+                    } else {
+                        TextButton(
+                            onClick = { onChangeEmail?.invoke() },
+                            enabled = onChangeEmail != null
+                        ) { Text(stringResource(R.string.account_email_change)) }
+
+                        TextButton(
+                            onClick = { onRemoveEmail?.invoke() },
+                            enabled = onRemoveEmail != null
+                        ) { Text(stringResource(R.string.account_email_remove)) }
+                    }
+
+                    TextButton(
+                        onClick = { onChangePassword?.invoke() },
+                        enabled = onChangePassword != null
+                    ) { Text(stringResource(R.string.settings_password_change)) }
+                }
             }
         },
         confirmButton = {

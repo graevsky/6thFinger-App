@@ -13,6 +13,10 @@ class AppSettingsStore(private val context: Context) {
     private object Keys {
         val LANGUAGE = stringPreferencesKey("language")
         val AVATAR_PATH = stringPreferencesKey("avatar_path")
+
+        // cache for offline UX
+        val CACHED_EMAIL = stringPreferencesKey("cached_email")
+        val CACHED_DEVICES_JSON = stringPreferencesKey("cached_devices_json")
     }
 
     fun getLanguage(): Flow<String> =
@@ -29,6 +33,33 @@ class AppSettingsStore(private val context: Context) {
         context.dataStore.edit { prefs ->
             if (path.isNullOrBlank()) prefs.remove(Keys.AVATAR_PATH)
             else prefs[Keys.AVATAR_PATH] = path
+        }
+    }
+
+    fun getCachedEmail(): Flow<String?> =
+        context.dataStore.data.map { it[Keys.CACHED_EMAIL] }
+
+    suspend fun setCachedEmail(email: String?) {
+        context.dataStore.edit { prefs ->
+            if (email.isNullOrBlank()) prefs.remove(Keys.CACHED_EMAIL)
+            else prefs[Keys.CACHED_EMAIL] = email
+        }
+    }
+
+    fun getCachedDevicesJson(): Flow<String?> =
+        context.dataStore.data.map { it[Keys.CACHED_DEVICES_JSON] }
+
+    suspend fun setCachedDevicesJson(json: String?) {
+        context.dataStore.edit { prefs ->
+            if (json.isNullOrBlank()) prefs.remove(Keys.CACHED_DEVICES_JSON)
+            else prefs[Keys.CACHED_DEVICES_JSON] = json
+        }
+    }
+
+    suspend fun clearAccountCache() {
+        context.dataStore.edit { prefs ->
+            prefs.remove(Keys.CACHED_EMAIL)
+            prefs.remove(Keys.CACHED_DEVICES_JSON)
         }
     }
 }

@@ -298,4 +298,34 @@
     <string name="recovery_codes_file_username">Username: %1$s</string>
     <string name="recovery_codes_file_codes_title">Recovery codes (one-time):</string>
 
+    <!-- Password visibility -->
+    <string name="auth_password_show">Show password</string>
+    <string name="auth_password_hide">Hide password</string>
+
+    <!-- Password rules -->
+    <string name="password_rules_title">Password must include:</string>
+    <string name="password_rule_len">At least 8 characters</string>
+    <string name="password_rule_upper">At least one uppercase letter</string>
+    <string name="password_rule_lower">At least one lowercase letter</string>
+    <string name="password_rule_digit">At least one digit</string>
+    <string name="password_rule_special">At least one special character</string>
+
+    <!-- Errors -->
+    <string name="err_email_in_use">This email is already linked to another account</string>
+    <string name="err_email_mismatch">Email does not match the account email</string>
+    <string name="err_email_not_set">Email is not set</string>
+    <string name="err_wrong_code">Wrong code</string>
+    <string name="err_code_expired">Code expired</string>
+    <string name="err_no_pending_code">No active code. Request a new one.</string>
+    <string name="err_too_many_requests">Too many attempts. Try again later.</string>
+    <string name="err_network">No connection to the server</string>
+
+    <!-- Password reset privacy -->
+    <string name="password_reset_email_available">Email recovery is available</string>
+    <string name="password_reset_email_masked_hint">Account email: %1$s</string>
+    <string name="err_password_rules_invalid">Password should follow rules</string>
+
+    <!-- Settings -->
+    <string name="settings_account">Account settings</string>
+    <string name="settings_password_change">Change password</string>
 </resources>

@@ -72,9 +72,13 @@ import com.example.a6thfingercontrollapp.data.AppSettingsStore
 import com.example.a6thfingercontrollapp.data.saveAvatarFromCroppedUri
 import com.example.a6thfingercontrollapp.network.DeviceOut
 import com.example.a6thfingercontrollapp.network.PasswordResetStartOut
+import com.example.a6thfingercontrollapp.utils.isNetworkErrorKey
+import com.example.a6thfingercontrollapp.utils.uiErrorText
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import com.example.a6thfingercontrollapp.data.avatarFile as dataAvatarFile
 import com.example.a6thfingercontrollapp.data.deleteAvatarIfExists as dataDeleteAvatarIfExists
@@ -91,7 +95,8 @@ fun AccountScreen(
     authVm: AuthViewModel,
     onLoginClick: () -> Unit,
     onRegisterClick: () -> Unit,
-    onOpenControl: () -> Unit
+    onOpenControl: () -> Unit,
+    onChangePassword: (String) -> Unit
 ) {
     var showSettings by remember { mutableStateOf(false) }
 
@@ -104,7 +109,7 @@ fun AccountScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val errFailedLoadDevices = stringResource(R.string.err_failed_load_devices)
+    stringResource(R.string.err_failed_load_devices)
     val errFailedPullSettings = stringResource(R.string.err_failed_pull_settings)
     val errFailedPushSettings = stringResource(R.string.err_failed_push_settings)
 
@@ -117,6 +122,9 @@ fun AccountScreen(
 
     val settingsStore = remember { AppSettingsStore(context.applicationContext) }
     val avatarPath by settingsStore.getAvatarPath().collectAsState(initial = null)
+
+    val cachedEmail by settingsStore.getCachedEmail().collectAsState(initial = null)
+    val cachedDevicesJson by settingsStore.getCachedDevicesJson().collectAsState(initial = null)
 
     var avatarBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(avatarPath) {
@@ -181,9 +189,7 @@ fun AccountScreen(
 
     val pickImageLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            if (uri != null) {
-                cropLauncher.launch(CropImageContractOptions(uri, cropOptions))
-            }
+            if (uri != null) cropLauncher.launch(CropImageContractOptions(uri, cropOptions))
         }
 
     fun startPickAndCrop() {
@@ -216,7 +222,7 @@ fun AccountScreen(
 
     var emailInfo by remember { mutableStateOf<PasswordResetStartOut?>(null) }
     var emailLoading by remember { mutableStateOf(false) }
-    var emailError by remember { mutableStateOf<String?>(null) }
+    var emailErrorKey by remember { mutableStateOf<String?>(null) }
     var emailRefreshTick by remember { mutableStateOf(0) }
     fun refreshEmailInfo() {
         emailRefreshTick++
@@ -225,35 +231,50 @@ fun AccountScreen(
     LaunchedEffect(username, emailRefreshTick) {
         if (username.isNullOrBlank()) {
             emailInfo = null
-            emailError = null
+            emailErrorKey = null
+            settingsStore.setCachedEmail(null)
             return@LaunchedEffect
         }
         emailLoading = true
-        emailError = null
+        emailErrorKey = null
         try {
-            emailInfo = authVm.passwordResetStart(username)
+            val info = authVm.passwordResetStart(username)
+            emailInfo = info
+            if (info.has_email && !info.email.isNullOrBlank()) {
+                settingsStore.setCachedEmail(info.email)
+            } else {
+                settingsStore.setCachedEmail(null)
+            }
         } catch (e: Exception) {
-            emailError = e.message
+            emailErrorKey = e.message
         } finally {
             emailLoading = false
         }
     }
 
-    val hasEmail = emailInfo?.has_email == true
-    val emailShown = emailInfo?.email
+    LaunchedEffect(emailErrorKey) {
+        if (!isNetworkErrorKey(emailErrorKey)) return@LaunchedEffect
+        while (isNetworkErrorKey(emailErrorKey) && username != null) {
+            delay(30_000L)
+            refreshEmailInfo()
+        }
+    }
+
+    val hasEmail = emailInfo?.has_email == true || !cachedEmail.isNullOrBlank()
+    val emailShown = emailInfo?.email ?: cachedEmail
 
     var emailDialogMode by remember { mutableStateOf(EmailDialogMode.None) }
 
     var addStep by remember { mutableStateOf(AddStep.EnterEmail) }
     var addEmail by remember { mutableStateOf("") }
     var addCode by remember { mutableStateOf("") }
-    var addErr by remember { mutableStateOf<String?>(null) }
+    var addErrKey by remember { mutableStateOf<String?>(null) }
     var addBusy by remember { mutableStateOf(false) }
 
     var removeStep by remember { mutableStateOf(RemoveStep.ChooseMethod) }
     var removeCode by remember { mutableStateOf("") }
     var removeRecovery by remember { mutableStateOf("") }
-    var removeErr by remember { mutableStateOf<String?>(null) }
+    var removeErrKey by remember { mutableStateOf<String?>(null) }
     var removeBusy by remember { mutableStateOf(false) }
 
     var changeStep by remember { mutableStateOf(ChangeStep.ChooseOldMethod) }
@@ -261,7 +282,7 @@ fun AccountScreen(
     var changeOldRecovery by remember { mutableStateOf("") }
     var changeNewEmail by remember { mutableStateOf("") }
     var changeNewCode by remember { mutableStateOf("") }
-    var changeErr by remember { mutableStateOf<String?>(null) }
+    var changeErrKey by remember { mutableStateOf<String?>(null) }
     var changeBusy by remember { mutableStateOf(false) }
 
     fun openAddEmail() {
@@ -269,7 +290,7 @@ fun AccountScreen(
         addStep = AddStep.EnterEmail
         addEmail = ""
         addCode = ""
-        addErr = null
+        addErrKey = null
         addBusy = false
     }
 
@@ -278,7 +299,7 @@ fun AccountScreen(
         removeStep = RemoveStep.ChooseMethod
         removeCode = ""
         removeRecovery = ""
-        removeErr = null
+        removeErrKey = null
         removeBusy = false
     }
 
@@ -289,18 +310,18 @@ fun AccountScreen(
         changeOldRecovery = ""
         changeNewEmail = ""
         changeNewCode = ""
-        changeErr = null
+        changeErrKey = null
         changeBusy = false
     }
 
     var devices by remember { mutableStateOf<List<DeviceOut>>(emptyList()) }
     var devicesLoading by remember { mutableStateOf(false) }
-    var devicesError by remember { mutableStateOf<String?>(null) }
+    var devicesErrorKey by remember { mutableStateOf<String?>(null) }
 
     var showDeviceSettingsDialog by remember { mutableStateOf(false) }
     var selectedDevice by remember { mutableStateOf<DeviceOut?>(null) }
     var dialogJson by remember { mutableStateOf("{}") }
-    var dialogError by remember { mutableStateOf<String?>(null) }
+    var dialogErrorKey by remember { mutableStateOf<String?>(null) }
     var showConnectWarning by remember { mutableStateOf(false) }
 
     val activeAddress by vm.activeAddress.collectAsState()
@@ -319,15 +340,50 @@ fun AccountScreen(
             else -> false
         }
 
-    LaunchedEffect(username, activeAddress) {
+    fun cacheDevices(list: List<DeviceOut>) {
+        val arr = JSONArray()
+        list.forEach { d ->
+            val o = JSONObject()
+            o.put("id", d.id)
+            o.put("address", d.address)
+            o.put("alias", d.alias ?: JSONObject.NULL)
+            arr.put(o)
+        }
+        scope.launch { settingsStore.setCachedDevicesJson(arr.toString()) }
+    }
+
+    fun readCachedDevices(): List<DeviceOut> {
+        val raw = cachedDevicesJson ?: return emptyList()
+        return runCatching {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                DeviceOut(
+                    id = o.getString("id"),
+                    owner_id = "",
+                    address = o.getString("address"),
+                    alias = if (o.isNull("alias")) null else o.getString("alias"),
+                    created_at = ""
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    var devicesRefreshTick by remember { mutableStateOf(0) }
+    fun refreshDevices() {
+        devicesRefreshTick++
+    }
+
+    LaunchedEffect(username, activeAddress, devicesRefreshTick) {
         if (username == null) {
             devices = emptyList()
-            devicesError = null
+            devicesErrorKey = null
+            settingsStore.setCachedDevicesJson(null)
             return@LaunchedEffect
         }
 
         devicesLoading = true
-        devicesError = null
+        devicesErrorKey = null
         try {
             if (activeAddress.isNotEmpty()) {
                 runCatching {
@@ -335,15 +391,31 @@ fun AccountScreen(
                         address = activeAddress,
                         alias = activeAlias.ifBlank { null }
                     )
-                }.onFailure { e -> devicesError = e.message }
+                }.onFailure { e -> devicesErrorKey = e.message }
             }
 
-            devices = authVm.fetchDevices()
+            val list = authVm.fetchDevices()
+            devices = list
+            cacheDevices(list)
         } catch (e: Exception) {
-            devicesError = e.message ?: errFailedLoadDevices
-            devices = emptyList()
+            val key = e.message
+            devicesErrorKey = key
+            val cached = readCachedDevices()
+            if (isNetworkErrorKey(key) && cached.isNotEmpty()) {
+                devices = cached
+            } else {
+                devices = emptyList()
+            }
         } finally {
             devicesLoading = false
+        }
+    }
+
+    LaunchedEffect(devicesErrorKey) {
+        if (!isNetworkErrorKey(devicesErrorKey)) return@LaunchedEffect
+        while (isNetworkErrorKey(devicesErrorKey) && username != null) {
+            delay(30_000L)
+            refreshDevices()
         }
     }
 
@@ -428,8 +500,7 @@ fun AccountScreen(
 
                         DropdownMenu(
                             expanded = avatarMenuOpen,
-                            onDismissRequest = { avatarMenuOpen = false }
-                        ) {
+                            onDismissRequest = { avatarMenuOpen = false }) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.avatar_choose_photo)) },
                                 onClick = { startPickAndCrop() }
@@ -489,59 +560,6 @@ fun AccountScreen(
                 }
             }
 
-            if (username != null) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.account_email_title),
-                            style = MaterialTheme.typography.titleMedium
-                        )
-
-                        if (emailLoading) {
-                            Text(
-                                stringResource(R.string.loading),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        } else if (!emailError.isNullOrBlank()) {
-                            Text(
-                                text = emailError ?: "",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        } else {
-                            Text(
-                                text = if (hasEmail && !emailShown.isNullOrBlank())
-                                    stringResource(R.string.account_email_current, emailShown ?: "")
-                                else
-                                    stringResource(R.string.account_email_not_set),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (!hasEmail) {
-                                OutlinedButton(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    onClick = { openAddEmail() }
-                                ) { Text(stringResource(R.string.account_email_add)) }
-                            } else {
-                                OutlinedButton(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    onClick = { openChangeEmail() }
-                                ) { Text(stringResource(R.string.account_email_change)) }
-
-                                OutlinedButton(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    onClick = { openRemoveEmail() }
-                                ) { Text(stringResource(R.string.account_email_remove)) }
-                            }
-                        }
-                    }
-                }
-            }
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -562,35 +580,38 @@ fun AccountScreen(
                             stringResource(R.string.loading),
                             style = MaterialTheme.typography.bodySmall
                         )
-                    } else if (devicesError != null) {
-                        Text(
-                            text = devicesError ?: "",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    } else if (devices.isEmpty()) {
-                        Text(
-                            stringResource(R.string.prosthesis_no_devices),
-                            style = MaterialTheme.typography.bodySmall
-                        )
                     } else {
-                        devices.forEach { dev ->
-                            DeviceRow(
-                                device = dev,
-                                isConnected = connected,
-                                enabled = username != null,
-                                onOpen = {
-                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
-                                    selectedDevice = dev
-                                    dialogError = null
-                                    dialogJson = settingsToPrettyJson(currentSettings)
-                                    showDeviceSettingsDialog = true
-                                }
+                        val errText = uiErrorText(devicesErrorKey)
+                        if (!errText.isNullOrBlank()) {
+                            Text(
+                                text = errText,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
-                    }
 
-                    if (username != null) {
+                        if (devices.isEmpty()) {
+                            Text(
+                                stringResource(R.string.prosthesis_no_devices),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            devices.forEach { dev ->
+                                DeviceRow(
+                                    device = dev,
+                                    isConnected = connected,
+                                    enabled = username != null,
+                                    onOpen = {
+                                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                                        selectedDevice = dev
+                                        dialogErrorKey = null
+                                        dialogJson = settingsToPrettyJson(currentSettings)
+                                        showDeviceSettingsDialog = true
+                                    }
+                                )
+                            }
+                        }
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End
@@ -598,28 +619,17 @@ fun AccountScreen(
                             OutlinedButton(
                                 onClick = {
                                     haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
-                                    scope.launch {
-                                        devicesLoading = true
-                                        devicesError = null
-                                        try {
-                                            devices = authVm.fetchDevices()
-                                        } catch (e: Exception) {
-                                            devicesError = e.message ?: errFailedLoadDevices
-                                            devices = emptyList()
-                                        } finally {
-                                            devicesLoading = false
-                                        }
-                                    }
+                                    refreshDevices()
                                 }
                             ) { Text(stringResource(R.string.refresh)) }
                         }
-                    }
 
-                    if (!connected) {
-                        Text(
-                            stringResource(R.string.prosthesis_connect_hint),
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        if (!connected) {
+                            Text(
+                                stringResource(R.string.prosthesis_connect_hint),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 }
             }
@@ -627,6 +637,7 @@ fun AccountScreen(
             Spacer(Modifier.height(8.dp))
         }
     }
+
 
     if (emailDialogMode == EmailDialogMode.Add) {
         AlertDialog(
@@ -643,22 +654,22 @@ fun AccountScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        if (!addErr.isNullOrBlank()) {
-                            Text(addErr ?: "", color = MaterialTheme.colorScheme.error)
+                        uiErrorText(addErrKey)?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error)
                         }
 
                         Button(
                             enabled = !addBusy && addEmail.isNotBlank(),
                             onClick = {
                                 addBusy = true
-                                addErr = null
+                                addErrKey = null
                                 scope.launch {
                                     try {
                                         authVm.emailStartAdd(addEmail)
                                         addCode = ""
                                         addStep = AddStep.EnterCode
                                     } catch (e: Exception) {
-                                        addErr = e.message
+                                        addErrKey = e.message
                                     } finally {
                                         addBusy = false
                                     }
@@ -677,20 +688,20 @@ fun AccountScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        if (!addErr.isNullOrBlank()) {
-                            Text(addErr ?: "", color = MaterialTheme.colorScheme.error)
+                        uiErrorText(addErrKey)?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error)
                         }
 
                         OutlinedButton(
                             enabled = !addBusy,
                             onClick = {
                                 addBusy = true
-                                addErr = null
+                                addErrKey = null
                                 scope.launch {
                                     try {
                                         authVm.emailStartAdd(addEmail)
                                     } catch (e: Exception) {
-                                        addErr = e.message
+                                        addErrKey = e.message
                                     } finally {
                                         addBusy = false
                                     }
@@ -711,14 +722,14 @@ fun AccountScreen(
                     enabled = !addBusy && addStep == AddStep.EnterCode && addCode.isNotBlank(),
                     onClick = {
                         addBusy = true
-                        addErr = null
+                        addErrKey = null
                         scope.launch {
                             try {
                                 authVm.emailConfirmAdd(addEmail, addCode)
                                 emailDialogMode = EmailDialogMode.None
                                 refreshEmailInfo()
                             } catch (e: Exception) {
-                                addErr = e.message
+                                addErrKey = e.message
                             } finally {
                                 addBusy = false
                             }
@@ -754,14 +765,14 @@ fun AccountScreen(
                                     enabled = !removeBusy,
                                     onClick = {
                                         removeBusy = true
-                                        removeErr = null
+                                        removeErrKey = null
                                         scope.launch {
                                             try {
                                                 authVm.emailStartRemove()
                                                 removeCode = ""
                                                 removeStep = RemoveStep.EnterEmailCode
                                             } catch (e: Exception) {
-                                                removeErr = e.message
+                                                removeErrKey = e.message
                                             } finally {
                                                 removeBusy = false
                                             }
@@ -779,11 +790,6 @@ fun AccountScreen(
                         }
 
                         RemoveStep.EnterEmailCode -> {
-                            val hintEmail = emailShown ?: ""
-                            if (hintEmail.isNotBlank()) {
-                                Text(stringResource(R.string.postreg_email_code_hint, hintEmail))
-                            }
-
                             OutlinedTextField(
                                 value = removeCode,
                                 onValueChange = { removeCode = it.trim() },
@@ -796,12 +802,12 @@ fun AccountScreen(
                                 enabled = !removeBusy,
                                 onClick = {
                                     removeBusy = true
-                                    removeErr = null
+                                    removeErrKey = null
                                     scope.launch {
                                         try {
                                             authVm.emailStartRemove()
                                         } catch (e: Exception) {
-                                            removeErr = e.message
+                                            removeErrKey = e.message
                                         } finally {
                                             removeBusy = false
                                         }
@@ -832,8 +838,8 @@ fun AccountScreen(
                         }
                     }
 
-                    if (!removeErr.isNullOrBlank()) {
-                        Text(removeErr ?: "", color = MaterialTheme.colorScheme.error)
+                    uiErrorText(removeErrKey)?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
                     }
                 }
             },
@@ -848,7 +854,7 @@ fun AccountScreen(
                     enabled = canConfirm,
                     onClick = {
                         removeBusy = true
-                        removeErr = null
+                        removeErrKey = null
                         scope.launch {
                             try {
                                 when (removeStep) {
@@ -870,7 +876,7 @@ fun AccountScreen(
                                 emailDialogMode = EmailDialogMode.None
                                 refreshEmailInfo()
                             } catch (e: Exception) {
-                                removeErr = e.message
+                                removeErrKey = e.message
                             } finally {
                                 removeBusy = false
                             }
@@ -902,14 +908,14 @@ fun AccountScreen(
                                     enabled = !changeBusy,
                                     onClick = {
                                         changeBusy = true
-                                        changeErr = null
+                                        changeErrKey = null
                                         scope.launch {
                                             try {
                                                 authVm.emailStartRemove()
                                                 changeOldCode = ""
                                                 changeStep = ChangeStep.EnterOldEmailCode
                                             } catch (e: Exception) {
-                                                changeErr = e.message
+                                                changeErrKey = e.message
                                             } finally {
                                                 changeBusy = false
                                             }
@@ -927,11 +933,6 @@ fun AccountScreen(
                         }
 
                         ChangeStep.EnterOldEmailCode -> {
-                            val hintEmail = emailShown ?: ""
-                            if (hintEmail.isNotBlank()) {
-                                Text(stringResource(R.string.postreg_email_code_hint, hintEmail))
-                            }
-
                             OutlinedTextField(
                                 value = changeOldCode,
                                 onValueChange = { changeOldCode = it.trim() },
@@ -944,12 +945,12 @@ fun AccountScreen(
                                 enabled = !changeBusy,
                                 onClick = {
                                     changeBusy = true
-                                    changeErr = null
+                                    changeErrKey = null
                                     scope.launch {
                                         try {
                                             authVm.emailStartRemove()
                                         } catch (e: Exception) {
-                                            changeErr = e.message
+                                            changeErrKey = e.message
                                         } finally {
                                             changeBusy = false
                                         }
@@ -994,14 +995,14 @@ fun AccountScreen(
                                 enabled = !changeBusy && changeNewEmail.isNotBlank(),
                                 onClick = {
                                     changeBusy = true
-                                    changeErr = null
+                                    changeErrKey = null
                                     scope.launch {
                                         try {
                                             authVm.emailStartAdd(changeNewEmail)
                                             changeNewCode = ""
                                             changeStep = ChangeStep.EnterNewEmailCode
                                         } catch (e: Exception) {
-                                            changeErr = e.message
+                                            changeErrKey = e.message
                                         } finally {
                                             changeBusy = false
                                         }
@@ -1026,12 +1027,12 @@ fun AccountScreen(
                                 enabled = !changeBusy,
                                 onClick = {
                                     changeBusy = true
-                                    changeErr = null
+                                    changeErrKey = null
                                     scope.launch {
                                         try {
                                             authVm.emailStartAdd(changeNewEmail)
                                         } catch (e: Exception) {
-                                            changeErr = e.message
+                                            changeErrKey = e.message
                                         } finally {
                                             changeBusy = false
                                         }
@@ -1047,8 +1048,8 @@ fun AccountScreen(
                         }
                     }
 
-                    if (!changeErr.isNullOrBlank()) {
-                        Text(changeErr ?: "", color = MaterialTheme.colorScheme.error)
+                    uiErrorText(changeErrKey)?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
                     }
                 }
             },
@@ -1065,7 +1066,7 @@ fun AccountScreen(
                     enabled = canConfirm,
                     onClick = {
                         changeBusy = true
-                        changeErr = null
+                        changeErrKey = null
                         scope.launch {
                             try {
                                 when (changeStep) {
@@ -1094,7 +1095,7 @@ fun AccountScreen(
                                     else -> Unit
                                 }
                             } catch (e: Exception) {
-                                changeErr = e.message
+                                changeErrKey = e.message
                             } finally {
                                 changeBusy = false
                             }
@@ -1141,6 +1142,22 @@ fun AccountScreen(
     if (showSettings) {
         val activity = LocalContext.current as? Activity
 
+        val emailErrText = uiErrorText(emailErrorKey)
+        val emailLine =
+            when {
+                emailLoading -> stringResource(R.string.loading)
+                !emailErrText.isNullOrBlank() && !emailShown.isNullOrBlank() ->
+                    stringResource(R.string.account_email_current, emailShown)
+
+                !emailErrText.isNullOrBlank() && emailShown.isNullOrBlank() ->
+                    stringResource(R.string.account_email_not_set)
+
+                hasEmail && !emailShown.isNullOrBlank() ->
+                    stringResource(R.string.account_email_current, emailShown)
+
+                else -> stringResource(R.string.account_email_not_set)
+            }
+
         SettingsDialog(
             currentLang = lang,
             onDismiss = {
@@ -1151,13 +1168,33 @@ fun AccountScreen(
                 haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                 vm.setAppLanguage(newLang)
 
-                val currentAuth = authState
-                if (currentAuth is UiAuthState.LoggedIn) {
+                if (authState is UiAuthState.LoggedIn) {
                     authVm.updateLanguageRemote(newLang)
                 }
 
                 showSettings = false
                 activity?.recreate()
+            },
+
+            isLoggedIn = username != null,
+            emailLine = emailLine,
+            emailErrorLine = emailErrText,
+            hasEmail = hasEmail,
+            onAddEmail = {
+                showSettings = false
+                openAddEmail()
+            },
+            onChangeEmail = {
+                showSettings = false
+                openChangeEmail()
+            },
+            onRemoveEmail = {
+                showSettings = false
+                openRemoveEmail()
+            },
+            onChangePassword = {
+                showSettings = false
+                username?.let { onChangePassword(it) }
             }
         )
     }
@@ -1170,7 +1207,7 @@ fun AccountScreen(
             device = dev,
             json = dialogJson,
             isPullEnabled = connected,
-            error = dialogError,
+            error = uiErrorText(dialogErrorKey) ?: dialogErrorKey,
             onDismiss = {
                 haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
                 showDeviceSettingsDialog = false
@@ -1184,7 +1221,7 @@ fun AccountScreen(
 
                 haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                 scope.launch {
-                    dialogError = null
+                    dialogErrorKey = null
                     try {
                         val fromServer = authVm.pullDeviceSettings(dev.id)
                         if (fromServer != null) {
@@ -1194,22 +1231,22 @@ fun AccountScreen(
                             selectedDevice = null
                             onOpenControl()
                         } else {
-                            dialogError = noSettingsMsg
+                            dialogErrorKey = noSettingsMsg
                         }
                     } catch (e: Exception) {
-                        dialogError = e.message ?: errFailedPullSettings
+                        dialogErrorKey = e.message ?: errFailedPullSettings
                     }
                 }
             },
             onPushClick = {
                 haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                 scope.launch {
-                    dialogError = null
+                    dialogErrorKey = null
                     try {
                         authVm.pushDeviceSettings(dev.id, currentSettings)
                         dialogJson = settingsToPrettyJson(currentSettings)
                     } catch (e: Exception) {
-                        dialogError = e.message ?: errFailedPushSettings
+                        dialogErrorKey = e.message ?: errFailedPushSettings
                     }
                 }
             }
@@ -1360,7 +1397,7 @@ private fun DeviceSettingsDialog(
                         .height(200.dp)
                 )
 
-                if (error != null) {
+                if (!error.isNullOrBlank()) {
                     Text(
                         text = error,
                         color = MaterialTheme.colorScheme.error,

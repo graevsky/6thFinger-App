@@ -24,17 +24,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.R
+import com.example.a6thfingercontrollapp.utils.uiErrorText
 
 @Composable
 fun PostRegisterAddEmailScreen(
     initialEmail: String,
     loading: Boolean,
-    error: String?,
+    errorKey: String?,
     onBack: () -> Unit,
     onSkip: () -> Unit,
     onStartAdd: (String) -> Unit
 ) {
     var email by remember { mutableStateOf(initialEmail) }
+    val errText = uiErrorText(errorKey) ?: errorKey?.takeIf { it.isNotBlank() }
 
     Scaffold { inner ->
         Column(
@@ -62,8 +64,8 @@ fun PostRegisterAddEmailScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                if (!error.isNullOrBlank()) {
-                    Text(error, color = MaterialTheme.colorScheme.error)
+                if (!errText.isNullOrBlank()) {
+                    Text(errText, color = MaterialTheme.colorScheme.error)
                 }
 
                 Spacer(Modifier.height(6.dp))
@@ -97,13 +99,15 @@ fun PostRegisterAddEmailScreen(
 fun PostRegisterVerifyEmailScreen(
     email: String,
     loading: Boolean,
-    error: String?,
+    errorKey: String?,
     code: String,
     onCodeChange: (String) -> Unit,
     onBackChangeEmail: () -> Unit,
     onResend: () -> Unit,
     onConfirm: () -> Unit
 ) {
+    val errText = uiErrorText(errorKey) ?: errorKey?.takeIf { it.isNotBlank() }
+
     Scaffold { inner ->
         Column(
             modifier = Modifier
@@ -130,8 +134,8 @@ fun PostRegisterVerifyEmailScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                if (!error.isNullOrBlank()) {
-                    Text(error, color = MaterialTheme.colorScheme.error)
+                if (!errText.isNullOrBlank()) {
+                    Text(errText, color = MaterialTheme.colorScheme.error)
                 }
 
                 OutlinedButton(

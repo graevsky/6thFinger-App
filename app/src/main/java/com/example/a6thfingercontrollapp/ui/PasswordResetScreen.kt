@@ -8,7 +8,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -16,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,10 +30,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.AuthViewModel
 import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.network.PasswordResetStartOut
+import com.example.a6thfingercontrollapp.utils.PasswordPolicy
+import com.example.a6thfingercontrollapp.utils.maskEmail
+import com.example.a6thfingercontrollapp.utils.uiErrorText
 import kotlinx.coroutines.launch
 
 private enum class ResetStep {
@@ -45,20 +55,20 @@ fun PasswordResetScreen(
     authVm: AuthViewModel,
     initialUsername: String,
     onBack: () -> Unit,
-    onFinishedGoToLogin: (String) -> Unit
+    onFinishedGoToLogin: (String) -> Unit,
+    skipUsername: Boolean = false
 ) {
     val scope = rememberCoroutineScope()
 
-    var step by remember { mutableStateOf(ResetStep.EnterUsername) }
+    var step by remember { mutableStateOf(if (skipUsername) ResetStep.ChooseMethod else ResetStep.EnterUsername) }
     var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var errorKey by remember { mutableStateOf<String?>(null) }
 
     var username by remember { mutableStateOf(initialUsername) }
     var startInfo by remember { mutableStateOf<PasswordResetStartOut?>(null) }
 
     var selectedEmail by remember { mutableStateOf("") }
     var emailCode by remember { mutableStateOf("") }
-
     var recoveryCode by remember { mutableStateOf("") }
 
     var resetSessionId by remember { mutableStateOf<String?>(null) }
@@ -66,11 +76,30 @@ fun PasswordResetScreen(
     var newPass1 by remember { mutableStateOf("") }
     var newPass2 by remember { mutableStateOf("") }
 
-    val errPasswordsMismatch = stringResource(R.string.password_reset_passwords_mismatch)
-    val errNoResetSession = stringResource(R.string.password_reset_no_reset_session)
+    var pw1Visible by remember { mutableStateOf(false) }
+    var pw2Visible by remember { mutableStateOf(false) }
+    val rules = remember(newPass1) { PasswordPolicy.check(newPass1) }
+
+    val error = uiErrorText(errorKey) ?: errorKey?.takeIf { it.isNotBlank() }
 
     fun setErr(e: Throwable) {
-        error = e.message ?: authVm.error.value ?: "Error"
+        errorKey = e.message ?: authVm.error.value ?: "unknown_error"
+    }
+
+    LaunchedEffect(skipUsername, username) {
+        if (!skipUsername) return@LaunchedEffect
+        if (username.isBlank()) return@LaunchedEffect
+        if (startInfo != null) return@LaunchedEffect
+
+        loading = true
+        errorKey = null
+        try {
+            startInfo = authVm.passwordResetStart(username)
+        } catch (e: Exception) {
+            setErr(e)
+        } finally {
+            loading = false
+        }
     }
 
     Scaffold { inner ->
@@ -94,7 +123,6 @@ fun PasswordResetScreen(
                 when (step) {
                     ResetStep.EnterUsername -> {
                         Text(stringResource(R.string.password_reset_enter_username))
-
                         OutlinedTextField(
                             value = username,
                             onValueChange = { username = it.trim() },
@@ -110,16 +138,19 @@ fun PasswordResetScreen(
 
                         OutlinedButton(
                             modifier = Modifier.fillMaxWidth(),
+                            enabled = !loading,
                             onClick = { step = ResetStep.EnterRecoveryCode }
                         ) {
                             Text(stringResource(R.string.password_reset_by_recovery))
                         }
 
-                        if (info?.has_email == true && !info.email.isNullOrBlank()) {
+                        val emailAvailable = info?.has_email == true && !info.email.isNullOrBlank()
+                        if (emailAvailable) {
                             OutlinedButton(
                                 modifier = Modifier.fillMaxWidth(),
+                                enabled = !loading,
                                 onClick = {
-                                    selectedEmail = info.email ?: ""
+                                    selectedEmail = ""
                                     step = ResetStep.EnterEmail
                                 }
                             ) {
@@ -127,10 +158,7 @@ fun PasswordResetScreen(
                             }
 
                             Text(
-                                text = stringResource(
-                                    R.string.password_reset_email_hint,
-                                    info.email ?: ""
-                                ),
+                                text = stringResource(R.string.password_reset_email_available),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         } else {
@@ -143,7 +171,6 @@ fun PasswordResetScreen(
 
                     ResetStep.EnterRecoveryCode -> {
                         Text(stringResource(R.string.password_reset_enter_recovery))
-
                         OutlinedTextField(
                             value = recoveryCode,
                             onValueChange = { recoveryCode = it },
@@ -154,7 +181,18 @@ fun PasswordResetScreen(
                     }
 
                     ResetStep.EnterEmail -> {
+                        val realEmail = startInfo?.email.orEmpty()
+                        val masked =
+                            if (realEmail.isNotBlank()) maskEmail(realEmail) else "********"
+
                         Text(stringResource(R.string.password_reset_enter_email))
+                        Text(
+                            text = stringResource(
+                                R.string.password_reset_email_masked_hint,
+                                masked
+                            ),
+                            style = MaterialTheme.typography.bodySmall
+                        )
 
                         OutlinedTextField(
                             value = selectedEmail,
@@ -180,7 +218,7 @@ fun PasswordResetScreen(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !loading,
                             onClick = {
-                                error = null
+                                errorKey = null
                                 loading = true
                                 scope.launch {
                                     try {
@@ -192,9 +230,7 @@ fun PasswordResetScreen(
                                     }
                                 }
                             }
-                        ) {
-                            Text(stringResource(R.string.password_reset_resend))
-                        }
+                        ) { Text(stringResource(R.string.password_reset_resend)) }
                     }
 
                     ResetStep.NewPassword -> {
@@ -204,24 +240,46 @@ fun PasswordResetScreen(
                             value = newPass1,
                             onValueChange = { newPass1 = it },
                             singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
+                            visualTransformation = if (pw1Visible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { pw1Visible = !pw1Visible }) {
+                                    Icon(
+                                        imageVector = if (pw1Visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = if (pw1Visible)
+                                            stringResource(R.string.auth_password_hide)
+                                        else
+                                            stringResource(R.string.auth_password_show)
+                                    )
+                                }
+                            },
                             label = { Text(stringResource(R.string.password_reset_password1)) },
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        PasswordRulesHint(rules = rules)
 
                         OutlinedTextField(
                             value = newPass2,
                             onValueChange = { newPass2 = it },
                             singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
+                            visualTransformation = if (pw2Visible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { pw2Visible = !pw2Visible }) {
+                                    Icon(
+                                        imageVector = if (pw2Visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = if (pw2Visible)
+                                            stringResource(R.string.auth_password_hide)
+                                        else
+                                            stringResource(R.string.auth_password_show)
+                                    )
+                                }
+                            },
                             label = { Text(stringResource(R.string.password_reset_password2)) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
 
-                    ResetStep.Done -> {
-                        Text(stringResource(R.string.password_reset_done))
-                    }
+                    ResetStep.Done -> Text(stringResource(R.string.password_reset_done))
                 }
 
                 Spacer(Modifier.height(6.dp))
@@ -234,10 +292,12 @@ fun PasswordResetScreen(
                 TextButton(
                     enabled = !loading,
                     onClick = {
-                        error = null
+                        errorKey = null
                         when (step) {
                             ResetStep.EnterUsername -> onBack()
-                            ResetStep.ChooseMethod -> step = ResetStep.EnterUsername
+                            ResetStep.ChooseMethod -> if (skipUsername) onBack() else step =
+                                ResetStep.EnterUsername
+
                             ResetStep.EnterRecoveryCode -> step = ResetStep.ChooseMethod
                             ResetStep.EnterEmail -> step = ResetStep.ChooseMethod
                             ResetStep.EnterEmailCode -> step = ResetStep.EnterEmail
@@ -245,9 +305,7 @@ fun PasswordResetScreen(
                             ResetStep.Done -> onFinishedGoToLogin(username.trim().lowercase())
                         }
                     }
-                ) {
-                    Text(stringResource(R.string.auth_back))
-                }
+                ) { Text(stringResource(R.string.auth_back)) }
 
                 Button(
                     enabled = !loading && when (step) {
@@ -256,18 +314,17 @@ fun PasswordResetScreen(
                         ResetStep.EnterRecoveryCode -> recoveryCode.isNotBlank()
                         ResetStep.EnterEmail -> selectedEmail.isNotBlank()
                         ResetStep.EnterEmailCode -> emailCode.isNotBlank()
-                        ResetStep.NewPassword -> newPass1.isNotBlank() && newPass2.isNotBlank()
+                        ResetStep.NewPassword -> newPass1.isNotBlank() && newPass2.isNotBlank() && rules.ok
                         ResetStep.Done -> true
                     },
                     onClick = {
-                        error = null
+                        errorKey = null
                         when (step) {
                             ResetStep.EnterUsername -> {
                                 loading = true
                                 scope.launch {
                                     try {
-                                        val info = authVm.passwordResetStart(username)
-                                        startInfo = info
+                                        startInfo = authVm.passwordResetStart(username)
                                         step = ResetStep.ChooseMethod
                                     } catch (e: Exception) {
                                         setErr(e)
@@ -281,11 +338,10 @@ fun PasswordResetScreen(
                                 loading = true
                                 scope.launch {
                                     try {
-                                        val sid = authVm.passwordResetRecoveryVerify(
+                                        resetSessionId = authVm.passwordResetRecoveryVerify(
                                             username,
                                             recoveryCode
                                         )
-                                        resetSessionId = sid
                                         step = ResetStep.NewPassword
                                     } catch (e: Exception) {
                                         setErr(e)
@@ -314,12 +370,11 @@ fun PasswordResetScreen(
                                 loading = true
                                 scope.launch {
                                     try {
-                                        val sid = authVm.passwordResetEmailVerify(
+                                        resetSessionId = authVm.passwordResetEmailVerify(
                                             username,
                                             selectedEmail,
                                             emailCode
                                         )
-                                        resetSessionId = sid
                                         step = ResetStep.NewPassword
                                     } catch (e: Exception) {
                                         setErr(e)
@@ -331,20 +386,26 @@ fun PasswordResetScreen(
 
                             ResetStep.NewPassword -> {
                                 if (newPass1 != newPass2) {
-                                    error = errPasswordsMismatch
+                                    errorKey = "passwords_mismatch"
                                     return@Button
                                 }
-
-                                val sid = resetSessionId
-                                if (sid.isNullOrBlank()) {
-                                    error = errNoResetSession
+                                if (!rules.ok) {
+                                    errorKey = "password_rules_invalid"
+                                    return@Button
+                                }
+                                if (resetSessionId.isNullOrBlank()) {
+                                    errorKey = "no_reset_session"
                                     return@Button
                                 }
 
                                 loading = true
                                 scope.launch {
                                     try {
-                                        authVm.passwordResetFinish(sid, username, newPass1)
+                                        authVm.passwordResetFinish(
+                                            resetSessionId!!,
+                                            username,
+                                            newPass1
+                                        )
                                         step = ResetStep.Done
                                     } catch (e: Exception) {
                                         setErr(e)
@@ -355,9 +416,7 @@ fun PasswordResetScreen(
                             }
 
                             ResetStep.ChooseMethod,
-                            ResetStep.Done -> {
-                                onFinishedGoToLogin(username.trim().lowercase())
-                            }
+                            ResetStep.Done -> onFinishedGoToLogin(username.trim().lowercase())
                         }
                     }
                 ) {

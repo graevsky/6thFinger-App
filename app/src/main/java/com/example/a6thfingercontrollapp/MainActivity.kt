@@ -63,7 +63,8 @@ private enum class AuthFlowScreen {
     RecoveryCodes,
     PostRegisterEmail,
     PostRegisterEmailCode,
-    ForgotPassword
+    ForgotPassword,
+    ChangePassword
 }
 
 class MainActivity : ComponentActivity() {
@@ -104,7 +105,7 @@ class MainActivity : ComponentActivity() {
                 var postEmail by rememberSaveable { mutableStateOf("") }
                 var postCode by rememberSaveable { mutableStateOf("") }
                 var postLoading by remember { mutableStateOf(false) }
-                var postErr by remember { mutableStateOf<String?>(null) }
+                var postErrKey by remember { mutableStateOf<String?>(null) }
 
                 LaunchedEffect(authFlowScreen, pendingRecovery) {
                     if (
@@ -123,6 +124,7 @@ class MainActivity : ComponentActivity() {
                         AuthFlowScreen.PostRegisterEmail -> true
                         AuthFlowScreen.PostRegisterEmailCode -> true
                         AuthFlowScreen.ForgotPassword -> true
+                        AuthFlowScreen.ChangePassword -> true
                         else -> false
                     }
 
@@ -136,7 +138,7 @@ class MainActivity : ComponentActivity() {
                                 onBack = { authFlowScreen = AuthFlowScreen.Register },
                                 onContinue = {
                                     prefillUsername = data.username
-                                    postErr = null
+                                    postErrKey = null
                                     authFlowScreen = AuthFlowScreen.PostRegisterEmail
                                 }
                             )
@@ -146,17 +148,17 @@ class MainActivity : ComponentActivity() {
                             PostRegisterAddEmailScreen(
                                 initialEmail = postEmail,
                                 loading = postLoading,
-                                error = postErr,
-                                onBack = { authFlowScreen = AuthFlowScreen.RecoveryCodes },
+                                errorKey = postErrKey,
+                                onBack = { authFlowScreen = AuthFlowScreen.Login },
                                 onSkip = {
-                                    postErr = null
+                                    postErrKey = null
                                     postLoading = true
                                     scope.launch {
                                         try {
                                             authVm.postRegisterFinishWithoutEmail()
                                             authFlowScreen = AuthFlowScreen.Start
                                         } catch (e: Exception) {
-                                            postErr = e.message
+                                            postErrKey = e.message
                                         } finally {
                                             postLoading = false
                                         }
@@ -164,7 +166,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onStartAdd = { email ->
                                     postEmail = email
-                                    postErr = null
+                                    postErrKey = null
                                     postLoading = true
                                     scope.launch {
                                         try {
@@ -172,7 +174,7 @@ class MainActivity : ComponentActivity() {
                                             postCode = ""
                                             authFlowScreen = AuthFlowScreen.PostRegisterEmailCode
                                         } catch (e: Exception) {
-                                            postErr = e.message
+                                            postErrKey = e.message
                                         } finally {
                                             postLoading = false
                                         }
@@ -185,34 +187,32 @@ class MainActivity : ComponentActivity() {
                             PostRegisterVerifyEmailScreen(
                                 email = postEmail,
                                 loading = postLoading,
-                                error = postErr,
+                                errorKey = postErrKey,
                                 code = postCode,
                                 onCodeChange = { postCode = it },
-                                onBackChangeEmail = {
-                                    authFlowScreen = AuthFlowScreen.PostRegisterEmail
-                                },
+                                onBackChangeEmail = { authFlowScreen = AuthFlowScreen.Login },
                                 onResend = {
-                                    postErr = null
+                                    postErrKey = null
                                     postLoading = true
                                     scope.launch {
                                         try {
                                             authVm.emailStartAdd(postEmail)
                                         } catch (e: Exception) {
-                                            postErr = e.message
+                                            postErrKey = e.message
                                         } finally {
                                             postLoading = false
                                         }
                                     }
                                 },
                                 onConfirm = {
-                                    postErr = null
+                                    postErrKey = null
                                     postLoading = true
                                     scope.launch {
                                         try {
                                             authVm.postRegisterEmailConfirm(postEmail, postCode)
                                             authFlowScreen = AuthFlowScreen.Start
                                         } catch (e: Exception) {
-                                            postErr = e.message
+                                            postErrKey = e.message
                                         } finally {
                                             postLoading = false
                                         }
@@ -230,6 +230,16 @@ class MainActivity : ComponentActivity() {
                                     prefillUsername = u
                                     authFlowScreen = AuthFlowScreen.Login
                                 }
+                            )
+                        }
+
+                        AuthFlowScreen.ChangePassword -> {
+                            PasswordResetScreen(
+                                authVm = authVm,
+                                initialUsername = prefillUsername,
+                                skipUsername = true,
+                                onBack = { authFlowScreen = AuthFlowScreen.Start },
+                                onFinishedGoToLogin = { _ -> authFlowScreen = AuthFlowScreen.Start }
                             )
                         }
 
@@ -277,6 +287,10 @@ class MainActivity : ComponentActivity() {
                                     onRegistered = { username ->
                                         prefillUsername = username
                                         authFlowScreen = AuthFlowScreen.RecoveryCodes
+                                    },
+                                    onGoToLogin = { u ->
+                                        prefillUsername = u
+                                        authFlowScreen = AuthFlowScreen.Login
                                     }
                                 )
                             }
@@ -284,7 +298,8 @@ class MainActivity : ComponentActivity() {
                             AuthFlowScreen.RecoveryCodes,
                             AuthFlowScreen.PostRegisterEmail,
                             AuthFlowScreen.PostRegisterEmailCode,
-                            AuthFlowScreen.ForgotPassword -> Unit
+                            AuthFlowScreen.ForgotPassword,
+                            AuthFlowScreen.ChangePassword -> Unit
                         }
                     }
 
@@ -415,6 +430,10 @@ class MainActivity : ComponentActivity() {
                                                     saveState = true
                                                 }
                                             }
+                                        },
+                                        onChangePassword = { u ->
+                                            prefillUsername = u
+                                            authFlowScreen = AuthFlowScreen.ChangePassword
                                         }
                                     )
                                 }

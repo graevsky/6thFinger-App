@@ -140,6 +140,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             _error.value = null
             pendingAppSettingsUpload.value = null
             pendingAvatarUploadPath.value = null
+            appSettings.clearAccountCache()
             clearPostRegisterState()
         }
     }
