@@ -342,4 +342,7 @@
     <string name="flex_calib_apply">Apply</string>
     <string name="flex_calib_live">Live resistance: %1$s</string>
     <string name="flex_calib_wait_telemetry">Waiting for telemetry…</string>
+
+    <string name="flex_tolerance_pct">Noise tolerance, %</string>
+    <string name="flex_tolerance_hint">1–50%. Higher value = less jitter, but slower response.</string>
 </resources>

@@ -34,12 +34,31 @@ fun FlexDialog(
 ) {
     val flexSetting = s.flexSettings.getOrNull(index) ?: return
 
-    var pin by remember(index, flexSetting.flexPin) { mutableStateOf(flexSetting.flexPin.toString()) }
-    var pull by remember(index, flexSetting.flexPullupOhm) { mutableStateOf(flexSetting.flexPullupOhm.toString()) }
-    var straight by remember(index, flexSetting.flexStraightOhm) { mutableStateOf(flexSetting.flexStraightOhm.toString()) }
-    var bend by remember(index, flexSetting.flexBendOhm) { mutableStateOf(flexSetting.flexBendOhm.toString()) }
+    var pin by remember(
+        index,
+        flexSetting.flexPin
+    ) { mutableStateOf(flexSetting.flexPin.toString()) }
+    var pull by remember(
+        index,
+        flexSetting.flexPullupOhm
+    ) { mutableStateOf(flexSetting.flexPullupOhm.toString()) }
+    var straight by remember(
+        index,
+        flexSetting.flexStraightOhm
+    ) { mutableStateOf(flexSetting.flexStraightOhm.toString()) }
+    var bend by remember(
+        index,
+        flexSetting.flexBendOhm
+    ) { mutableStateOf(flexSetting.flexBendOhm.toString()) }
+
+    var tolPct by remember(index, flexSetting.flexTolerancePct) {
+        mutableStateOf(flexSetting.flexTolerancePct.toString())
+    }
 
     var calibOpen by remember { mutableStateOf(false) }
+
+    fun parsedTolPct(): Int =
+        (tolPct.toIntOrNull() ?: flexSetting.flexTolerancePct).coerceIn(1, 50)
 
     fun applyCalibration(straightOhm: Int, bendOhm: Int) {
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -48,7 +67,8 @@ fun FlexDialog(
             flexPin = pin.toIntOrNull() ?: flexSetting.flexPin,
             flexStraightOhm = straightOhm,
             flexBendOhm = bendOhm,
-            flexPullupOhm = pull.toIntOrNull() ?: flexSetting.flexPullupOhm
+            flexPullupOhm = pull.toIntOrNull() ?: flexSetting.flexPullupOhm,
+            flexTolerancePct = parsedTolPct()
         )
 
         val newFlexArr = s.flexSettings.copyOf()
@@ -88,6 +108,12 @@ fun FlexDialog(
         NumberField(stringResource(R.string.flex_folded), bend) { bend = it }
         NumberField(stringResource(R.string.fsr_pullup), pull) { pull = it }
 
+        NumberField(stringResource(R.string.flex_tolerance_pct), tolPct) { tolPct = it }
+        Text(
+            text = stringResource(R.string.flex_tolerance_hint),
+            style = MaterialTheme.typography.bodySmall
+        )
+
         Spacer(Modifier.height(8.dp))
 
         Row(
@@ -102,7 +128,8 @@ fun FlexDialog(
                         flexPin = pin.toIntOrNull() ?: flexSetting.flexPin,
                         flexStraightOhm = straight.toIntOrNull() ?: flexSetting.flexStraightOhm,
                         flexBendOhm = bend.toIntOrNull() ?: flexSetting.flexBendOhm,
-                        flexPullupOhm = pull.toIntOrNull() ?: flexSetting.flexPullupOhm
+                        flexPullupOhm = pull.toIntOrNull() ?: flexSetting.flexPullupOhm,
+                        flexTolerancePct = parsedTolPct()
                     )
 
                     val newFlexArr = s.flexSettings.copyOf()

@@ -343,4 +343,7 @@
     <string name="flex_calib_apply">Применить</string>
     <string name="flex_calib_live">Текущее сопротивление: %1$s</string>
     <string name="flex_calib_wait_telemetry">Ожидаем телеметрию…</string>
+
+    <string name="flex_tolerance_pct">Погрешность, %</string>
+    <string name="flex_tolerance_hint">1–50%. Больше — меньше дрожания, но медленнее реакция.</string>
 </resources>
