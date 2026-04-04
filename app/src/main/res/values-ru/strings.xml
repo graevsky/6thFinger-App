@@ -329,4 +329,18 @@
     <!-- Settings -->
     <string name="settings_account">Настройки аккаунта</string>
     <string name="settings_password_change">Сменить пароль</string>
+
+    <!-- Flex calibration wizard -->
+    <string name="flex_calibrate">Калибровка</string>
+    <string name="flex_calib_title">Калибровка флекса</string>
+    <string name="flex_calib_intro">Мы измерим сопротивление флекса в двух положениях:\n\n1) Разогнут (плоско)\n2) Согнут\n\nУбедитесь, что телеметрия работает. Текущее сопротивление показано ниже.</string>
+    <string name="flex_calib_next">Далее</string>
+    <string name="flex_calib_step_flat">Положите датчик плоско (разогнут) и нажмите «Подтвердить».</string>
+    <string name="flex_calib_step_bend">Согните датчик и нажмите «Подтвердить».</string>
+    <string name="flex_calib_result_title">Результат калибровки</string>
+    <string name="flex_calib_flat_value">Разогнут: %1$s</string>
+    <string name="flex_calib_bend_value">Согнут: %1$s</string>
+    <string name="flex_calib_apply">Применить</string>
+    <string name="flex_calib_live">Текущее сопротивление: %1$s</string>
+    <string name="flex_calib_wait_telemetry">Ожидаем телеметрию…</string>
 </resources>

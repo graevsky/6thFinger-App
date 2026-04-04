@@ -328,4 +328,18 @@
     <!-- Settings -->
     <string name="settings_account">Account settings</string>
     <string name="settings_password_change">Change password</string>
+
+    <!-- Flex calibration wizard -->
+    <string name="flex_calibrate">Calibrate</string>
+    <string name="flex_calib_title">Flex calibration</string>
+    <string name="flex_calib_intro">Flex sensor resistance will be measured in two positions:\n\n1) Flat (unfolded)\n2) Bent (folded)\n\nMake sure telemetry is running. The live resistance is shown below.</string>
+    <string name="flex_calib_next">Next</string>
+    <string name="flex_calib_step_flat">Place the sensor flat (unfolded) and press Confirm.</string>
+    <string name="flex_calib_step_bend">Bend the sensor and press Confirm.</string>
+    <string name="flex_calib_result_title">Calibration result</string>
+    <string name="flex_calib_flat_value">Unfolded: %1$s</string>
+    <string name="flex_calib_bend_value">Folded: %1$s</string>
+    <string name="flex_calib_apply">Apply</string>
+    <string name="flex_calib_live">Live resistance: %1$s</string>
+    <string name="flex_calib_wait_telemetry">Waiting for telemetry…</string>
 </resources>
