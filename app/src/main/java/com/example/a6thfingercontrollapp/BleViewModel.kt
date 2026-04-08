@@ -1,6 +1,7 @@
 package com.example.a6thfingercontrollapp
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.a6thfingercontrollapp.ble.BleDeviceUi
@@ -12,6 +13,7 @@ import com.example.a6thfingercontrollapp.data.AppSettingsStore
 import com.example.a6thfingercontrollapp.data.DeviceSettingsStore
 import com.example.a6thfingercontrollapp.data.LastDevice
 import com.example.a6thfingercontrollapp.data.LastDeviceStore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,6 +23,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class BleViewModel(app: Application) : AndroidViewModel(app) {
     private val client = BleRepository.get(app)
@@ -50,20 +54,14 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         lastStore.lastDevice.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val activeAddress: StateFlow<String> =
-        lastDevice
-            .map { it?.address.orEmpty() }
+        lastDevice.map { it?.address.orEmpty() }
             .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     val activeAlias: StateFlow<String> =
-        activeAddress
-            .flatMapLatest { addr ->
-                if (addr.isEmpty()) {
-                    flowOf("")
-                } else {
-                    aliasStore.alias(addr).map { it ?: "" }
-                }
-            }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+        activeAddress.flatMapLatest { addr ->
+            if (addr.isEmpty()) flowOf("")
+            else aliasStore.alias(addr).map { it ?: "" }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     val appLanguage: StateFlow<String> =
         appSettings.getLanguage().stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
@@ -83,9 +81,27 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     val telemetryEnabled: StateFlow<Boolean> =
         client.telemetryEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
-    fun setTelemetryEnabled(enabled: Boolean) = client.setTelemetryEnabled(enabled)
+    fun setTelemetryEnabled(enabled: Boolean) {
+        if (_liveServoPairs.value.isNotEmpty()) {
+            if (!enabled) client.setTelemetryEnabled(false)
+            return
+        }
+        client.setTelemetryEnabled(enabled)
+    }
 
     fun sendPin(pin4: String): Boolean = client.sendAuthPin(pin4)
+
+    private val _liveServoPairs = MutableStateFlow<Set<Int>>(emptySet())
+    val liveServoPairs: StateFlow<Set<Int>> = _liveServoPairs
+
+    private val liveOpMutex = Mutex()
+    private val liveReady = BooleanArray(4) { false }
+    private val pendingAngle = IntArray(4) { -1 }
+
+    private var teleBeforeAnyLive: Boolean = true
+
+    private val lastLiveSendMs = LongArray(4) { 0L }
+    private val lastLiveAngle = IntArray(4) { -1 }
 
     init {
         viewModelScope.launch {
@@ -109,7 +125,20 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     fun scan() = client.scan()
     fun connect(address: String) = client.connectByAddress(address)
     fun isBleReady(): Boolean = client.isBleReady()
-    fun disconnect() = client.disconnectNow()
+
+    fun disconnect() {
+        val pairs = _liveServoPairs.value
+        _liveServoPairs.value = emptySet()
+        for (i in 0..3) {
+            liveReady[i] = false
+            pendingAngle[i] = -1
+        }
+
+        viewModelScope.launch {
+            pairs.forEach { client.stopServoLive(it) }
+            client.disconnectNow()
+        }
+    }
 
     fun rebootEsp(): Boolean = client.rebootEsp()
 
@@ -131,8 +160,10 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
         when (pairIndex) {
             0, 1, 2, 3 -> {
-                _uiSettings.value =
-                    next.copy(flexSettings = next.flexSettings, servoSettings = next.servoSettings)
+                _uiSettings.value = next.copy(
+                    flexSettings = next.flexSettings,
+                    servoSettings = next.servoSettings
+                )
             }
         }
 
@@ -155,24 +186,8 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         return ok
     }
 
-    fun applySettingsLive(update: (EspSettings) -> EspSettings) {
-        val addr = activeAddress.value
-        if (addr.isEmpty()) return
-
-        val current = _uiSettings.value
-        val next = update(current)
-
-        _uiSettings.value = next
-
-        viewModelScope.launch {
-            settingsStore.set(addr, next)
-            client.applySettings(next)
-        }
-    }
-
     fun resetToDefaults() {
-        val defaults = EspSettings()
-        _uiSettings.value = defaults
+        _uiSettings.value = EspSettings()
     }
 
     fun applySettingsFromCloud(settings: EspSettings) {
@@ -182,5 +197,87 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setAppLanguage(language: String) {
         viewModelScope.launch { appSettings.setLanguage(language) }
+    }
+
+    fun setServoLiveEnabled(pairIdx: Int, enabled: Boolean) {
+        val idx = pairIdx.coerceIn(0, 3)
+
+        if (enabled) {
+            if (_liveServoPairs.value.contains(idx)) return
+
+            _liveServoPairs.value = _liveServoPairs.value + idx
+            liveReady[idx] = false
+            lastLiveSendMs[idx] = 0L
+            lastLiveAngle[idx] = -1
+
+            viewModelScope.launch {
+                liveOpMutex.withLock {
+                    val isFirstLiveNow =
+                        (_liveServoPairs.value.size == 1 && _liveServoPairs.value.contains(idx))
+
+                    if (isFirstLiveNow) {
+                        teleBeforeAnyLive = telemetryEnabled.value
+                        if (teleBeforeAnyLive) {
+                            val ok = client.setTelemetryEnabledBlocking(false)
+                            if (!ok) {
+                                _liveServoPairs.value = _liveServoPairs.value - idx
+                                liveReady[idx] = false
+                                return@withLock
+                            }
+                        } else {
+                        }
+                    }
+
+                    liveReady[idx] = true
+
+                    val a = pendingAngle[idx]
+                    if (a >= 0) {
+                        client.sendServoLive(idx, a)
+                        pendingAngle[idx] = -1
+                        lastLiveSendMs[idx] = SystemClock.elapsedRealtime()
+                        lastLiveAngle[idx] = a
+                    }
+                }
+            }
+        } else {
+            if (!_liveServoPairs.value.contains(idx)) return
+
+            liveReady[idx] = false
+
+            viewModelScope.launch {
+                liveOpMutex.withLock {
+                    client.stopServoLive(idx)
+                    delay(160)
+
+                    _liveServoPairs.value = _liveServoPairs.value - idx
+                    pendingAngle[idx] = -1
+
+                    if (_liveServoPairs.value.isEmpty() && teleBeforeAnyLive) {
+                        client.setTelemetryEnabledBlocking(true)
+                    }
+                }
+            }
+        }
+    }
+
+    fun sendServoLiveAngle(pairIdx: Int, angleDeg: Int) {
+        val idx = pairIdx.coerceIn(0, 3)
+        val angle = angleDeg.coerceIn(0, 180)
+
+        pendingAngle[idx] = angle
+
+        if (!_liveServoPairs.value.contains(idx)) return
+        if (!liveReady[idx]) return
+
+        val now = SystemClock.elapsedRealtime()
+        if (angle == lastLiveAngle[idx] && (now - lastLiveSendMs[idx]) < 220) return
+        if ((now - lastLiveSendMs[idx]) < 80) return
+
+        lastLiveSendMs[idx] = now
+        lastLiveAngle[idx] = angle
+
+        viewModelScope.launch {
+            client.sendServoLive(idx, angle)
+        }
     }
 }

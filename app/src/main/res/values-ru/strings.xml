@@ -346,4 +346,6 @@
 
     <string name="flex_tolerance_pct">Погрешность, %</string>
     <string name="flex_tolerance_hint">1–50%. Больше — меньше дрожания, но медленнее реакция.</string>
+    <string name="live_control">Live control</string>
+    <string name="live_control_disable_to_close">Выключите live control, чтобы закрыть окно.</string>
 </resources>

@@ -19,11 +19,14 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -42,6 +45,7 @@ fun SimulationScreen(vm: BleViewModel) {
     val t by vm.state.collectAsState()
     val s by vm.activeSettings.collectAsState()
     val telemetryEnabled by vm.telemetryEnabled.collectAsState()
+    val livePairs by vm.liveServoPairs.collectAsState()
 
     val rawStatus = t.status.lowercase()
     val connected =
@@ -73,9 +77,15 @@ fun SimulationScreen(vm: BleViewModel) {
     }
 
     val hasMultiplePairs = availablePairs.size > 1
+    val isLive = livePairs.contains(selectedPair)
 
     val currentServoDeg = servoArray.getOrNull(selectedPair) ?: Float.NaN
     val currentFlexOhm = flexArray.getOrNull(selectedPair) ?: Float.NaN
+
+    val liveAngles = remember { mutableStateMapOf<Int, Float>() }
+    val liveAngle = liveAngles[selectedPair]
+        ?: (if (currentServoDeg.isFinite()) currentServoDeg else s.servoSettings[selectedPair].servoManualDeg.toFloat())
+            .coerceIn(0f, 180f)
 
     SimulationContent(
         connected = connected,
@@ -84,10 +94,22 @@ fun SimulationScreen(vm: BleViewModel) {
         hasMultiplePairs = hasMultiplePairs,
         availablePairs = availablePairs,
         onPairSelected = { selectedPair = it },
-        servoDeg = currentServoDeg,
+
+        servoDeg = if (isLive) liveAngle else currentServoDeg,
         flexOhm = currentFlexOhm,
         fsrForceN = t.fsrForceN,
-        fsrSoftThresholdN = s.fsrSoftThresholdN
+        fsrSoftThresholdN = s.fsrSoftThresholdN,
+
+        liveEnabled = isLive,
+        onLiveEnabled = { en ->
+            vm.setServoLiveEnabled(selectedPair, en)
+            if (en) vm.sendServoLiveAngle(selectedPair, liveAngle.toInt())
+        },
+        liveAngle = liveAngle,
+        onLiveAngleChange = { a ->
+            liveAngles[selectedPair] = a
+            vm.sendServoLiveAngle(selectedPair, a.toInt())
+        }
     )
 }
 
@@ -102,7 +124,12 @@ private fun SimulationContent(
     servoDeg: Float,
     flexOhm: Float,
     fsrForceN: Float,
-    fsrSoftThresholdN: Float
+    fsrSoftThresholdN: Float,
+
+    liveEnabled: Boolean,
+    onLiveEnabled: (Boolean) -> Unit,
+    liveAngle: Float,
+    onLiveAngleChange: (Float) -> Unit
 ) {
     val fsrPressed = fsrForceN.isFinite() && fsrForceN >= fsrSoftThresholdN.coerceAtLeast(0.1f)
 
@@ -115,6 +142,8 @@ private fun SimulationContent(
         else MaterialTheme.colorScheme.primary,
         label = "tipColor"
     )
+
+    val pairNo = stringResource(R.string.pair_no)
 
     Column(
         modifier = Modifier
@@ -141,7 +170,7 @@ private fun SimulationContent(
                 )
             } else {
                 Text(
-                    text = "Пара ${selectedPairIndex + 1}",
+                    text = "$pairNo ${selectedPairIndex + 1}",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -151,6 +180,36 @@ private fun SimulationContent(
             StatusBanner(stringResource(R.string.disconnected))
         } else if (!telemetryEnabled) {
             StatusBanner(stringResource(R.string.tele_off_turn_on))
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(stringResource(R.string.live_control))
+                    Switch(
+                        checked = liveEnabled,
+                        onCheckedChange = { onLiveEnabled(it) }
+                    )
+                }
+
+                Slider(
+                    value = liveAngle.coerceIn(0f, 180f),
+                    onValueChange = { onLiveAngleChange(it) },
+                    valueRange = 0f..180f,
+                    enabled = liveEnabled
+                )
+                Text(
+                    text = "${stringResource(R.string.servo_manual_angle)}: ${liveAngle.toInt()}°",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
 
         Card(
@@ -176,7 +235,7 @@ private fun SimulationContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    "${stringResource(R.string.pair_no)} ${selectedPairIndex + 1}",
+                    "$pairNo ${selectedPairIndex + 1}",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(stringResource(R.string.sim_angle, prettyValue(servoDeg)))
@@ -272,11 +331,10 @@ private fun RoboFinger(angle: Float, tipColor: Color) {
         JointDot(joint)
 
         Box(
-            modifier =
-                Modifier.graphicsLayer(
-                    rotationZ = baseBend,
-                    transformOrigin = TransformOrigin(0.5f, 0f)
-                )
+            modifier = Modifier.graphicsLayer(
+                rotationZ = baseBend,
+                transformOrigin = TransformOrigin(0.5f, 0f)
+            )
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(

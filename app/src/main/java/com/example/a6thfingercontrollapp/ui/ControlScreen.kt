@@ -122,43 +122,36 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
     val telemetryEnabled by vm.telemetryEnabled.collectAsState()
 
-    var waitTeleAfterSave by remember { mutableStateOf(false) }
+    val livePairs by vm.liveServoPairs.collectAsState()
 
-    var saveTeleSig by remember { mutableStateOf(telemetrySignature(t)) }
+    var waitTeleAfterSave by remember { mutableStateOf(false) }
     var saveStartedMs by remember { mutableStateOf(0L) }
 
     val hasTeleData = hasTelemetryData(t)
-
-    val nowMs = SystemClock.elapsedRealtime()
-
-    var lastTeleSig by remember { mutableStateOf(telemetrySignature(t)) }
-    var lastTeleMs by remember { mutableStateOf(nowMs) }
-
-    LaunchedEffect(t) {
-        val sig = telemetrySignature(t)
-        if (sig != lastTeleSig) {
-            lastTeleSig = sig
-            lastTeleMs = SystemClock.elapsedRealtime()
-        }
-    }
 
     LaunchedEffect(telemetryEnabled) {
         if (!telemetryEnabled) waitTeleAfterSave = false
     }
 
-    LaunchedEffect(waitTeleAfterSave, telemetryEnabled, lastTeleMs, saveStartedMs) {
+    LaunchedEffect(waitTeleAfterSave, telemetryEnabled, t.rxMs, saveStartedMs) {
         if (!telemetryEnabled) {
             waitTeleAfterSave = false
             return@LaunchedEffect
         }
         if (waitTeleAfterSave && saveStartedMs > 0L) {
-            if (lastTeleMs > saveStartedMs) {
+            if (t.rxMs > saveStartedMs) {
                 waitTeleAfterSave = false
             }
         }
     }
 
-    val isTeleStale = telemetryEnabled && (nowMs - lastTeleMs) > 1200L
+    val nowMs = SystemClock.elapsedRealtime()
+
+    val isTeleStale =
+        telemetryEnabled &&
+                hasTeleData &&
+                t.rxMs > 0L &&
+                (nowMs - t.rxMs) > 1200L
 
     val showTelePlaceholder =
         !telemetryEnabled || waitTeleAfterSave || !hasTeleData || isTeleStale
@@ -188,8 +181,6 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     val doSave: () -> Unit = {
         scope.launch {
             busy = true
-
-            saveTeleSig = telemetrySignature(t)
             saveStartedMs = SystemClock.elapsedRealtime()
             waitTeleAfterSave = telemetryEnabled
 
@@ -313,7 +304,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                         R.string.tele_off
                     ),
                     checked = telemetryEnabled,
-                    enabled = true
+                    enabled = livePairs.isEmpty()
                 ) { next ->
                     haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
                     vm.setTelemetryEnabled(next)
@@ -493,9 +484,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
     if (rebootOpen) {
         AlertDialog(
-            onDismissRequest = {
-                if (!rebooting) rebootOpen = false
-            },
+            onDismissRequest = { if (!rebooting) rebootOpen = false },
             title = { Text(stringResource(R.string.device_reboot)) },
             text = { Text(stringResource(R.string.device_reboot_warning)) },
             confirmButton = {
@@ -512,13 +501,10 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                             } else {
                                 delay(50)
                             }
-
                             restartApp(context)
                         }
                     }
-                ) {
-                    Text(stringResource(R.string.confirm))
-                }
+                ) { Text(stringResource(R.string.confirm)) }
             },
             dismissButton = {
                 TextButton(
@@ -558,9 +544,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
         FsrDialog(
             s = s,
             onDismiss = { fsrOpen = false },
-            onChange = { next ->
-                vm.updateActiveSettings(flexIndex) { next }
-            },
+            onChange = { next -> vm.updateActiveSettings(flexIndex) { next } },
             haptic = haptic
         )
 
@@ -570,9 +554,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             index = flexIndex,
             currentFlexOhm = t.flexOhm[flexIndex],
             onDismiss = { flexOpen = false },
-            onChange = { next ->
-                vm.updateActiveSettings(flexIndex) { next }
-            },
+            onChange = { next -> vm.updateActiveSettings(flexIndex) { next } },
             haptic = haptic
         )
 
@@ -580,9 +562,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
         VibroDialog(
             s = s,
             onDismiss = { vibroOpen = false },
-            onChange = { next ->
-                vm.updateActiveSettings(flexIndex) { next }
-            },
+            onChange = { next -> vm.updateActiveSettings(flexIndex) { next } },
             haptic = haptic
         )
 
@@ -593,7 +573,9 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             currentServoDeg = t.servoDeg[servoIndex],
             onDismiss = { servoOpen = false },
             onChange = { next -> vm.updateActiveSettings(servoIndex) { next } },
-            onLiveChange = { next -> vm.applySettingsLive { next } },
+            liveEnabled = livePairs.contains(servoIndex),
+            onLiveEnabledChange = { en -> vm.setServoLiveEnabled(servoIndex, en) },
+            onLiveAngle = { angle -> vm.sendServoLiveAngle(servoIndex, angle) },
             haptic = haptic
         )
 
@@ -604,7 +586,9 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             currentServoDeg = t.servoDeg[0],
             onDismiss = { servoOpenPO = false },
             onChange = { next -> vm.updateActiveSettings(0) { next } },
-            onLiveChange = { next -> vm.applySettingsLive { next } },
+            liveEnabled = livePairs.contains(0),
+            onLiveEnabledChange = { en -> vm.setServoLiveEnabled(0, en) },
+            onLiveAngle = { angle -> vm.sendServoLiveAngle(0, angle) },
             haptic = haptic
         )
 
@@ -628,17 +612,13 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                     saveWarnOpen = false
                     doSave()
-                }) {
-                    Text(stringResource(R.string.continue_anyway))
-                }
+                }) { Text(stringResource(R.string.continue_anyway)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.Reject)
                     saveWarnOpen = false
-                }) {
-                    Text(stringResource(R.string.device_cancel))
-                }
+                }) { Text(stringResource(R.string.device_cancel)) }
             }
         )
     }
@@ -914,26 +894,4 @@ private fun hasTelemetryData(t: Telemetry): Boolean {
     if (t.flexOhm.any { it.isFinite() }) return true
     if (t.servoDeg.any { it.isFinite() }) return true
     return false
-}
-
-private fun telemetrySignature(t: Telemetry): Int {
-    var h = 1
-    fun addInt(x: Int) {
-        h = 31 * h + x
-    }
-
-    fun addFloat(x: Float) {
-        addInt(x.toRawBits())
-    }
-
-    addFloat(t.fsrOhm)
-    addFloat(t.fsrForceN)
-
-    for (i in 0 until 4) addFloat(t.flexOhm[i])
-    for (i in 0 until 4) addFloat(t.servoDeg[i])
-
-    addInt(t.vibroDuty)
-    addInt(t.vibroMode)
-
-    return h
 }

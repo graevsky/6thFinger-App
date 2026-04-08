@@ -1,16 +1,19 @@
 package com.example.a6thfingercontrollapp.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,7 +35,11 @@ fun ServoDialog(
     currentServoDeg: Float,
     onDismiss: () -> Unit,
     onChange: (EspSettings) -> Unit,
-    onLiveChange: (EspSettings) -> Unit,
+
+    liveEnabled: Boolean,
+    onLiveEnabledChange: (Boolean) -> Unit,
+    onLiveAngle: (Int) -> Unit,
+
     haptic: HapticFeedback
 ) {
     val servoSetting = s.servoSettings[index]
@@ -40,29 +47,36 @@ fun ServoDialog(
     var pin by remember { mutableStateOf(servoSetting.servoPin.toString()) }
     var min by remember { mutableStateOf(servoSetting.servoMinDeg.toString()) }
     var max by remember { mutableStateOf(servoSetting.servoMaxDeg.toString()) }
-    var manual by remember { mutableStateOf(servoSetting.servoManual != 0) }
-    var deg by remember { mutableStateOf(servoSetting.servoManualDeg.toString()) }
 
-    val minV = min.toIntOrNull() ?: servoSetting.servoMinDeg
-    val maxV = max.toIntOrNull() ?: servoSetting.servoMaxDeg
+    val minV = (min.toIntOrNull() ?: servoSetting.servoMinDeg).coerceIn(0, 180)
+    val maxV = (max.toIntOrNull() ?: servoSetting.servoMaxDeg).coerceIn(0, 180).coerceAtLeast(minV)
+
     var slider by remember {
         mutableStateOf(
-            (deg.toIntOrNull() ?: servoSetting.servoManualDeg).coerceIn(minV, maxV).toFloat()
+            (servoSetting.servoManualDeg)
+                .coerceIn(minV, maxV)
+                .toFloat()
         )
     }
 
+    var live by remember(liveEnabled) { mutableStateOf(liveEnabled) }
+    var showDismissHint by remember { mutableStateOf(false) }
+
     fun buildSettingsWith(angle: Int): EspSettings {
-        val minAngle = min.toIntOrNull() ?: servoSetting.servoMinDeg
-        val maxAngle = max.toIntOrNull() ?: servoSetting.servoMaxDeg
+        val minAngle = (min.toIntOrNull() ?: servoSetting.servoMinDeg).coerceIn(0, 180)
+        val maxAngle =
+            (max.toIntOrNull() ?: servoSetting.servoMaxDeg).coerceIn(0, 180).coerceAtLeast(minAngle)
         val clamped = angle.coerceIn(minAngle, maxAngle)
+
         return s.copy(
             servoSettings = s.servoSettings.toMutableList().apply {
                 set(
-                    index, servoSetting.copy(
+                    index,
+                    servoSetting.copy(
                         servoPin = pin.toIntOrNull() ?: servoSetting.servoPin,
                         servoMinDeg = minAngle,
                         servoMaxDeg = maxAngle,
-                        servoManual = if (manual) 1 else 0,
+                        servoManual = 0,
                         servoManualDeg = clamped
                     )
                 )
@@ -70,53 +84,97 @@ fun ServoDialog(
         )
     }
 
-    fun pushImmediate(value: Int) {
-        val next = buildSettingsWith(value)
-        onLiveChange(next)
+    fun tryDismiss() {
+        if (live) {
+            showDismissHint = true
+            haptic.performHapticFeedback(HapticFeedbackType.Reject)
+            return
+        }
+        onDismiss()
     }
 
-    BaseDialog(title = stringResource(R.string.servo_settings), onDismiss = onDismiss, haptic = haptic) {
+    LaunchedEffect(minV, maxV) {
+        val clamped = slider.toInt().coerceIn(minV, maxV)
+        if (clamped.toFloat() != slider) {
+            slider = clamped.toFloat()
+            if (live) onLiveAngle(clamped)
+        }
+    }
+
+    BaseDialog(
+        title = stringResource(R.string.servo_settings),
+        onDismiss = { tryDismiss() },
+        haptic = haptic
+    ) {
         Text(
             "${stringResource(R.string.servo_current_angle)}: ${pretty(currentServoDeg)}°",
             style = MaterialTheme.typography.bodyMedium
         )
+
+        if (showDismissHint) {
+            Text(
+                text = stringResource(R.string.live_control_disable_to_close),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                        MaterialTheme.shapes.medium
+                    )
+                    .padding(10.dp),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
         NumberField(stringResource(R.string.servo_pin), pin) { pin = it }
         NumberField(stringResource(R.string.servo_min_angle), min) { min = it }
         NumberField(stringResource(R.string.servo_max_angle), max) { max = it }
+
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(stringResource(R.string.servo_manual_control))
-            Switch(checked = manual, onCheckedChange = {
-                manual = it
-                pushImmediate(slider.toInt())
-            })
-        }
-        if (manual) {
-            Slider(
-                value = slider,
-                onValueChange = {
-                    slider = it
-                    deg = it.toInt().toString()
-                    pushImmediate(it.toInt())
-                },
-                valueRange = (min.toIntOrNull()
-                    ?: servoSetting.servoMinDeg).toFloat()..(max.toIntOrNull()
-                    ?: servoSetting.servoMaxDeg).toFloat(),
-                steps = max(
-                    0,
-                    (max.toIntOrNull() ?: servoSetting.servoMaxDeg) - (min.toIntOrNull()
-                        ?: servoSetting.servoMinDeg)
-                )
+            Text(stringResource(R.string.live_control))
+            Switch(
+                checked = live,
+                onCheckedChange = { en ->
+                    haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    showDismissHint = false
+                    live = en
+                    onLiveEnabledChange(en)
+                    if (en) onLiveAngle(slider.toInt())
+                }
             )
-            Text("${stringResource(R.string.servo_manual_angle)}: ${slider.toInt()}°", style = MaterialTheme.typography.bodySmall)
         }
+
+        Slider(
+            value = slider,
+            onValueChange = {
+                slider = it
+                if (live) onLiveAngle(it.toInt())
+            },
+            valueRange = minV.toFloat()..maxV.toFloat(),
+            steps = max(0, maxV - minV),
+            enabled = live
+        )
+
+        Text(
+            "${stringResource(R.string.servo_manual_angle)}: ${slider.toInt()}°",
+            style = MaterialTheme.typography.bodySmall
+        )
+
         Spacer(Modifier.height(8.dp))
+
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
+                if (live) {
+                    showDismissHint = true
+                    haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                    return@Button
+                }
+
                 haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+
                 val finalCfg = buildSettingsWith(slider.toInt())
                 onChange(finalCfg)
                 onDismiss()

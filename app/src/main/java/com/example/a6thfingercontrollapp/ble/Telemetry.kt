@@ -13,7 +13,9 @@ data class Telemetry(
     val servoSpeedDps: Array<Float> = Array(4) { Float.NaN },
     val vibroDuty: Int = 0,
     val vibroMode: Int = 0,
-    val status: String = "Idle"
+    val status: String = "Idle",
+
+    val rxMs: Long = 0L
 ) {
     val flexOhm: Array<Float>
         get() = flexFilteredOhm
@@ -45,7 +47,8 @@ data class Telemetry(
                 },
                 vibroDuty = json.optInt("vibro_duty", 0),
                 vibroMode = json.optInt("vibro_mode", 0),
-                status = "Idle"
+                status = "Idle",
+                rxMs = 0L
             )
         }
     }

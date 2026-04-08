@@ -138,8 +138,7 @@ interface BackendApi {
 
     companion object {
         private const val BASE_URL =
-            "http://192.168.31.215:8000" // temp stub "http://10.0.2.2:8000" or pc ip
-        // "http://192.168.31.211:8000"
+            "http://192.168.31.217:8000" // PC LOCAL IP
 
         fun create(): BackendApi {
             val logging =

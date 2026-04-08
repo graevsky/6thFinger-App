@@ -345,4 +345,6 @@
 
     <string name="flex_tolerance_pct">Noise tolerance, %</string>
     <string name="flex_tolerance_hint">1–50%. Higher value = less jitter, but slower response.</string>
+    <string name="live_control">Live control</string>
+    <string name="live_control_disable_to_close">Disable live control to close.</string>
 </resources>

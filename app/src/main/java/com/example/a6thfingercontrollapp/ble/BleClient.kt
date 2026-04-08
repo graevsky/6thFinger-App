@@ -16,8 +16,10 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +28,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -40,6 +45,7 @@ class BleClient(private val context: Context) {
     private val TAG_CFG = "BLE_CFG"
     private val TAG_CFG_JSON = "BLE_CFG_JSON"
     private val TAG_TELE = "BLE_TELE"
+    private val TAG_LIVE = "BLE_LIVE"
 
     private val manager: BluetoothManager? =
         context.getSystemService(BluetoothManager::class.java)
@@ -56,6 +62,7 @@ class BleClient(private val context: Context) {
     private var chCfgOut: BluetoothGattCharacteristic? = null
     private var chAck: BluetoothGattCharacteristic? = null
     private var chTele: BluetoothGattCharacteristic? = null
+    private var chServoLive: BluetoothGattCharacteristic? = null
 
     private val notifyQueue = ArrayDeque<BluetoothGattCharacteristic>()
 
@@ -85,9 +92,10 @@ class BleClient(private val context: Context) {
 
     @Volatile
     private var writeInProgress: Boolean = false
-
     @Volatile
     private var lastWriteOk: Boolean = true
+    @Volatile
+    private var pendingWriteUuid: java.util.UUID? = null
 
     @Volatile
     private var teleUnlocked: Boolean = false
@@ -106,15 +114,20 @@ class BleClient(private val context: Context) {
 
     @Volatile
     private var authAttemptId: Long = 0L
-
     @Volatile
     private var sessionAuthed: Boolean = false
-
     @Volatile
     private var devicePinSet: Boolean = false
-
     @Volatile
     private var seenTelemetry: Boolean = false
+
+    private val commandMutex = Mutex()
+    @Volatile
+    private var expectedAckFor: String? = null
+    @Volatile
+    private var expectedAckDeferred: CompletableDeferred<JSONObject>? = null
+    @Volatile
+    private var lastTeleRxMs: Long = 0L
 
     fun start() { /* no-op */
     }
@@ -191,6 +204,118 @@ class BleClient(private val context: Context) {
         }
     }
 
+    suspend fun setTelemetryEnabledBlocking(enabled: Boolean): Boolean =
+        commandMutex.withLock {
+            _telemetryEnabled.value = enabled
+
+            gatt ?: return false
+            chCfgIn ?: return false
+            if (!hasConnPermission()) return false
+
+            val waiter = CompletableDeferred<JSONObject>()
+            expectedAckFor = "tele_set"
+            expectedAckDeferred = waiter
+
+            val obj = JSONObject().apply {
+                put("type", "tele_set")
+                put("enabled", enabled)
+            }
+
+            Log.d(TAG_CFG, "ANDROID_SEND_TELE_SET_BLOCKING = $obj")
+            val sent = writeJsonChunked(obj.toString())
+            if (!sent) {
+                expectedAckFor = null
+                expectedAckDeferred = null
+                return false
+            }
+
+            val ack = withTimeoutOrNull(7000) { waiter.await() }
+            if (ack == null) return false
+
+            val ok = ack.optBoolean("ok", false)
+            if (!ok) return false
+
+            if (!enabled) {
+                val quietOk = waitTelemetryQuiet(minQuietMs = 400, timeoutMs = 3500)
+                if (!quietOk) {
+                    Log.w(TAG_CFG, "Telemetry quiet wait timeout (may still be flowing)")
+                }
+            }
+
+            true
+        }
+
+    private suspend fun waitTelemetryQuiet(minQuietMs: Long, timeoutMs: Long): Boolean {
+        val start = SystemClock.elapsedRealtime()
+        while (SystemClock.elapsedRealtime() - start < timeoutMs) {
+            val last = lastTeleRxMs
+            if (last == 0L) return true
+            val dt = SystemClock.elapsedRealtime() - last
+            if (dt >= minQuietMs) return true
+            delay(40)
+        }
+        return false
+    }
+
+    fun setTelemetryEnabled(enabled: Boolean) {
+        _telemetryEnabled.value = enabled
+        scope.launch {
+            setTelemetryEnabledBlocking(enabled)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun sendServoLive(pairIdx: Int, deg: Int): Boolean =
+        synchronized(writeMutex) {
+            val g = gatt ?: run { updateStatus("No GATT"); return false }
+            val ch = chServoLive ?: run { updateStatus("No SERVO_LIVE"); return false }
+            if (!hasConnPermission()) return false
+
+            val idx = pairIdx.coerceIn(0, 3)
+            val angle = deg.coerceIn(0, 180)
+
+            val payload = "A,$idx,$angle"
+            Log.d(TAG_LIVE, "ANDROID_SEND_LIVE='$payload'")
+
+            val props = ch.properties
+            val supportsNoResp =
+                (props and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0
+
+            ch.writeType =
+                if (supportsNoResp) BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                else BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+
+            ch.value = payload.toByteArray()
+            val ok = g.writeCharacteristic(ch)
+            if (!ok) updateStatus("Live write failed")
+            ok
+        }
+
+    @SuppressLint("MissingPermission")
+    fun stopServoLive(pairIdx: Int): Boolean =
+        synchronized(writeMutex) {
+            val g = gatt ?: return false
+            val ch = chServoLive ?: return false
+            if (!hasConnPermission()) return false
+
+            val idx = pairIdx.coerceIn(0, 3)
+            val payload = "S,$idx"
+            Log.d(TAG_LIVE, "ANDROID_SEND_LIVE_STOP='$payload'")
+
+            val props = ch.properties
+            val supportsNoResp =
+                (props and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0
+
+            ch.writeType =
+                if (supportsNoResp) BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                else BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+
+            ch.value = payload.toByteArray()
+            val ok = g.writeCharacteristic(ch)
+            if (!ok) updateStatus("Live stop failed")
+            ok
+        }
+
     fun sendAuthPin(pin4: String): Boolean {
         val pin = pin4.trim()
         if (pin.length != 4 || !pin.all { it.isDigit() }) {
@@ -243,12 +368,7 @@ class BleClient(private val context: Context) {
             Log.d(TAG_CFG, "ANDROID_SEND_CFG_OK = $okObj")
             val ok = writeJsonChunked(okObj.toString())
             if (ok) {
-                val tObj = JSONObject().apply {
-                    put("type", "tele_set")
-                    put("enabled", _telemetryEnabled.value)
-                }
-                Log.d(TAG_CFG, "ANDROID_SEND_TELE_SET_AFTER_CFG_OK = $tObj")
-                writeJsonChunked(tObj.toString())
+                setTelemetryEnabledBlocking(_telemetryEnabled.value)
             }
         }
     }
@@ -330,6 +450,14 @@ class BleClient(private val context: Context) {
         rawCfgBuf.clear()
         _rawCfgText.value = ""
 
+        writeInProgress = false
+        lastWriteOk = true
+        pendingWriteUuid = null
+
+        expectedAckFor = null
+        expectedAckDeferred = null
+        lastTeleRxMs = 0L
+
         if (!hasConnPermission()) {
             connecting.set(false)
             updateStatus("No connect permission")
@@ -371,6 +499,14 @@ class BleClient(private val context: Context) {
         cfgParser = ChunkParser()
         ackParser = ChunkParser()
 
+        writeInProgress = false
+        lastWriteOk = true
+        pendingWriteUuid = null
+
+        expectedAckFor = null
+        expectedAckDeferred = null
+        lastTeleRxMs = 0L
+
         try {
             if (hasConnPermission()) gatt?.disconnect()
         } catch (_: Throwable) {
@@ -385,6 +521,7 @@ class BleClient(private val context: Context) {
         chCfgOut = null
         chAck = null
         chTele = null
+        chServoLive = null
         notifyQueue.clear()
 
         rawCfgInProgress = false
@@ -445,8 +582,9 @@ class BleClient(private val context: Context) {
             chCfgOut = svc.getCharacteristic(NewBleConstants.CFG_OUT_UUID)
             chAck = svc.getCharacteristic(NewBleConstants.ACK_UUID)
             chTele = svc.getCharacteristic(NewBleConstants.TELE_UUID)
+            chServoLive = svc.getCharacteristic(NewBleConstants.SERVO_LIVE_UUID)
 
-            if (chCfgIn == null || chCfgOut == null || chAck == null || chTele == null) {
+            if (chCfgIn == null || chCfgOut == null || chAck == null || chTele == null || chServoLive == null) {
                 updateStatus("Characteristics missing")
                 disconnect()
                 return
@@ -495,8 +633,14 @@ class BleClient(private val context: Context) {
             characteristic: BluetoothGattCharacteristic,
             status: Int
         ) {
+            val p = pendingWriteUuid
+            if (!writeInProgress || p == null || characteristic.uuid != p) {
+                return
+            }
+
             lastWriteOk = (status == BluetoothGatt.GATT_SUCCESS)
             writeInProgress = false
+            pendingWriteUuid = null
         }
     }
 
@@ -546,17 +690,13 @@ class BleClient(private val context: Context) {
     }
 
     private fun handleTeleStreamChunk(s: String) {
-        Log.d(TAG_TELE, "tele chunk='$s'")
         if (!teleParser.push(s)) return
         val json = teleParser.jsonOrNull() ?: return
-        Log.d(TAG_TELE, "FULL_JSON (tele) = $json")
         handleIncomingJson(json)
     }
 
     private fun handleCfgStreamChunk(s: String) {
-        Log.d(TAG_CFG, "cfg chunk='$s'")
         pushRawCfgChunk(s)
-
         if (!cfgParser.push(s)) return
         val json = cfgParser.jsonOrNull() ?: return
         Log.d(TAG_CFG_JSON, "FULL_JSON (cfg) = $json")
@@ -564,10 +704,8 @@ class BleClient(private val context: Context) {
     }
 
     private fun handleAckStreamChunk(s: String) {
-        Log.d(TAG_CFG, "ack chunk='$s'")
         if (!ackParser.push(s)) return
         val json = ackParser.jsonOrNull() ?: return
-        Log.d(TAG_CFG, "FULL_JSON (ack) = $json")
         handleIncomingJson(json)
     }
 
@@ -575,6 +713,20 @@ class BleClient(private val context: Context) {
         val obj = JSONObject().apply { put("type", "reboot") }
         Log.d(TAG_CFG, "ANDROID_SEND_REBOOT = $obj")
         return writeJsonChunked(obj.toString())
+    }
+
+    private fun maybeCompleteAckWaiter(json: JSONObject) {
+        val def = expectedAckDeferred ?: return
+        val want = expectedAckFor
+
+        val gotFor = json.optString("for", "")
+        val matches =
+            want == null || gotFor == want || gotFor.isBlank()
+        if (matches && !def.isCompleted) {
+            expectedAckDeferred = null
+            expectedAckFor = null
+            def.complete(json)
+        }
     }
 
     private fun handleIncomingJson(json: JSONObject) {
@@ -614,7 +766,6 @@ class BleClient(private val context: Context) {
                 val cfg = try {
                     EspSettings.fromJson(json)
                 } catch (t: Throwable) {
-                    Log.e(TAG_CFG, "Config parse error", t)
                     updateStatus("Config parse error")
                     return
                 }
@@ -638,17 +789,19 @@ class BleClient(private val context: Context) {
             }
 
             "tele" -> {
-                val t = try {
+                val tParsed = try {
                     Telemetry.fromJson(json)
                 } catch (t: Throwable) {
-                    Log.e(TAG_TELE, "Tele parse error", t)
                     updateStatus("Tele parse error")
                     return
                 }
 
+                val rx = SystemClock.elapsedRealtime()
+                lastTeleRxMs = rx
                 seenTelemetry = true
+
                 val prev = _telemetry.value
-                _telemetry.value = t.copy(status = prev.status)
+                _telemetry.value = tParsed.copy(status = prev.status, rxMs = rx)
 
                 if (!_controlUnlocked.value) {
                     _authRequired.value = false
@@ -660,6 +813,7 @@ class BleClient(private val context: Context) {
             }
 
             "ack" -> {
+                maybeCompleteAckWaiter(json)
                 val ok = json.optBoolean("ok", false)
                 updateStatus(if (ok) "ACK OK" else "ACK FAIL")
                 return
@@ -671,7 +825,6 @@ class BleClient(private val context: Context) {
                         val cfg = try {
                             EspSettings.fromJson(json)
                         } catch (t: Throwable) {
-                            Log.e(TAG_CFG, "Config parse error", t)
                             updateStatus("Config parse error")
                             return
                         }
@@ -693,16 +846,19 @@ class BleClient(private val context: Context) {
                     }
 
                     json.has("fsr_raw") || json.has("flex_raw_0") -> {
-                        val t = try {
+                        val tParsed = try {
                             Telemetry.fromJson(json)
                         } catch (t: Throwable) {
-                            Log.e(TAG_TELE, "Tele parse error", t)
                             updateStatus("Tele parse error")
                             return
                         }
+
+                        val rx = SystemClock.elapsedRealtime()
+                        lastTeleRxMs = rx
                         seenTelemetry = true
+
                         val prev = _telemetry.value
-                        _telemetry.value = t.copy(status = prev.status)
+                        _telemetry.value = tParsed.copy(status = prev.status, rxMs = rx)
 
                         if (!_controlUnlocked.value) {
                             _authRequired.value = false
@@ -711,8 +867,6 @@ class BleClient(private val context: Context) {
                             _controlUnlocked.value = true
                         }
                     }
-
-                    else -> Log.w(TAG_CFG, "Unknown JSON type: $json")
                 }
             }
         }
@@ -734,10 +888,13 @@ class BleClient(private val context: Context) {
             fun safeWrite(str: String): Boolean {
                 writeInProgress = true
                 lastWriteOk = true
+                pendingWriteUuid = ch.uuid
+
                 ch.value = str.toByteArray()
 
                 val started = g.writeCharacteristic(ch)
                 if (!started) {
+                    pendingWriteUuid = null
                     writeInProgress = false
                     return false
                 }
@@ -750,7 +907,10 @@ class BleClient(private val context: Context) {
                     }
                     waited += 20
                 }
-                return !writeInProgress && lastWriteOk
+
+                val ok = !writeInProgress && lastWriteOk
+                if (!ok) pendingWriteUuid = null
+                return ok
             }
 
             return try {
@@ -797,63 +957,31 @@ class BleClient(private val context: Context) {
             t.startsWith("connecting") -> "connecting"
             t.startsWith("discovering") -> "discovering"
             t.startsWith("scanning") -> "scanning"
-
             t.startsWith("bluetooth off") -> "bluetooth_off"
             t.startsWith("no scan permission") -> "no_scan_permission"
             t.startsWith("scan denied") -> "scan_denied"
             t.startsWith("scan error") -> "scan_error"
             t.startsWith("scan failed") -> "scan_failed"
-
             t.startsWith("invalid device") -> "invalid_device"
             t.startsWith("connect failed") -> "connect_failed"
             t.startsWith("no connect permission") -> "no_connect_permission"
-
             t.startsWith("service discovery failed") -> "service_discovery_failed"
             t.startsWith("service discovery error") -> "service_discovery_error"
             t.startsWith("service not found") -> "service_not_found"
             t.startsWith("characteristics missing") -> "characteristics_missing"
             t.startsWith("notify error") -> "notify_error"
-
             t.startsWith("subscribed") -> "subscribed"
-
             t.startsWith("auth ok") -> "auth_ok"
             t.startsWith("auth fail") -> "auth_fail"
-
             t.startsWith("config updated") -> "config_updated"
             t.startsWith("config parse error") -> "config_parse_error"
             t.startsWith("tele parse error") -> "tele_parse_error"
-
             t.startsWith("ack ok") -> "ack_ok"
             t.startsWith("ack fail") -> "ack_fail"
-
             t.startsWith("write") -> "write_failed"
-
             else -> t.replace(Regex("[^a-z0-9]+"), "_").trim('_')
         }
     }
-
-    fun setTelemetryEnabled(enabled: Boolean) {
-        _telemetryEnabled.value = enabled
-
-        if (!enabled) {
-            val prev = _telemetry.value
-            _telemetry.value = Telemetry(status = prev.status)
-        }
-
-        scope.launch {
-            if (gatt == null || chCfgIn == null) return@launch
-            if (!_controlUnlocked.value) return@launch
-            if (!hasConnPermission()) return@launch
-
-            val obj = JSONObject().apply {
-                put("type", "tele_set")
-                put("enabled", enabled)
-            }
-            Log.d(TAG_CFG, "ANDROID_SEND_TELE_SET = $obj")
-            writeJsonChunked(obj.toString())
-        }
-    }
-
 
     private fun decodeAscii(bytes: ByteArray): String {
         val sb = StringBuilder()
