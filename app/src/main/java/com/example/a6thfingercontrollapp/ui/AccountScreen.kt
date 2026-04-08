@@ -560,7 +560,6 @@ fun AccountScreen(
                 }
             }
 
-
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(12.dp),
@@ -638,6 +637,89 @@ fun AccountScreen(
         }
     }
 
+    if (showSettings) {
+        val activity = LocalContext.current as? Activity
+
+        val emailErrText = uiErrorText(emailErrorKey)
+        val emailLine =
+            when {
+                emailLoading -> stringResource(R.string.loading)
+                !emailErrText.isNullOrBlank() && !emailShown.isNullOrBlank() ->
+                    stringResource(R.string.account_email_current, emailShown)
+
+                !emailErrText.isNullOrBlank() && emailShown.isNullOrBlank() ->
+                    stringResource(R.string.account_email_not_set)
+
+                hasEmail && !emailShown.isNullOrBlank() ->
+                    stringResource(R.string.account_email_current, emailShown)
+
+                else -> stringResource(R.string.account_email_not_set)
+            }
+
+        val guideUrl =
+            "https://docs.google.com/document/d/1MEejkdQEGTkvxDuX7fgXnzfzSTgcVONKTlj-WCBkAp0/edit?usp=sharing" // temp hardcode
+
+        val links = listOf(
+            SettingsLink(
+                title = "Guide",
+                url = guideUrl
+            ),
+            SettingsLink(
+                title = "App",
+                url = "https://github.com/graevsky/6thFinger-App"
+            ),
+            SettingsLink(
+                title = "ESP32 firmware",
+                url = "https://github.com/graevsky/6thFinger-Controller"
+            ),
+            SettingsLink(
+                title = "Backend",
+                url = "https://github.com/graevsky/6thFinger-Backend"
+            )
+        )
+
+        SettingsDialog(
+            currentLang = lang,
+            onDismiss = {
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
+                showSettings = false
+            },
+            onSelect = { newLang: String ->
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
+                vm.setAppLanguage(newLang)
+
+                if (authState is UiAuthState.LoggedIn) {
+                    authVm.updateLanguageRemote(newLang)
+                }
+
+                showSettings = false
+                activity?.recreate()
+            },
+
+            isLoggedIn = username != null,
+            emailLine = emailLine,
+            emailErrorLine = emailErrText,
+            hasEmail = hasEmail,
+            onAddEmail = {
+                showSettings = false
+                openAddEmail()
+            },
+            onChangeEmail = {
+                showSettings = false
+                openChangeEmail()
+            },
+            onRemoveEmail = {
+                showSettings = false
+                openRemoveEmail()
+            },
+            onChangePassword = {
+                showSettings = false
+                username?.let { onChangePassword(it) }
+            },
+
+            links = links
+        )
+    }
 
     if (emailDialogMode == EmailDialogMode.Add) {
         AlertDialog(
@@ -1137,66 +1219,6 @@ fun AccountScreen(
 
     if (showFullscreen && avatarBitmap != null) {
         FullscreenImageDialog(bitmap = avatarBitmap!!, onDismiss = { showFullscreen = false })
-    }
-
-    if (showSettings) {
-        val activity = LocalContext.current as? Activity
-
-        val emailErrText = uiErrorText(emailErrorKey)
-        val emailLine =
-            when {
-                emailLoading -> stringResource(R.string.loading)
-                !emailErrText.isNullOrBlank() && !emailShown.isNullOrBlank() ->
-                    stringResource(R.string.account_email_current, emailShown)
-
-                !emailErrText.isNullOrBlank() && emailShown.isNullOrBlank() ->
-                    stringResource(R.string.account_email_not_set)
-
-                hasEmail && !emailShown.isNullOrBlank() ->
-                    stringResource(R.string.account_email_current, emailShown)
-
-                else -> stringResource(R.string.account_email_not_set)
-            }
-
-        SettingsDialog(
-            currentLang = lang,
-            onDismiss = {
-                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
-                showSettings = false
-            },
-            onSelect = { newLang: String ->
-                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
-                vm.setAppLanguage(newLang)
-
-                if (authState is UiAuthState.LoggedIn) {
-                    authVm.updateLanguageRemote(newLang)
-                }
-
-                showSettings = false
-                activity?.recreate()
-            },
-
-            isLoggedIn = username != null,
-            emailLine = emailLine,
-            emailErrorLine = emailErrText,
-            hasEmail = hasEmail,
-            onAddEmail = {
-                showSettings = false
-                openAddEmail()
-            },
-            onChangeEmail = {
-                showSettings = false
-                openChangeEmail()
-            },
-            onRemoveEmail = {
-                showSettings = false
-                openRemoveEmail()
-            },
-            onChangePassword = {
-                showSettings = false
-                username?.let { onChangePassword(it) }
-            }
-        )
     }
 
     if (showDeviceSettingsDialog && selectedDevice != null) {

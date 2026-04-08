@@ -1,8 +1,12 @@
 package com.example.a6thfingercontrollapp.ui
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,9 +18,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,6 +64,22 @@ fun StartScreen(
     val lang by bleVm.appLanguage.collectAsState()
     var showLangDialog by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+
+    val guideUrl =
+        "https://docs.google.com/document/d/1MEejkdQEGTkvxDuX7fgXnzfzSTgcVONKTlj-WCBkAp0/edit?usp=sharing" // temp hardcode :/
+
+    fun openUrl(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            context.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+        } catch (_: Exception) {
+        }
+    }
+
+    val guideTitle = "Quick start guide"
+    val guideSubtitle = "Open step-by-step instructions"
 
     Scaffold { inner ->
         Box(
@@ -114,6 +136,39 @@ fun StartScreen(
                             onContinueAsGuest()
                         }
                     ) { Text(stringResource(R.string.auth_continue_guest)) }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                openUrl(guideUrl)
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = guideTitle,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = guideSubtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.OpenInNew,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
