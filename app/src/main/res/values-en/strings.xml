@@ -116,7 +116,7 @@
     <!-- Prosthesis cloud sync -->
     <string name="prosthesis_settings">Prosthesis Settings</string>
     <string name="prosthesis_settings_descr">Settings for your prosthesis</string>
-    <string name="prosthesis_settings_dialog_hint">Sync prosthesis settings</string>
+    <string name="prosthesis_settings_dialog_hint">Choose the prosthesis record on the server</string>
     <string name="prosthesis_pull">Load device settings</string>
     <string name="prosthesis_push">Upload device settings</string>
 
@@ -144,11 +144,11 @@
     <string name="prosthesis_no_devices">I dont have any prothesis registered</string>
     <string name="refresh">Update</string>
     <string name="prosthesis_not_connected_title">Prothesis is not connected</string>
-    <string name="prosthesis_not_connected_message">Connect to get device settings</string>
+    <string name="prosthesis_not_connected_message">Connect a prosthesis first to load server settings into it</string>
     <string name="prosthesis_no_settings_on_server">Device does not have any saved settings</string>
     <string name="prosthesis_connected">Connected</string>
     <string name="prosthesis_settings_for_device">Device settings: %1$s</string>
-    <string name="prosthesis_connect_hint">Connect device to get settings from server</string>
+    <string name="prosthesis_connect_hint">Connecting is required only for loading settings from the server into the prosthesis. Uploading local settings to the cloud is available for any selected prosthesis record.</string>
     <string name="device">Device</string>
     <string name="alias">Alias</string>
     <string name="no_active">No active devices found</string>
@@ -347,4 +347,16 @@
     <string name="flex_tolerance_hint">1–50%. Higher value = less jitter, but slower response.</string>
     <string name="live_control">Live control</string>
     <string name="live_control_disable_to_close">Disable live control to close.</string>
+
+    <string name="prosthesis_preview">View settings</string>
+    <string name="prosthesis_target_device">Target prosthesis</string>
+    <string name="prosthesis_select_target">Choose prosthesis</string>
+    <string name="prosthesis_server_settings_saved_version">Saved on server • v%1$d</string>
+    <string name="prosthesis_server_settings_missing">No saved settings on server</string>
+    <string name="prosthesis_server_status_unknown">Server status unavailable</string>
+    <string name="prosthesis_local_device_not_registered">Connected prosthesis, new server record</string>
+    <string name="prosthesis_connected_device">Connected prosthesis</string>
+    <string name="prosthesis_address">Address</string>
+    <string name="prosthesis_version">Version</string>
+    <string name="prosthesis_updated_at">Updated</string>
 </resources>

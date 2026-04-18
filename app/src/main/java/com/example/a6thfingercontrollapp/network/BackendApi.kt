@@ -72,6 +72,12 @@ interface BackendApi {
         @Path("id") deviceId: String
     ): DeviceSettingsOut
 
+    @GET("/device/{id}/settings")
+    suspend fun getDeviceSettingsResponse(
+        @Header("Authorization") auth: String,
+        @Path("id") deviceId: String
+    ): Response<DeviceSettingsOut>
+
     @POST("/device/{id}/settings")
     suspend fun postDeviceSettings(
         @Header("Authorization") auth: String,
@@ -146,7 +152,7 @@ interface BackendApi {
 
     companion object {
         private const val BASE_URL =
-            "http://192.168.31.217:8000" // PC LOCAL IP
+            "http://192.168.31.218:8000" // PC LOCAL IP
 
         fun create(): BackendApi {
             val logging =

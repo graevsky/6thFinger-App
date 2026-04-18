@@ -38,6 +38,12 @@ import retrofit2.HttpException
 import retrofit2.Response
 import java.io.File
 
+data class DeviceSettingsRecord(
+    val settings: EspSettings,
+    val version: Int,
+    val updatedAt: String
+)
+
 sealed class AuthState {
     object Unauthenticated : AuthState()
     object Guest : AuthState()
@@ -295,31 +301,52 @@ class AuthRepository(context: Context) {
         }
     }
 
-    suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings) {
+    suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings): DeviceSettingsRecord {
         val payload = espToPayload(settings)
 
         try {
-            withAuthorizedRequest { auth ->
+            val res = withAuthorizedRequest { auth ->
                 api.postDeviceSettings(
                     auth = auth,
                     deviceId = deviceId,
                     body = DeviceSettingsIn(payload = payload)
                 )
             }
+
+            return DeviceSettingsRecord(
+                settings = payloadToEsp(res.payload) ?: settings,
+                version = res.version,
+                updatedAt = res.updated_at
+            )
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
+    }
+
+    suspend fun getDeviceSettingsRecord(deviceId: String): DeviceSettingsRecord? {
+        return try {
+            val resp = withAuthorizedResponse { auth ->
+                api.getDeviceSettingsResponse(auth = auth, deviceId = deviceId)
+            }
+
+            if (resp.code() == 404) return null
+            if (!resp.isSuccessful) throw HttpException(resp)
+
+            val body = resp.body() ?: return null
+            val settings = payloadToEsp(body.payload) ?: return null
+
+            DeviceSettingsRecord(
+                settings = settings,
+                version = body.version,
+                updatedAt = body.updated_at
+            )
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
     }
 
     suspend fun pullDeviceSettings(deviceId: String): EspSettings? {
-        return try {
-            val res = withAuthorizedRequest { auth ->
-                api.getDeviceSettings(auth = auth, deviceId = deviceId)
-            }
-            payloadToEsp(res.payload)
-        } catch (e: Exception) {
-            throw Exception(parseBackendError(e))
-        }
+        return getDeviceSettingsRecord(deviceId)?.settings
     }
 
     suspend fun uploadAvatar(localPath: String) {
@@ -502,7 +529,8 @@ class AuthRepository(context: Context) {
         "flexPin" to f.flexPin,
         "flexPullupOhm" to f.flexPullupOhm,
         "flexStraightOhm" to f.flexStraightOhm,
-        "flexBendOhm" to f.flexBendOhm
+        "flexBendOhm" to f.flexBendOhm,
+        "flexTolerancePct" to f.flexTolerancePct
     )
 
     private fun servoToMap(s: ServoSettings): Map<String, Any?> = mapOf(

@@ -7,6 +7,7 @@ import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.data.AppSettingsStore
 import com.example.a6thfingercontrollapp.data.AuthRepository
 import com.example.a6thfingercontrollapp.data.AuthState
+import com.example.a6thfingercontrollapp.data.DeviceSettingsRecord
 import com.example.a6thfingercontrollapp.network.DeviceOut
 import com.example.a6thfingercontrollapp.network.PasswordResetStartOut
 import kotlinx.coroutines.Dispatchers
@@ -365,7 +366,10 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun fetchDevices(): List<DeviceOut> =
         runProtected { repo.listDevices() }
 
-    suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings) =
+    suspend fun fetchDeviceSettingsRecord(deviceId: String): DeviceSettingsRecord? =
+        runProtected { repo.getDeviceSettingsRecord(deviceId) }
+
+    suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings): DeviceSettingsRecord =
         runProtected { repo.pushDeviceSettings(deviceId, settings) }
 
     suspend fun pullDeviceSettings(deviceId: String): EspSettings? =

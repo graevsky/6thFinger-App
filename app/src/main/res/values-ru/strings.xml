@@ -348,4 +348,16 @@
     <string name="flex_tolerance_hint">1–50%. Больше — меньше дрожания, но медленнее реакция.</string>
     <string name="live_control">Live control</string>
     <string name="live_control_disable_to_close">Выключите live control, чтобы закрыть окно.</string>
+
+    <string name="prosthesis_preview">Просмотр настроек</string>
+    <string name="prosthesis_target_device">Целевой протез</string>
+    <string name="prosthesis_select_target">Выберите протез</string>
+    <string name="prosthesis_server_settings_saved_version">Сохранено на сервере • v%1$d</string>
+    <string name="prosthesis_server_settings_missing">На сервере нет сохранённых настроек</string>
+    <string name="prosthesis_server_status_unknown">Статус сервера недоступен</string>
+    <string name="prosthesis_local_device_not_registered">Подключённый протез, новая серверная запись</string>
+    <string name="prosthesis_connected_device">Подключённый протез</string>
+    <string name="prosthesis_address">Адрес</string>
+    <string name="prosthesis_version">Версия</string>
+    <string name="prosthesis_updated_at">Обновлено</string>
 </resources>

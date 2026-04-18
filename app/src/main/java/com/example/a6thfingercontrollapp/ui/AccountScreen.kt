@@ -69,6 +69,7 @@ import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.UiAuthState
 import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.data.AppSettingsStore
+import com.example.a6thfingercontrollapp.data.DeviceSettingsRecord
 import com.example.a6thfingercontrollapp.data.saveAvatarFromCroppedUri
 import com.example.a6thfingercontrollapp.network.DeviceOut
 import com.example.a6thfingercontrollapp.network.PasswordResetStartOut
@@ -88,6 +89,22 @@ private enum class EmailDialogMode { None, Add, Remove, Change }
 private enum class AddStep { EnterEmail, EnterCode }
 private enum class RemoveStep { ChooseMethod, EnterEmailCode, EnterRecoveryCode }
 private enum class ChangeStep { ChooseOldMethod, EnterOldEmailCode, EnterOldRecoveryCode, EnterNewEmail, EnterNewEmailCode }
+
+private data class CloudDeviceChoice(
+    val device: DeviceOut?,
+    val address: String,
+    val alias: String?,
+    val isConnectedDevice: Boolean
+) {
+    val key: String = device?.id ?: "local:${address.lowercase()}"
+    val title: String = alias?.takeIf { it.isNotBlank() } ?: address
+}
+
+private data class CloudSettingsState(
+    val checked: Boolean = false,
+    val record: DeviceSettingsRecord? = null,
+    val errorKey: String? = null
+)
 
 @Composable
 fun AccountScreen(
@@ -109,7 +126,6 @@ fun AccountScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    stringResource(R.string.err_failed_load_devices)
     val errFailedPullSettings = stringResource(R.string.err_failed_pull_settings)
     val errFailedPushSettings = stringResource(R.string.err_failed_push_settings)
 
@@ -319,10 +335,17 @@ fun AccountScreen(
     var devicesErrorKey by remember { mutableStateOf<String?>(null) }
 
     var showDeviceSettingsDialog by remember { mutableStateOf(false) }
-    var selectedDevice by remember { mutableStateOf<DeviceOut?>(null) }
+    var dialogSelectedKey by remember { mutableStateOf<String?>(null) }
     var dialogJson by remember { mutableStateOf("{}") }
     var dialogErrorKey by remember { mutableStateOf<String?>(null) }
+    var dialogBusy by remember { mutableStateOf(false) }
     var showConnectWarning by remember { mutableStateOf(false) }
+    var cloudSettingsByDeviceId by remember {
+        mutableStateOf<Map<String, CloudSettingsState>>(
+            emptyMap()
+        )
+    }
+    var cloudProbeLoading by remember { mutableStateOf(false) }
 
     val activeAddress by vm.activeAddress.collectAsState()
     val activeAlias by vm.activeAlias.collectAsState()
@@ -369,15 +392,72 @@ fun AccountScreen(
         }.getOrDefault(emptyList())
     }
 
+    fun mergeDeviceIntoList(device: DeviceOut) {
+        val updated =
+            (devices.filterNot {
+                it.id == device.id || it.address.equals(device.address, ignoreCase = true)
+            } + device).sortedBy { (it.alias ?: it.address).lowercase() }
+
+        devices = updated
+        cacheDevices(updated)
+    }
+
+    suspend fun resolveCloudChoice(choice: CloudDeviceChoice): DeviceOut {
+        val existing = choice.device
+        if (existing != null && existing.id.isNotBlank()) return existing
+
+        val ensured = authVm.ensureDevice(
+            address = choice.address,
+            alias = choice.alias
+        )
+        mergeDeviceIntoList(ensured)
+        dialogSelectedKey = ensured.id
+        return ensured
+    }
+
+    suspend fun refreshCloudSettingsState(
+        device: DeviceOut,
+        force: Boolean = false
+    ): CloudSettingsState {
+        val cached = cloudSettingsByDeviceId[device.id]
+        if (!force && cached != null && (cached.checked || !cached.errorKey.isNullOrBlank())) {
+            return cached
+        }
+
+        return try {
+            val record = authVm.fetchDeviceSettingsRecord(device.id)
+            val state = CloudSettingsState(
+                checked = true,
+                record = record,
+                errorKey = null
+            )
+            cloudSettingsByDeviceId = cloudSettingsByDeviceId.toMutableMap().apply {
+                put(device.id, state)
+            }
+            state
+        } catch (e: Exception) {
+            val state = CloudSettingsState(
+                checked = false,
+                record = null,
+                errorKey = e.message
+            )
+            cloudSettingsByDeviceId = cloudSettingsByDeviceId.toMutableMap().apply {
+                put(device.id, state)
+            }
+            state
+        }
+    }
+
     var devicesRefreshTick by remember { mutableStateOf(0) }
     fun refreshDevices() {
         devicesRefreshTick++
     }
 
-    LaunchedEffect(username, activeAddress, devicesRefreshTick) {
+    LaunchedEffect(username, connected, activeAddress, devicesRefreshTick) {
         if (username == null) {
             devices = emptyList()
             devicesErrorKey = null
+            cloudSettingsByDeviceId = emptyMap()
             settingsStore.setCachedDevicesJson(null)
             return@LaunchedEffect
         }
@@ -385,7 +465,7 @@ fun AccountScreen(
         devicesLoading = true
         devicesErrorKey = null
         try {
-            if (activeAddress.isNotEmpty()) {
+            if (connected && activeAddress.isNotEmpty()) {
                 runCatching {
                     authVm.ensureDevice(
                         address = activeAddress,
@@ -411,11 +491,111 @@ fun AccountScreen(
         }
     }
 
+    LaunchedEffect(devices.map { it.id }.joinToString("|"), username) {
+        if (username == null || devices.isEmpty()) {
+            cloudSettingsByDeviceId = emptyMap()
+            cloudProbeLoading = false
+            return@LaunchedEffect
+        }
+
+        cloudProbeLoading = true
+        val next = mutableMapOf<String, CloudSettingsState>()
+        devices.forEach { dev ->
+            next[dev.id] = try {
+                val record = authVm.fetchDeviceSettingsRecord(dev.id)
+                CloudSettingsState(
+                    checked = true,
+                    record = record,
+                    errorKey = null
+                )
+            } catch (e: Exception) {
+                CloudSettingsState(
+                    checked = false,
+                    record = null,
+                    errorKey = e.message
+                )
+            }
+        }
+        cloudSettingsByDeviceId = next
+        cloudProbeLoading = false
+    }
+
     LaunchedEffect(devicesErrorKey) {
         if (!isNetworkErrorKey(devicesErrorKey)) return@LaunchedEffect
         while (isNetworkErrorKey(devicesErrorKey) && username != null) {
             delay(30_000L)
             refreshDevices()
+        }
+    }
+
+    val selectableChoices = remember(devices, connected, activeAddress, activeAlias) {
+        val serverChoices =
+            devices.sortedWith(
+                compareBy<DeviceOut>(
+                    { !(connected && it.address.equals(activeAddress, ignoreCase = true)) },
+                    { (it.alias ?: it.address).lowercase() }
+                )
+            ).map { dev ->
+                CloudDeviceChoice(
+                    device = dev,
+                    address = dev.address,
+                    alias = dev.alias,
+                    isConnectedDevice = connected && dev.address.equals(
+                        activeAddress,
+                        ignoreCase = true
+                    )
+                )
+            }
+
+        val localOnlyChoice =
+            if (connected && activeAddress.isNotBlank() && serverChoices.none {
+                    it.address.equals(activeAddress, ignoreCase = true)
+                }
+            ) {
+                CloudDeviceChoice(
+                    device = null,
+                    address = activeAddress,
+                    alias = activeAlias.ifBlank { null },
+                    isConnectedDevice = true
+                )
+            } else null
+
+        buildList {
+            if (localOnlyChoice != null) add(localOnlyChoice)
+            addAll(serverChoices)
+        }
+    }
+
+    fun cloudStateForChoice(choice: CloudDeviceChoice?): CloudSettingsState? {
+        if (choice == null) return null
+        val dev = choice.device ?: return CloudSettingsState(
+            checked = true,
+            record = null,
+            errorKey = null
+        )
+        return cloudSettingsByDeviceId[dev.id]
+    }
+
+    fun openCloudDialog(initialKey: String) {
+        dialogSelectedKey = initialKey
+        dialogErrorKey = null
+        dialogBusy = false
+        val initialChoice = selectableChoices.firstOrNull { it.key == initialKey }
+        val initialRecord = cloudStateForChoice(initialChoice)?.record
+        dialogJson = initialRecord?.let { settingsToPrettyJson(it.settings) } ?: "{}"
+        showDeviceSettingsDialog = true
+    }
+
+    LaunchedEffect(showDeviceSettingsDialog, selectableChoices.map { it.key }.joinToString("|")) {
+        if (!showDeviceSettingsDialog) return@LaunchedEffect
+        if (selectableChoices.isEmpty()) {
+            showDeviceSettingsDialog = false
+            return@LaunchedEffect
+        }
+        if (dialogSelectedKey == null || selectableChoices.none { it.key == dialogSelectedKey }) {
+            dialogSelectedKey = selectableChoices.first().key
+            val firstRecord = cloudStateForChoice(selectableChoices.first())?.record
+            dialogJson = firstRecord?.let { settingsToPrettyJson(it.settings) } ?: "{}"
         }
     }
 
@@ -580,7 +760,7 @@ fun AccountScreen(
                             style = MaterialTheme.typography.bodySmall
                         )
                     } else {
-                        val errText = uiErrorText(devicesErrorKey)
+                        val errText = uiErrorTextOrRaw(devicesErrorKey)
                         if (!errText.isNullOrBlank()) {
                             Text(
                                 text = errText,
@@ -589,23 +769,62 @@ fun AccountScreen(
                             )
                         }
 
-                        if (devices.isEmpty()) {
+                        val localOnlyChoice = selectableChoices.firstOrNull { it.device == null }
+                        val hasAnyChoice = selectableChoices.isNotEmpty()
+
+                        if (!hasAnyChoice) {
                             Text(
                                 stringResource(R.string.prosthesis_no_devices),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         } else {
-                            devices.forEach { dev ->
+                            localOnlyChoice?.let { choice ->
                                 DeviceRow(
-                                    device = dev,
-                                    isConnected = connected,
+                                    title = choice.title,
+                                    address = choice.address,
+                                    isConnected = choice.isConnectedDevice,
                                     enabled = username != null,
+                                    cloudStateLabel = stringResource(R.string.prosthesis_local_device_not_registered),
                                     onOpen = {
                                         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
-                                        selectedDevice = dev
-                                        dialogErrorKey = null
-                                        dialogJson = settingsToPrettyJson(currentSettings)
-                                        showDeviceSettingsDialog = true
+                                        openCloudDialog(choice.key)
+                                    }
+                                )
+                            }
+
+                            devices.forEach { dev ->
+                                val choice =
+                                    selectableChoices.firstOrNull { it.device?.id == dev.id }
+                                val cloudState = cloudSettingsByDeviceId[dev.id]
+                                val cloudStatus = when {
+                                    cloudState?.record != null ->
+                                        stringResource(
+                                            R.string.prosthesis_server_settings_saved_version,
+                                            cloudState.record.version
+                                        )
+
+                                    cloudState?.checked == true ->
+                                        stringResource(R.string.prosthesis_server_settings_missing)
+
+                                    !cloudState?.errorKey.isNullOrBlank() ->
+                                        stringResource(R.string.prosthesis_server_status_unknown)
+
+                                    cloudProbeLoading -> stringResource(R.string.loading)
+                                    else -> stringResource(R.string.prosthesis_server_status_unknown)
+                                }
+
+                                DeviceRow(
+                                    title = choice?.title ?: (dev.alias ?: dev.address),
+                                    address = dev.address,
+                                    isConnected = connected && activeAddress.equals(
+                                        dev.address,
+                                        ignoreCase = true
+                                    ),
+                                    enabled = username != null,
+                                    cloudStateLabel = cloudStatus,
+                                    onOpen = {
+                                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                                        openCloudDialog(dev.id)
                                     }
                                 )
                             }
@@ -657,7 +876,7 @@ fun AccountScreen(
             }
 
         val guideUrl =
-            "https://docs.google.com/document/d/1MEejkdQEGTkvxDuX7fgXnzfzSTgcVONKTlj-WCBkAp0/edit?usp=sharing" // temp hardcode
+            "https://docs.google.com/document/d/1MEejkdQEGTkvxDuX7fgXnzfzSTgcVONKTlj-WCBkAp0/edit?usp=sharing"
 
         val links = listOf(
             SettingsLink(
@@ -1221,18 +1440,52 @@ fun AccountScreen(
         FullscreenImageDialog(bitmap = avatarBitmap!!, onDismiss = { showFullscreen = false })
     }
 
-    if (showDeviceSettingsDialog && selectedDevice != null) {
-        val dev = selectedDevice!!
-        val noSettingsMsg = stringResource(R.string.prosthesis_no_settings_on_server)
+    val dialogSelectedChoice = selectableChoices.firstOrNull { it.key == dialogSelectedKey }
+    val dialogSelectedState = cloudStateForChoice(dialogSelectedChoice)
+    val dialogErrorText = uiErrorTextOrRaw(dialogErrorKey ?: dialogSelectedState?.errorKey)
 
+    if (showDeviceSettingsDialog && dialogSelectedChoice != null) {
         DeviceSettingsDialog(
-            device = dev,
+            devices = selectableChoices,
+            selectedKey = dialogSelectedChoice.key,
+            selectedState = dialogSelectedState,
             json = dialogJson,
+            isBusy = dialogBusy,
             isPullEnabled = connected,
-            error = uiErrorText(dialogErrorKey) ?: dialogErrorKey,
+            error = dialogErrorText,
             onDismiss = {
                 haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
                 showDeviceSettingsDialog = false
+            },
+            onSelectedKeyChange = { key ->
+                dialogSelectedKey = key
+                dialogErrorKey = null
+                val choice = selectableChoices.firstOrNull { it.key == key }
+                val record = cloudStateForChoice(choice)?.record
+                dialogJson = record?.let { settingsToPrettyJson(it.settings) } ?: "{}"
+            },
+            onPreviewClick = {
+                val choice = dialogSelectedChoice
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                scope.launch {
+                    dialogBusy = true
+                    dialogErrorKey = null
+                    try {
+                        val device = resolveCloudChoice(choice)
+                        val state = refreshCloudSettingsState(device, force = true)
+                        val record = state.record
+                        if (record != null) {
+                            dialogJson = settingsToPrettyJson(record.settings)
+                        } else {
+                            dialogJson = "{}"
+                            dialogErrorKey = "prosthesis_no_settings_on_server"
+                        }
+                    } catch (e: Exception) {
+                        dialogErrorKey = e.message ?: errFailedPullSettings
+                    } finally {
+                        dialogBusy = false
+                    }
+                }
             },
             onPullClick = {
                 if (!connected) {
@@ -1243,32 +1496,51 @@ fun AccountScreen(
 
                 haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                 scope.launch {
+                    dialogBusy = true
                     dialogErrorKey = null
                     try {
-                        val fromServer = authVm.pullDeviceSettings(dev.id)
-                        if (fromServer != null) {
-                            dialogJson = settingsToPrettyJson(fromServer)
-                            vm.applySettingsFromCloud(fromServer)
+                        val device = resolveCloudChoice(dialogSelectedChoice)
+                        val state = refreshCloudSettingsState(device, force = true)
+                        val record = state.record
+                        if (record != null) {
+                            dialogJson = settingsToPrettyJson(record.settings)
+                            vm.applySettingsFromCloud(record.settings)
                             showDeviceSettingsDialog = false
-                            selectedDevice = null
                             onOpenControl()
                         } else {
-                            dialogErrorKey = noSettingsMsg
+                            dialogErrorKey = "prosthesis_no_settings_on_server"
                         }
                     } catch (e: Exception) {
                         dialogErrorKey = e.message ?: errFailedPullSettings
+                    } finally {
+                        dialogBusy = false
                     }
                 }
             },
             onPushClick = {
                 haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                 scope.launch {
+                    dialogBusy = true
                     dialogErrorKey = null
                     try {
-                        authVm.pushDeviceSettings(dev.id, currentSettings)
-                        dialogJson = settingsToPrettyJson(currentSettings)
+                        val device = resolveCloudChoice(dialogSelectedChoice)
+                        val record = authVm.pushDeviceSettings(device.id, currentSettings)
+                        cloudSettingsByDeviceId = cloudSettingsByDeviceId.toMutableMap().apply {
+                            put(
+                                device.id,
+                                CloudSettingsState(
+                                    checked = true,
+                                    record = record,
+                                    errorKey = null
+                                )
+                            )
+                        }
+                        dialogSelectedKey = device.id
+                        dialogJson = settingsToPrettyJson(record.settings)
                     } catch (e: Exception) {
                         dialogErrorKey = e.message ?: errFailedPushSettings
+                    } finally {
+                        dialogBusy = false
                     }
                 }
             }
@@ -1333,13 +1605,13 @@ private fun FullscreenImageDialog(
 
 @Composable
 private fun DeviceRow(
-    device: DeviceOut,
+    title: String,
+    address: String,
     isConnected: Boolean,
     enabled: Boolean,
+    cloudStateLabel: String?,
     onOpen: () -> Unit
 ) {
-    val title = device.alias ?: device.address
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1354,9 +1626,13 @@ private fun DeviceRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = title, style = MaterialTheme.typography.bodyLarge)
+                Text(text = address, style = MaterialTheme.typography.bodySmall)
 
-                if (device.alias == null) {
-                    Text(text = device.address, style = MaterialTheme.typography.bodySmall)
+                if (!cloudStateLabel.isNullOrBlank()) {
+                    Text(
+                        text = cloudStateLabel,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
 
                 if (isConnected) {
@@ -1376,29 +1652,28 @@ private fun DeviceRow(
 
 @Composable
 private fun DeviceSettingsDialog(
-    device: DeviceOut,
+    devices: List<CloudDeviceChoice>,
+    selectedKey: String,
+    selectedState: CloudSettingsState?,
     json: String,
+    isBusy: Boolean,
     isPullEnabled: Boolean,
     error: String?,
     onDismiss: () -> Unit,
+    onSelectedKeyChange: (String) -> Unit,
+    onPreviewClick: () -> Unit,
     onPullClick: () -> Unit,
     onPushClick: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val selectedChoice = devices.firstOrNull { it.key == selectedKey }
 
     AlertDialog(
         onDismissRequest = {
             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
             onDismiss()
         },
-        title = {
-            Text(
-                text = stringResource(
-                    R.string.prosthesis_settings_for_device,
-                    device.alias ?: device.address
-                )
-            )
-        },
+        title = { Text(text = stringResource(R.string.prosthesis_settings)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -1409,6 +1684,49 @@ private fun DeviceSettingsDialog(
                     style = MaterialTheme.typography.bodyMedium
                 )
 
+                CloudDeviceSelector(
+                    devices = devices,
+                    selectedKey = selectedKey,
+                    selectedState = selectedState,
+                    onSelectedKeyChange = onSelectedKeyChange
+                )
+
+                selectedChoice?.let { choice ->
+                    val alias = choice.alias?.takeIf { it.isNotBlank() }
+                    val statusText = cloudStatusText(choice, selectedState)
+
+                    if (!alias.isNullOrBlank()) {
+                        Text(
+                            text = "${stringResource(R.string.alias)}: $alias",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    Text(
+                        text = "${stringResource(R.string.prosthesis_address)}: ${choice.address}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    selectedState?.record?.let { record ->
+                        Text(
+                            text = "${stringResource(R.string.prosthesis_version)}: ${record.version}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        if (record.updatedAt.isNotBlank()) {
+                            Text(
+                                text = "${stringResource(R.string.prosthesis_updated_at)}: ${record.updatedAt}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = json,
                     onValueChange = {},
@@ -1418,6 +1736,13 @@ private fun DeviceSettingsDialog(
                         .fillMaxWidth()
                         .height(200.dp)
                 )
+
+                if (isBusy) {
+                    Text(
+                        text = stringResource(R.string.loading),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
 
                 if (!error.isNullOrBlank()) {
                     Text(
@@ -1433,7 +1758,7 @@ private fun DeviceSettingsDialog(
                 ) {
                     Button(
                         modifier = Modifier.weight(1f),
-                        enabled = isPullEnabled,
+                        enabled = !isBusy && isPullEnabled,
                         onClick = {
                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                             onPullClick()
@@ -1442,12 +1767,22 @@ private fun DeviceSettingsDialog(
 
                     Button(
                         modifier = Modifier.weight(1f),
+                        enabled = !isBusy,
                         onClick = {
                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                             onPushClick()
                         }
                     ) { Text(text = stringResource(R.string.prosthesis_push)) }
                 }
+
+                OutlinedButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isBusy,
+                    onClick = {
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                        onPreviewClick()
+                    }
+                ) { Text(stringResource(R.string.prosthesis_preview)) }
             }
         },
         confirmButton = {
@@ -1461,10 +1796,100 @@ private fun DeviceSettingsDialog(
     )
 }
 
+@Composable
+private fun CloudDeviceSelector(
+    devices: List<CloudDeviceChoice>,
+    selectedKey: String,
+    selectedState: CloudSettingsState?,
+    onSelectedKeyChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedChoice = devices.firstOrNull { it.key == selectedKey }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = stringResource(R.string.prosthesis_target_device),
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        Box {
+            OutlinedButton(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { expanded = true }
+            ) {
+                Text(selectedChoice?.title ?: stringResource(R.string.prosthesis_select_target))
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                devices.forEach { choice ->
+                    val state = if (choice.key == selectedKey) selectedState else null
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(choice.title)
+                                Text(
+                                    text = cloudStatusText(choice, state),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        },
+                        onClick = {
+                            expanded = false
+                            onSelectedKeyChange(choice.key)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun cloudStatusText(
+    choice: CloudDeviceChoice,
+    state: CloudSettingsState?
+): String {
+    val baseStatus = when {
+        choice.device == null -> stringResource(R.string.prosthesis_local_device_not_registered)
+        state?.record != null -> stringResource(
+            R.string.prosthesis_server_settings_saved_version,
+            state.record.version
+        )
+
+        state?.checked == true -> stringResource(R.string.prosthesis_server_settings_missing)
+        !state?.errorKey.isNullOrBlank() -> stringResource(R.string.prosthesis_server_status_unknown)
+        else -> stringResource(R.string.loading)
+    }
+
+    return if (choice.isConnectedDevice) {
+        "${stringResource(R.string.prosthesis_connected_device)} • $baseStatus"
+    } else {
+        baseStatus
+    }
+}
+
+@Composable
+private fun uiErrorTextOrRaw(raw: String?): String? {
+    val normalized = raw?.trim()?.lowercase()?.replace("\n", "") ?: return null
+    if (normalized.isBlank()) return null
+
+    val unknown = stringResource(R.string.err_unknown)
+    val mapped = when (normalized) {
+        "prosthesis_no_settings_on_server" -> stringResource(R.string.prosthesis_no_settings_on_server)
+        else -> uiErrorText(raw)
+    }
+
+    return if (mapped == unknown && !normalized.startsWith("http_")) raw else mapped
+}
+
 private fun settingsToPrettyJson(s: EspSettings): String {
     return try {
-        val raw = s.toJsonString()
-        val obj = JSONObject(raw)
+        val obj = JSONObject(s.toJsonString())
+        obj.put("pinSet", s.pinSet)
+        obj.put("authRequired", s.authRequired)
         obj.toString(2)
     } catch (_: Exception) {
         s.toJsonString()
