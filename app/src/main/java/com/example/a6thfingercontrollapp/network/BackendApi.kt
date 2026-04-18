@@ -32,6 +32,15 @@ interface BackendApi {
     @POST("/auth/login/finish")
     suspend fun loginFinish(@Body body: LoginFinishIn): LoginFinishOut
 
+    @POST("/auth/refresh")
+    suspend fun refreshToken(@Body body: RefreshTokenIn): RefreshTokenOut
+
+    @POST("/auth/logout")
+    suspend fun logout(@Header("Authorization") auth: String): GenericOk
+
+    @GET("/auth/me")
+    suspend fun getMe(@Header("Authorization") auth: String): MeOut
+
     @GET("/settings/")
     suspend fun getAppSettings(@Header("Authorization") auth: String): AppSettingsOut
 
@@ -109,7 +118,6 @@ interface BackendApi {
         @Header("Authorization") auth: String,
         @Body body: EmailRemoveConfirmIn
     ): GenericOk
-
 
     @POST("/auth/password-reset/start")
     suspend fun passwordResetStart(

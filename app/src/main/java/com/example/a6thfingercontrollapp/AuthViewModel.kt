@@ -9,12 +9,16 @@ import com.example.a6thfingercontrollapp.data.AuthRepository
 import com.example.a6thfingercontrollapp.data.AuthState
 import com.example.a6thfingercontrollapp.network.DeviceOut
 import com.example.a6thfingercontrollapp.network.PasswordResetStartOut
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.example.a6thfingercontrollapp.data.avatarFile as dataAvatarFile
+import com.example.a6thfingercontrollapp.data.deleteAvatarIfExists as dataDeleteAvatarIfExists
 
 sealed class UiAuthState {
     object Loading : UiAuthState()
@@ -95,6 +99,38 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         _pendingRecoveryCodes.value = null
     }
 
+    private suspend fun clearLocalAvatar() {
+        val avatarPath = appSettings.getAvatarPath().first()
+
+        withContext(Dispatchers.IO) {
+            dataDeleteAvatarIfExists(avatarPath)
+            runCatching { dataAvatarFile(getApplication()).delete() }
+        }
+
+        appSettings.setAvatarPath(null)
+    }
+
+    private suspend fun forceUnauthenticatedCleanup() {
+        pendingAppSettingsUpload.value = null
+        pendingAvatarUploadPath.value = null
+        _error.value = null
+        clearPostRegisterState()
+        clearLocalAvatar()
+        appSettings.clearAccountCache()
+        _auth.value = UiAuthState.Unauthenticated
+    }
+
+    private suspend fun <T> runProtected(action: suspend () -> T): T {
+        try {
+            return action()
+        } catch (e: Exception) {
+            if (e.message == "session_expired") {
+                forceUnauthenticatedCleanup()
+            }
+            throw e
+        }
+    }
+
     fun register(username: String, password: String, onSuccess: (() -> Unit)? = null) {
         viewModelScope.launch {
             try {
@@ -136,12 +172,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     fun logout() {
         viewModelScope.launch {
             repo.logout()
-            _auth.value = UiAuthState.Unauthenticated
-            _error.value = null
-            pendingAppSettingsUpload.value = null
-            pendingAvatarUploadPath.value = null
-            appSettings.clearAccountCache()
-            clearPostRegisterState()
+            forceUnauthenticatedCleanup()
         }
     }
 
@@ -173,11 +204,11 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
 
-        repo.emailStartAdd(email)
+        runProtected { repo.emailStartAdd(email) }
     }
 
     suspend fun postRegisterEmailConfirm(email: String, code: String) {
-        repo.emailConfirmAdd(email, code)
+        runProtected { repo.emailConfirmAdd(email, code) }
         clearPostRegisterState()
     }
 
@@ -199,7 +230,11 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         val state = _auth.value
         if (state !is UiAuthState.LoggedIn) return
 
-        viewModelScope.launch { runCatching { repo.deleteAvatarRemote() } }
+        viewModelScope.launch {
+            runCatching {
+                runProtected { repo.deleteAvatarRemote() }
+            }
+        }
     }
 
     private fun uploadAvatarWorker() {
@@ -215,7 +250,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                 }
 
                 try {
-                    repo.uploadAvatar(path)
+                    runProtected { repo.uploadAvatar(path) }
                     pendingAvatarUploadPath.value = null
                 } catch (_: Exception) {
                     delay(retryDelayMs)
@@ -227,8 +262,13 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     private fun tryPullAvatarToLocal() {
         viewModelScope.launch {
             runCatching {
-                val path = repo.downloadAvatarToLocal()
-                if (!path.isNullOrBlank()) appSettings.setAvatarPath(path)
+                runProtected { repo.downloadAvatarToLocal() }
+            }.onSuccess { path ->
+                if (!path.isNullOrBlank()) {
+                    appSettings.setAvatarPath(path)
+                } else {
+                    clearLocalAvatar()
+                }
             }
         }
     }
@@ -248,11 +288,14 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun passwordResetFinish(resetSessionId: String, username: String, newPassword: String) =
         repo.passwordResetFinish(resetSessionId, username, newPassword)
 
-    suspend fun emailStartAdd(email: String) = repo.emailStartAdd(email)
-    suspend fun emailConfirmAdd(email: String, code: String) = repo.emailConfirmAdd(email, code)
-    suspend fun emailStartRemove() = repo.emailStartRemove()
+    suspend fun emailStartAdd(email: String) = runProtected { repo.emailStartAdd(email) }
+    suspend fun emailConfirmAdd(email: String, code: String) =
+        runProtected { repo.emailConfirmAdd(email, code) }
+
+    suspend fun emailStartRemove() = runProtected { repo.emailStartRemove() }
+
     suspend fun emailConfirmRemove(code: String?, recoveryCode: String?) =
-        repo.emailConfirmRemove(code, recoveryCode)
+        runProtected { repo.emailConfirmRemove(code, recoveryCode) }
 
     private suspend fun syncAppSettingsOnLogin(username: String) {
         val localLang = appSettings.getLanguage().first()
@@ -260,7 +303,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         if (lastRegisteredUser == username) {
             lastRegisteredUser = null
             try {
-                repo.pushAppSettings(mapOf("language" to localLang))
+                runProtected { repo.pushAppSettings(mapOf("language" to localLang)) }
             } catch (_: Exception) {
                 pendingAppSettingsUpload.value = mapOf("language" to localLang)
             }
@@ -268,13 +311,13 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         try {
-            val payload = repo.pullAppSettings()
+            val payload = runProtected { repo.pullAppSettings() }
             if (payload != null && payload["language"] != null) {
                 val remoteLang = payload["language"].toString()
                 appSettings.setLanguage(remoteLang)
             } else {
                 try {
-                    repo.pushAppSettings(mapOf("language" to localLang))
+                    runProtected { repo.pushAppSettings(mapOf("language" to localLang)) }
                 } catch (_: Exception) {
                     pendingAppSettingsUpload.value = mapOf("language" to localLang)
                 }
@@ -289,7 +332,8 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         while (auth.value is UiAuthState.LoggedIn) {
             delay(intervalMs)
             runCatching {
-                val payload = repo.pullAppSettings()
+                runProtected { repo.pullAppSettings() }
+            }.onSuccess { payload ->
                 if (payload != null && payload["language"] != null) {
                     val lang = payload["language"].toString()
                     appSettings.setLanguage(lang)
@@ -310,7 +354,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             try {
-                repo.pushAppSettings(payload)
+                runProtected { repo.pushAppSettings(payload) }
                 pendingAppSettingsUpload.value = null
             } catch (_: Exception) {
                 delay(retryDelayMs)
@@ -318,20 +362,22 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun fetchDevices(): List<DeviceOut> = repo.listDevices()
+    suspend fun fetchDevices(): List<DeviceOut> =
+        runProtected { repo.listDevices() }
+
     suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings) =
-        repo.pushDeviceSettings(deviceId, settings)
+        runProtected { repo.pushDeviceSettings(deviceId, settings) }
 
     suspend fun pullDeviceSettings(deviceId: String): EspSettings? =
-        repo.pullDeviceSettings(deviceId)
+        runProtected { repo.pullDeviceSettings(deviceId) }
 
     suspend fun ensureDevice(address: String, alias: String?): DeviceOut =
-        repo.ensureDevice(address, alias)
+        runProtected { repo.ensureDevice(address, alias) }
 
     fun updateLanguageRemote(newLang: String) {
         viewModelScope.launch {
             try {
-                repo.pushAppSettings(mapOf("language" to newLang))
+                runProtected { repo.pushAppSettings(mapOf("language" to newLang)) }
                 pendingAppSettingsUpload.value = null
             } catch (_: Exception) {
                 pendingAppSettingsUpload.value = mapOf("language" to newLang)

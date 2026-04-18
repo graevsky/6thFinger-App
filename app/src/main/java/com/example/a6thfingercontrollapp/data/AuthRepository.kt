@@ -15,21 +15,27 @@ import com.example.a6thfingercontrollapp.network.EmailRemoveConfirmIn
 import com.example.a6thfingercontrollapp.network.EmailStartAddIn
 import com.example.a6thfingercontrollapp.network.LoginFinishIn
 import com.example.a6thfingercontrollapp.network.LoginStartIn
+import com.example.a6thfingercontrollapp.network.MeOut
 import com.example.a6thfingercontrollapp.network.PasswordResetEmailSendIn
 import com.example.a6thfingercontrollapp.network.PasswordResetEmailVerifyIn
 import com.example.a6thfingercontrollapp.network.PasswordResetFinishIn
 import com.example.a6thfingercontrollapp.network.PasswordResetRecoveryVerifyIn
 import com.example.a6thfingercontrollapp.network.PasswordResetStartIn
 import com.example.a6thfingercontrollapp.network.PasswordResetStartOut
+import com.example.a6thfingercontrollapp.network.RefreshTokenIn
 import com.example.a6thfingercontrollapp.network.RegisterIn
 import com.example.a6thfingercontrollapp.security.srp.SrpLogin
 import com.example.a6thfingercontrollapp.security.srp.SrpRegister
 import com.example.a6thfingercontrollapp.utils.parseBackendError
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
+import retrofit2.HttpException
+import retrofit2.Response
 import java.io.File
 
 sealed class AuthState {
@@ -39,11 +45,15 @@ sealed class AuthState {
         AuthState()
 }
 
+private class SessionExpiredException : Exception("session_expired")
+
 class AuthRepository(context: Context) {
 
     private val api = BackendApi.create()
     private val store = AuthStore(context.applicationContext)
     private val appContext = context.applicationContext
+
+    private val tokenRefreshMutex = Mutex()
 
     val stored = store.authState
 
@@ -51,11 +61,117 @@ class AuthRepository(context: Context) {
         val s = stored.first()
         return when {
             s.isGuest -> AuthState.Guest
-            s.accessToken != null && s.username != null && s.refreshToken != null ->
-                AuthState.LoggedIn(s.username, s.accessToken, s.refreshToken)
+            s.accessToken != null && s.username != null && s.refreshToken != null -> {
+                try {
+                    validateStoredSession()
+                } catch (_: Exception) {
+                    store.logout()
+                    AuthState.Unauthenticated
+                }
+            }
 
             else -> AuthState.Unauthenticated
         }
+    }
+
+    private suspend fun validateStoredSession(): AuthState {
+        val storedState = stored.first()
+        val refreshToken = storedState.refreshToken ?: throw SessionExpiredException()
+
+        val me = getMeWithRefreshFallback()
+        val currentState = stored.first()
+        val accessToken = currentState.accessToken ?: throw SessionExpiredException()
+        val username = me.username.trim().lowercase()
+
+        store.saveTokens(username, accessToken, refreshToken)
+        return AuthState.LoggedIn(username, accessToken, refreshToken)
+    }
+
+    private suspend fun getMeWithRefreshFallback(): MeOut {
+        val s = stored.first()
+        val accessToken = s.accessToken ?: throw SessionExpiredException()
+
+        return try {
+            api.getMe("Bearer $accessToken")
+        } catch (e: Exception) {
+            if (e is HttpException && e.code() == 401) {
+                val refreshedAccess = refreshAccessToken(failedAccessToken = accessToken)
+                api.getMe("Bearer $refreshedAccess")
+            } else {
+                throw e
+            }
+        }
+    }
+
+    private suspend fun refreshAccessToken(failedAccessToken: String? = null): String =
+        tokenRefreshMutex.withLock {
+            val currentState = stored.first()
+            val username = currentState.username ?: throw SessionExpiredException()
+            val refreshToken = currentState.refreshToken ?: throw SessionExpiredException()
+
+            if (
+                failedAccessToken != null &&
+                !currentState.accessToken.isNullOrBlank() &&
+                currentState.accessToken != failedAccessToken
+            ) {
+                return currentState.accessToken
+            }
+
+            return try {
+                val out = api.refreshToken(RefreshTokenIn(refreshToken))
+                store.saveTokens(username, out.access_token, refreshToken)
+                out.access_token
+            } catch (_: Exception) {
+                store.logout()
+                throw SessionExpiredException()
+            }
+        }
+
+    private suspend fun <T> withAuthorizedRequest(
+        block: suspend (authHeader: String) -> T
+    ): T {
+        val currentState = stored.first()
+        val accessToken = currentState.accessToken ?: throw SessionExpiredException()
+
+        return try {
+            block("Bearer $accessToken")
+        } catch (e: Exception) {
+            if (e is HttpException && e.code() == 401) {
+                val refreshedAccess = refreshAccessToken(failedAccessToken = accessToken)
+                try {
+                    block("Bearer $refreshedAccess")
+                } catch (retry: Exception) {
+                    if (retry is HttpException && retry.code() == 401) {
+                        store.logout()
+                        throw SessionExpiredException()
+                    }
+                    throw retry
+                }
+            } else {
+                throw e
+            }
+        }
+    }
+
+    private suspend fun <T> withAuthorizedResponse(
+        block: suspend (authHeader: String) -> Response<T>
+    ): Response<T> {
+        val currentState = stored.first()
+        val accessToken = currentState.accessToken ?: throw SessionExpiredException()
+
+        val firstResponse = block("Bearer $accessToken")
+        if (firstResponse.code() != 401) {
+            return firstResponse
+        }
+
+        val refreshedAccess = refreshAccessToken(failedAccessToken = accessToken)
+        val secondResponse = block("Bearer $refreshedAccess")
+        if (secondResponse.code() == 401) {
+            store.logout()
+            throw SessionExpiredException()
+        }
+
+        return secondResponse
     }
 
     suspend fun continueAsGuest(): AuthState {
@@ -130,56 +246,76 @@ class AuthRepository(context: Context) {
     }
 
     suspend fun logout(): AuthState {
+        val currentState = stored.first()
+
+        if (
+            currentState.username != null &&
+            currentState.accessToken != null &&
+            currentState.refreshToken != null
+        ) {
+            runCatching {
+                withAuthorizedRequest { auth ->
+                    api.logout(auth)
+                }
+            }
+        }
+
         store.logout()
         return AuthState.Unauthenticated
     }
 
     suspend fun pullAppSettings(): Map<String, Any?>? {
-        val s = stored.first()
-        val token = s.accessToken ?: return null
-        val res = api.getAppSettings("Bearer $token")
-        return res.payload
+        return try {
+            val res = withAuthorizedRequest { auth ->
+                api.getAppSettings(auth)
+            }
+            res.payload
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
     }
 
     suspend fun pushAppSettings(payload: Map<String, Any?>) {
-        val s = stored.first()
-        val token = s.accessToken ?: return
-        api.putAppSettings("Bearer $token", AppSettingsIn(payload))
+        try {
+            withAuthorizedRequest { auth ->
+                api.putAppSettings(auth, AppSettingsIn(payload))
+            }
+        } catch (e: Exception) {
+            throw Exception(parseBackendError(e))
+        }
     }
 
     suspend fun listDevices(): List<DeviceOut> {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
         return try {
-            api.listDevices("Bearer $token")
+            withAuthorizedRequest { auth ->
+                api.listDevices(auth)
+            }
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
     }
 
     suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings) {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
-
         val payload = espToPayload(settings)
 
         try {
-            api.postDeviceSettings(
-                auth = "Bearer $token",
-                deviceId = deviceId,
-                body = DeviceSettingsIn(payload = payload)
-            )
+            withAuthorizedRequest { auth ->
+                api.postDeviceSettings(
+                    auth = auth,
+                    deviceId = deviceId,
+                    body = DeviceSettingsIn(payload = payload)
+                )
+            }
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
     }
 
     suspend fun pullDeviceSettings(deviceId: String): EspSettings? {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
-
         return try {
-            val res = api.getDeviceSettings(auth = "Bearer $token", deviceId = deviceId)
+            val res = withAuthorizedRequest { auth ->
+                api.getDeviceSettings(auth = auth, deviceId = deviceId)
+            }
             payloadToEsp(res.payload)
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
@@ -187,9 +323,6 @@ class AuthRepository(context: Context) {
     }
 
     suspend fun uploadAvatar(localPath: String) {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
-
         val f = File(localPath)
         if (!f.exists()) throw Exception("Avatar file not found")
 
@@ -198,18 +331,19 @@ class AuthRepository(context: Context) {
         val part = MultipartBody.Part.createFormData("file", f.name, body)
 
         try {
-            api.uploadAvatar("Bearer $token", part)
+            withAuthorizedRequest { auth ->
+                api.uploadAvatar(auth, part)
+            }
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
     }
 
     suspend fun downloadAvatarToLocal(): String? {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
-
         val resp = try {
-            api.downloadAvatar("Bearer $token")
+            withAuthorizedResponse { auth ->
+                api.downloadAvatar(auth)
+            }
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
@@ -229,56 +363,60 @@ class AuthRepository(context: Context) {
     }
 
     suspend fun deleteAvatarRemote() {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
         try {
-            api.deleteAvatar("Bearer $token")
+            val resp = withAuthorizedResponse { auth ->
+                api.deleteAvatar(auth)
+            }
+
+            if (!resp.isSuccessful && resp.code() != 404) {
+                throw Exception("Avatar delete failed (${resp.code()})")
+            }
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
     }
 
     suspend fun emailStartAdd(email: String) {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
         try {
-            api.emailStartAdd("Bearer $token", EmailStartAddIn(email.trim()))
+            withAuthorizedRequest { auth ->
+                api.emailStartAdd(auth, EmailStartAddIn(email.trim()))
+            }
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
     }
 
     suspend fun emailConfirmAdd(email: String, code: String) {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
         try {
-            api.emailConfirmAdd("Bearer $token", EmailConfirmIn(email.trim(), code.trim()))
+            withAuthorizedRequest { auth ->
+                api.emailConfirmAdd(auth, EmailConfirmIn(email.trim(), code.trim()))
+            }
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
     }
 
     suspend fun emailStartRemove() {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
         try {
-            api.emailStartRemove("Bearer $token")
+            withAuthorizedRequest { auth ->
+                api.emailStartRemove(auth)
+            }
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
     }
 
     suspend fun emailConfirmRemove(code: String?, recoveryCode: String?) {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
         try {
-            api.emailConfirmRemove(
-                "Bearer $token",
-                EmailRemoveConfirmIn(
-                    code = code?.trim()?.takeIf { it.isNotBlank() },
-                    recovery_code = recoveryCode?.trim()?.takeIf { it.isNotBlank() }
+            withAuthorizedRequest { auth ->
+                api.emailConfirmRemove(
+                    auth,
+                    EmailRemoveConfirmIn(
+                        code = code?.trim()?.takeIf { it.isNotBlank() },
+                        recovery_code = recoveryCode?.trim()?.takeIf { it.isNotBlank() }
+                    )
                 )
-            )
+            }
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }
@@ -413,34 +551,31 @@ class AuthRepository(context: Context) {
     }
 
     suspend fun ensureDevice(address: String, alias: String?): DeviceOut {
-        val s = stored.first()
-        val token = s.accessToken ?: throw Exception("Not authenticated")
-        val auth = "Bearer $token"
+        return try {
+            withAuthorizedRequest { auth ->
+                val existing =
+                    api.listDevices(auth).firstOrNull {
+                        it.address.equals(address, ignoreCase = true)
+                    }
 
-        try {
-            val existing =
-                api.listDevices(auth).firstOrNull {
-                    it.address.equals(address, ignoreCase = true)
-                }
-
-            if (existing != null) {
-                val desiredAlias = alias?.takeIf { it.isNotBlank() }
-                return if (desiredAlias != null && existing.alias != desiredAlias) {
-                    api.updateDevice(
-                        auth = auth,
-                        deviceId = existing.id,
-                        body = DeviceUpdate(alias = desiredAlias)
-                    )
+                if (existing != null) {
+                    val desiredAlias = alias?.takeIf { it.isNotBlank() }
+                    if (desiredAlias != null && existing.alias != desiredAlias) {
+                        api.updateDevice(
+                            auth = auth,
+                            deviceId = existing.id,
+                            body = DeviceUpdate(alias = desiredAlias)
+                        )
+                    } else {
+                        existing
+                    }
                 } else {
-                    existing
+                    api.createDevice(
+                        auth = auth,
+                        body = DeviceCreate(address = address, alias = alias)
+                    )
                 }
             }
-        } catch (e: Exception) {
-            throw Exception(parseBackendError(e))
-        }
-
-        return try {
-            api.createDevice(auth = auth, body = DeviceCreate(address = address, alias = alias))
         } catch (e: Exception) {
             throw Exception(parseBackendError(e))
         }

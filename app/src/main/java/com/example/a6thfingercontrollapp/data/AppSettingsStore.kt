@@ -60,6 +60,7 @@ class AppSettingsStore(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs.remove(Keys.CACHED_EMAIL)
             prefs.remove(Keys.CACHED_DEVICES_JSON)
+            prefs.remove(Keys.AVATAR_PATH)
         }
     }
 }

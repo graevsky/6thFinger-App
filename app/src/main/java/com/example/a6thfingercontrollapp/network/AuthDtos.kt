@@ -23,6 +23,15 @@ data class LoginFinishIn(
 
 data class LoginFinishOut(val M2: String, val access_token: String, val refresh_token: String)
 
+data class RefreshTokenIn(val refresh_token: String)
+
+data class RefreshTokenOut(val access_token: String)
+
+data class MeOut(
+    val id: String,
+    val username: String
+)
+
 data class AppSettingsOut(
     val id: String,
     val user_id: String,
@@ -58,7 +67,6 @@ data class AvatarOut(
     val key: String,
     val content_type: String
 )
-
 
 data class EmailStartAddIn(val email: String)
 data class EmailConfirmIn(val email: String, val code: String)
