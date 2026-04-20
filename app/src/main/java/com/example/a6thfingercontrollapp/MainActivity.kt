@@ -190,7 +190,7 @@ class MainActivity : ComponentActivity() {
                                 errorKey = postErrKey,
                                 code = postCode,
                                 onCodeChange = { postCode = it },
-                                onBackChangeEmail = { authFlowScreen = AuthFlowScreen.Login },
+                                onBackChangeEmail = { authFlowScreen = AuthFlowScreen.PostRegisterEmail },
                                 onResend = {
                                     postErrKey = null
                                     postLoading = true

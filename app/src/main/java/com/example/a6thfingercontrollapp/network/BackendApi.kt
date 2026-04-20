@@ -1,7 +1,9 @@
 package com.example.a6thfingercontrollapp.network
 
+import com.example.a6thfingercontrollapp.BuildConfig
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import okhttp3.Interceptor
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
@@ -151,25 +153,52 @@ interface BackendApi {
     ): GenericOk
 
     companion object {
-        private const val BASE_URL =
-            "http://192.168.31.218:8000" // PC LOCAL IP
+        private fun clientTokenInterceptor(): Interceptor {
+            return Interceptor { chain ->
+                val original = chain.request()
+
+                if (!BuildConfig.APP_CLIENT_TOKEN_ENABLED) {
+                    return@Interceptor chain.proceed(original)
+                }
+
+                val headerName = BuildConfig.APP_CLIENT_HEADER_NAME.trim()
+                val token = BuildConfig.APP_CLIENT_TOKEN.trim()
+
+                if (headerName.isBlank() || token.isBlank()) {
+                    return@Interceptor chain.proceed(original)
+                }
+
+                val requestWithClientToken = original.newBuilder()
+                    .header(headerName, token)
+                    .build()
+
+                chain.proceed(requestWithClientToken)
+            }
+        }
 
         fun create(): BackendApi {
-            val logging =
-                HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
+            val logging = HttpLoggingInterceptor().apply {
+                level = if (BuildConfig.DEBUG) {
+                    HttpLoggingInterceptor.Level.BODY
+                } else {
+                    HttpLoggingInterceptor.Level.NONE
+                }
+            }
 
             val client = OkHttpClient.Builder()
+                .addInterceptor(clientTokenInterceptor())
                 .addInterceptor(logging)
                 .build()
 
-            val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+            val moshi = Moshi.Builder()
+                .add(KotlinJsonAdapterFactory())
+                .build()
 
-            val retrofit =
-                Retrofit.Builder()
-                    .baseUrl(BASE_URL)
-                    .client(client)
-                    .addConverterFactory(MoshiConverterFactory.create(moshi))
-                    .build()
+            val retrofit = Retrofit.Builder()
+                .baseUrl(BuildConfig.BACKEND_BASE_URL)
+                .client(client)
+                .addConverterFactory(MoshiConverterFactory.create(moshi))
+                .build()
 
             return retrofit.create(BackendApi::class.java)
         }
