@@ -47,8 +47,13 @@ import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.AuthViewModel
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
+import com.example.a6thfingercontrollapp.ble.EMG_MODE_BEND_OTHER
+import com.example.a6thfingercontrollapp.ble.EmgSettings
 import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.ble.FlexSettings
+import com.example.a6thfingercontrollapp.ble.INPUT_SOURCE_EMG
+import com.example.a6thfingercontrollapp.ble.INPUT_SOURCE_FLEX
+import com.example.a6thfingercontrollapp.ble.PairInputSettings
 import com.example.a6thfingercontrollapp.ble.ServoSettings
 import com.example.a6thfingercontrollapp.ble.Telemetry
 import com.example.a6thfingercontrollapp.restartApp
@@ -80,11 +85,11 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     var flexOpen by remember { mutableStateOf(false) }
     var vibroOpen by remember { mutableStateOf(false) }
     var servoOpen by remember { mutableStateOf(false) }
-    var flexIndex by remember { mutableStateOf(1) }
-    var servoIndex by remember { mutableStateOf(1) }
+    var emgOpen by remember { mutableStateOf(false) }
 
-    var flexOpenPO by remember { mutableStateOf(false) }
-    var servoOpenPO by remember { mutableStateOf(false) }
+    var flexIndex by remember { mutableStateOf(0) }
+    var servoIndex by remember { mutableStateOf(0) }
+    var emgIndex by remember { mutableStateOf(0) }
 
     var pairsCount by remember { mutableStateOf(1) }
 
@@ -96,6 +101,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     val pairNoStr = stringResource(R.string.pair_no)
     val flexNotSetStr = stringResource(R.string.flex_not_set)
     val servoNotSetStr = stringResource(R.string.servo_not_set)
+    val emgNotSetStr = stringResource(R.string.emg_not_set)
 
     val connected =
         when {
@@ -169,13 +175,12 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     val telePretty: (Float) -> String = { v ->
         if (showTelePlaceholder) telePlaceholder else pretty(v)
     }
+    val teleInt: (Int) -> String = { v ->
+        if (showTelePlaceholder || v < 0) telePlaceholder else v.toString()
+    }
 
     LaunchedEffect(s) {
-        val activePairs = (0 until 4).count { i ->
-            s.flexSettings.getOrNull(i)?.flexPin != 0xFF ||
-                    s.servoSettings.getOrNull(i)?.servoPin != 0xFF
-        }
-        pairsCount = activePairs.coerceIn(1, 4)
+        pairsCount = calculateVisiblePairsCount(s)
     }
 
     val doSave: () -> Unit = {
@@ -192,6 +197,8 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             if (!ok) waitTeleAfterSave = false
         }
     }
+
+    val visiblePairs = remember(s, pairsCount) { visiblePairIndices(s, pairsCount) }
 
     Scaffold(
         bottomBar = {
@@ -229,7 +236,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
                         if (issues.isNotEmpty()) {
                             saveWarnText = issues.joinToString("\n\n") {
-                                it.toUiText(pairNoStr, flexNotSetStr, servoNotSetStr)
+                                it.toUiText(pairNoStr, flexNotSetStr, servoNotSetStr, emgNotSetStr)
                             }
                             saveWarnOpen = true
                         } else {
@@ -349,134 +356,66 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 Divider(Modifier.padding(vertical = 8.dp))
             }
 
-            item {
-                Text(
-                    stringResource(R.string.pair_1),
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-
-            item {
-                SettingItem(
-                    title = stringResource(R.string.servo_settings),
-                    subtitle = stringResource(R.string.control_servo_manual)
-                ) { servoOpenPO = true }
-
-                SettingItem(
-                    title = stringResource(R.string.flex_settings),
-                    subtitle = stringResource(R.string.control_resistance_cal)
-                ) { flexOpenPO = true }
-            }
-
-            item {
-                Text(
-                    stringResource(R.string.flex_n_servo_curr_vals),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                if (teleReasonText != null) {
-                    Text(teleReasonText, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-
-            item {
-                DiagnosticRow(
-                    stringResource(R.string.control_diag_flex_ohm),
-                    telePretty(t.flexOhm[0])
-                )
-                DiagnosticRow(
-                    stringResource(R.string.control_diag_servo_deg),
-                    telePretty(t.servoDeg[0])
-                )
-            }
-
-            (1..3).forEach { pairIdx ->
-                val flex = s.flexSettings.getOrNull(pairIdx)
-                val servo = s.servoSettings.getOrNull(pairIdx)
-
-                val hasFlex = flex != null && flex.flexPin != 0xFF
-                val hasServo = servo != null && servo.servoPin != 0xFF
-
-                val shouldShow = pairIdx < pairsCount || hasFlex || hasServo
-                if (!shouldShow) return@forEach
-
+            visiblePairs.forEach { pairIdx ->
                 item {
-                    Divider(Modifier.padding(vertical = 8.dp))
-                    Text(
-                        text = "${stringResource(R.string.pair_no)} ${pairIdx + 1}",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-
-                    SettingItem(
-                        title = stringResource(R.string.servo_settings),
-                        subtitle = stringResource(R.string.control_servo_manual)
-                    ) {
-                        servoIndex = pairIdx
-                        servoOpen = true
-                    }
-
-                    SettingItem(
-                        title = stringResource(R.string.flex_settings),
-                        subtitle = stringResource(R.string.control_resistance_cal)
-                    ) {
-                        flexIndex = pairIdx
-                        flexOpen = true
-                    }
-
-                    DiagnosticRow(
-                        stringResource(R.string.control_diag_flex_ohm),
-                        telePretty(t.flexOhm[pairIdx])
-                    )
-                    DiagnosticRow(
-                        stringResource(R.string.control_diag_servo_deg),
-                        telePretty(t.servoDeg[pairIdx])
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Button(
-                            onClick = {
+                    PairControlSection(
+                        pairIdx = pairIdx,
+                        settings = s,
+                        telemetry = t,
+                        teleReasonText = teleReasonText,
+                        telePretty = telePretty,
+                        teleInt = teleInt,
+                        showTelePlaceholder = showTelePlaceholder,
+                        onServoClick = {
+                            servoIndex = pairIdx
+                            servoOpen = true
+                        },
+                        onFlexClick = {
+                            flexIndex = pairIdx
+                            flexOpen = true
+                        },
+                        onEmgClick = {
+                            emgIndex = pairIdx
+                            emgOpen = true
+                        },
+                        onSourceChanged = { useEmg ->
+                            vm.updateActiveSettings(pairIdx) { current ->
+                                val nextPairInput = current.pairInputSettings.copyOf()
+                                nextPairInput[pairIdx] = PairInputSettings(
+                                    inputSource = if (useEmg) INPUT_SOURCE_EMG else INPUT_SOURCE_FLEX
+                                )
+                                current.copy(pairInputSettings = nextPairInput)
+                            }
+                        },
+                        onDelete = if (pairIdx == 0) {
+                            null
+                        } else {
+                            {
                                 haptic.performHapticFeedback(HapticFeedbackType.Reject)
                                 vm.updateActiveSettings(pairIdx) { current ->
+                                    val defaults = EspSettings()
                                     val newFlex = current.flexSettings.copyOf()
                                     val newServo = current.servoSettings.copyOf()
+                                    val newEmg = current.emgSettings.copyOf()
+                                    val newPairInput = current.pairInputSettings.copyOf()
 
-                                    newFlex[pairIdx] = FlexSettings(
-                                        flexPin = 0xFF,
-                                        flexPullupOhm = 0,
-                                        flexStraightOhm = 0,
-                                        flexBendOhm = 0
-                                    )
-                                    newServo[pairIdx] = ServoSettings(
-                                        servoPin = 0xFF,
-                                        servoMinDeg = 40,
-                                        servoMaxDeg = 180,
-                                        servoManual = 0,
-                                        servoManualDeg = 90,
-                                        servoMaxSpeedDegPerSec = 300.0f
-                                    )
+                                    newFlex[pairIdx] = defaults.flexSettings[pairIdx]
+                                    newServo[pairIdx] = defaults.servoSettings[pairIdx]
+                                    newEmg[pairIdx] = defaults.emgSettings[pairIdx]
+                                    newPairInput[pairIdx] = defaults.pairInputSettings[pairIdx]
 
                                     current.copy(
                                         flexSettings = newFlex,
-                                        servoSettings = newServo
+                                        servoSettings = newServo,
+                                        emgSettings = newEmg,
+                                        pairInputSettings = newPairInput
                                     )
                                 }
 
-                                if (pairsCount > 1) pairsCount--
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Delete,
-                                contentDescription = "Delete pair"
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("${stringResource(R.string.pair_no)} ${pairIdx + 1}")
+                                pairsCount = calculateVisiblePairsCount(s)
+                            }
                         }
-                    }
+                    )
                 }
             }
         }
@@ -544,7 +483,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
         FsrDialog(
             s = s,
             onDismiss = { fsrOpen = false },
-            onChange = { next -> vm.updateActiveSettings(flexIndex) { next } },
+            onChange = { next -> vm.updateActiveSettings(0) { next } },
             haptic = haptic
         )
 
@@ -558,11 +497,20 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             haptic = haptic
         )
 
+    if (emgOpen)
+        EmgDialog(
+            s = s,
+            index = emgIndex,
+            onDismiss = { emgOpen = false },
+            onChange = { next -> vm.updateActiveSettings(emgIndex) { next } },
+            haptic = haptic
+        )
+
     if (vibroOpen)
         VibroDialog(
             s = s,
             onDismiss = { vibroOpen = false },
-            onChange = { next -> vm.updateActiveSettings(flexIndex) { next } },
+            onChange = { next -> vm.updateActiveSettings(0) { next } },
             haptic = haptic
         )
 
@@ -579,34 +527,11 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
             haptic = haptic
         )
 
-    if (servoOpenPO)
-        ServoDialog(
-            s = s,
-            index = 0,
-            currentServoDeg = t.servoDeg[0],
-            onDismiss = { servoOpenPO = false },
-            onChange = { next -> vm.updateActiveSettings(0) { next } },
-            liveEnabled = livePairs.contains(0),
-            onLiveEnabledChange = { en -> vm.setServoLiveEnabled(0, en) },
-            onLiveAngle = { angle -> vm.sendServoLiveAngle(0, angle) },
-            haptic = haptic
-        )
-
-    if (flexOpenPO)
-        FlexDialog(
-            s = s,
-            index = 0,
-            currentFlexOhm = t.flexOhm[0],
-            onDismiss = { flexOpenPO = false },
-            onChange = { next -> vm.updateActiveSettings(0) { next } },
-            haptic = haptic
-        )
-
     if (saveWarnOpen) {
         AlertDialog(
             onDismissRequest = { saveWarnOpen = false },
             title = { Text(stringResource(R.string.notification)) },
-            text = { Text(stringResource(R.string.setup_not_full) + saveWarnText) },
+            text = { Text(stringResource(R.string.setup_not_full) + "\n\n" + saveWarnText) },
             confirmButton = {
                 Button(onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -624,6 +549,140 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     }
 
     BlockingProgressDialog(visible = busy)
+}
+
+@Composable
+private fun PairControlSection(
+    pairIdx: Int,
+    settings: EspSettings,
+    telemetry: Telemetry,
+    teleReasonText: String?,
+    telePretty: (Float) -> String,
+    teleInt: (Int) -> String,
+    showTelePlaceholder: Boolean,
+    onServoClick: () -> Unit,
+    onFlexClick: () -> Unit,
+    onEmgClick: () -> Unit,
+    onSourceChanged: (Boolean) -> Unit,
+    onDelete: (() -> Unit)?
+) {
+    val source = settings.pairInputSettings.getOrNull(pairIdx)?.inputSource ?: INPUT_SOURCE_FLEX
+    val useEmg = source == INPUT_SOURCE_EMG
+    val emgSettings = settings.emgSettings.getOrNull(pairIdx) ?: EmgSettings()
+    val channelCount = emgSettings.channels.coerceIn(1, 3)
+
+    Text(
+        text = "${stringResource(R.string.pair_no)} ${pairIdx + 1}",
+        style = MaterialTheme.typography.titleMedium
+    )
+
+    SettingToggleItem(
+        title = stringResource(R.string.emg_use_instead_of_flex),
+        subtitle = inputSourceLabel(source),
+        checked = useEmg
+    ) { onSourceChanged(it) }
+
+    SettingItem(
+        title = stringResource(R.string.servo_settings),
+        subtitle = stringResource(R.string.control_servo_manual)
+    ) { onServoClick() }
+
+    if (useEmg) {
+        SettingItem(
+            title = stringResource(R.string.emg_settings),
+            subtitle = emgModeLabel(emgSettings.mode)
+        ) { onEmgClick() }
+    } else {
+        SettingItem(
+            title = stringResource(R.string.flex_settings),
+            subtitle = stringResource(R.string.control_resistance_cal)
+        ) { onFlexClick() }
+    }
+
+    Text(
+        stringResource(R.string.flex_n_servo_curr_vals),
+        style = MaterialTheme.typography.titleMedium
+    )
+    if (teleReasonText != null) {
+        Text(teleReasonText, style = MaterialTheme.typography.bodySmall)
+    }
+
+    DiagnosticRow(
+        stringResource(R.string.input_source),
+        inputSourceLabel(source)
+    )
+    DiagnosticRow(
+        stringResource(R.string.control_diag_servo_deg),
+        telePretty(telemetry.servoDeg[pairIdx])
+    )
+
+    if (useEmg) {
+        val modeText =
+            if (showTelePlaceholder || telemetry.emgMode[pairIdx] < 0) {
+                emgModeLabel(emgSettings.mode)
+            } else {
+                emgModeLabel(telemetry.emgMode[pairIdx])
+            }
+
+        val eventText =
+            if (showTelePlaceholder) stringResource(R.string.telemetry_placeholder)
+            else emgEventLabel(telemetry.emgEvent[pairIdx])
+
+        val actionText =
+            if (showTelePlaceholder) stringResource(R.string.telemetry_placeholder)
+            else emgActionLabel(telemetry.emgAction[pairIdx])
+
+        DiagnosticRow(stringResource(R.string.emg_mode), modeText)
+        DiagnosticRow(stringResource(R.string.emg_current_event), eventText)
+        DiagnosticRow(stringResource(R.string.emg_current_action), actionText)
+        DiagnosticRow(stringResource(R.string.emg_cooldown), teleInt(telemetry.emgCooldownMs[pairIdx]))
+
+        if (emgSettings.mode == EMG_MODE_BEND_OTHER) {
+            DiagnosticRow(
+                stringResource(R.string.emg_bend_progress),
+                teleInt(telemetry.emgBendProgress[pairIdx])
+            )
+            DiagnosticRow(
+                stringResource(R.string.emg_unfold_progress),
+                teleInt(telemetry.emgUnfoldProgress[pairIdx])
+            )
+        }
+
+        repeat(channelCount) { ch ->
+            DiagnosticRow(
+                stringResource(R.string.emg_channel_value, ch + 1),
+                telePretty(telemetry.emgChannelValue(pairIdx, ch))
+            )
+        }
+    } else {
+        DiagnosticRow(
+            stringResource(R.string.control_diag_flex_ohm),
+            telePretty(telemetry.flexOhm[pairIdx])
+        )
+    }
+
+    if (onDelete != null) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = onDelete,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = stringResource(R.string.delete_pair)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("${stringResource(R.string.pair_no)} ${pairIdx + 1}")
+            }
+        }
+    }
+
+    Divider(Modifier.padding(vertical = 8.dp))
 }
 
 @Composable
@@ -836,7 +895,53 @@ private data class PairIssue(
     val missing: MissingPart
 )
 
-private enum class MissingPart { Flex, Servo }
+private enum class MissingPart { Flex, Servo, Emg }
+
+private fun visiblePairIndices(
+    s: EspSettings,
+    pairsCount: Int
+): List<Int> {
+    val maxVisibleIndex = maxOf(pairsCount - 1, highestConfiguredPairIndex(s))
+    return (0..maxVisibleIndex.coerceIn(0, 3)).toList()
+}
+
+private fun highestConfiguredPairIndex(s: EspSettings): Int {
+    var result = 0
+    for (i in 0 until 4) {
+        if (hasAnyPairData(s, i)) {
+            result = i
+        }
+    }
+    return result
+}
+
+private fun calculateVisiblePairsCount(s: EspSettings): Int {
+    return (highestConfiguredPairIndex(s) + 1).coerceIn(1, 4)
+}
+
+private fun hasAnyPairData(s: EspSettings, pairIdx: Int): Boolean {
+    val flexSet = isFlexConfigured(s, pairIdx)
+    val servoSet = isServoConfigured(s, pairIdx)
+    val emgSet = isEmgConfigured(s, pairIdx)
+    val source = s.pairInputSettings.getOrNull(pairIdx)?.inputSource ?: INPUT_SOURCE_FLEX
+    return flexSet || servoSet || emgSet || source == INPUT_SOURCE_EMG
+}
+
+private fun isFlexConfigured(s: EspSettings, pairIdx: Int): Boolean {
+    val flexPin = s.flexSettings.getOrNull(pairIdx)?.flexPin ?: PIN_PLACEHOLDER
+    return flexPin != PIN_PLACEHOLDER
+}
+
+private fun isServoConfigured(s: EspSettings, pairIdx: Int): Boolean {
+    val servoPin = s.servoSettings.getOrNull(pairIdx)?.servoPin ?: PIN_PLACEHOLDER
+    return servoPin != PIN_PLACEHOLDER
+}
+
+private fun isEmgConfigured(s: EspSettings, pairIdx: Int): Boolean {
+    val emg = s.emgSettings.getOrNull(pairIdx) ?: return false
+    val activePins = emg.activePins()
+    return activePins.isNotEmpty() && activePins.all { it != PIN_PLACEHOLDER }
+}
 
 private fun findIncompletePairsIssuesVisibleOnly(
     s: EspSettings,
@@ -845,31 +950,31 @@ private fun findIncompletePairsIssuesVisibleOnly(
     val res = mutableListOf<PairIssue>()
 
     fun isVisible(i: Int): Boolean {
-        if (i == 0) return true
-
-        val flexPin = s.flexSettings.getOrNull(i)?.flexPin ?: PIN_PLACEHOLDER
-        val servoPin = s.servoSettings.getOrNull(i)?.servoPin ?: PIN_PLACEHOLDER
-
-        val hasFlex = flexPin != PIN_PLACEHOLDER
-        val hasServo = servoPin != PIN_PLACEHOLDER
-
-        return (i < pairsCount) || hasFlex || hasServo
+        return i in visiblePairIndices(s, pairsCount)
     }
 
     for (i in 0 until 4) {
         if (!isVisible(i)) continue
 
-        val flexPin = s.flexSettings.getOrNull(i)?.flexPin ?: PIN_PLACEHOLDER
-        val servoPin = s.servoSettings.getOrNull(i)?.servoPin ?: PIN_PLACEHOLDER
+        val source = s.pairInputSettings.getOrNull(i)?.inputSource ?: INPUT_SOURCE_FLEX
+        val flexSet = isFlexConfigured(s, i)
+        val servoSet = isServoConfigured(s, i)
+        val emgSet = isEmgConfigured(s, i)
 
-        val flexSet = flexPin != PIN_PLACEHOLDER
-        val servoSet = servoPin != PIN_PLACEHOLDER
-
-        if ((flexSet || servoSet) && (flexSet xor servoSet)) {
-            res += PairIssue(
-                pairIdx = i,
-                missing = if (!flexSet) MissingPart.Flex else MissingPart.Servo
-            )
+        if (source == INPUT_SOURCE_EMG) {
+            if ((emgSet || servoSet) && (emgSet xor servoSet)) {
+                res += PairIssue(
+                    pairIdx = i,
+                    missing = if (!emgSet) MissingPart.Emg else MissingPart.Servo
+                )
+            }
+        } else {
+            if ((flexSet || servoSet) && (flexSet xor servoSet)) {
+                res += PairIssue(
+                    pairIdx = i,
+                    missing = if (!flexSet) MissingPart.Flex else MissingPart.Servo
+                )
+            }
         }
     }
 
@@ -879,12 +984,14 @@ private fun findIncompletePairsIssuesVisibleOnly(
 private fun PairIssue.toUiText(
     pairNo: String,
     flexNotSet: String,
-    servoNotSet: String
+    servoNotSet: String,
+    emgNotSet: String
 ): String {
     val pairNum = pairIdx + 1
     return when (missing) {
         MissingPart.Flex -> "$pairNo $pairNum: $flexNotSet"
         MissingPart.Servo -> "$pairNo $pairNum: $servoNotSet"
+        MissingPart.Emg -> "$pairNo $pairNum: $emgNotSet"
     }
 }
 
@@ -893,5 +1000,10 @@ private fun hasTelemetryData(t: Telemetry): Boolean {
     if (t.fsrForceN.isFinite()) return true
     if (t.flexOhm.any { it.isFinite() }) return true
     if (t.servoDeg.any { it.isFinite() }) return true
+    if (t.emgCh0.any { it.isFinite() }) return true
+    if (t.emgCh1.any { it.isFinite() }) return true
+    if (t.emgCh2.any { it.isFinite() }) return true
+    if (t.emgEvent.any { it >= 0 }) return true
+    if (t.emgAction.any { it >= 0 }) return true
     return false
 }

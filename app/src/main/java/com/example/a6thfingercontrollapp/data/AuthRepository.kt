@@ -1,8 +1,10 @@
 package com.example.a6thfingercontrollapp.data
 
 import android.content.Context
+import com.example.a6thfingercontrollapp.ble.EmgSettings
 import com.example.a6thfingercontrollapp.ble.EspSettings
 import com.example.a6thfingercontrollapp.ble.FlexSettings
+import com.example.a6thfingercontrollapp.ble.PairInputSettings
 import com.example.a6thfingercontrollapp.ble.ServoSettings
 import com.example.a6thfingercontrollapp.network.AppSettingsIn
 import com.example.a6thfingercontrollapp.network.BackendApi
@@ -542,6 +544,20 @@ class AuthRepository(context: Context) {
         "servoMaxSpeedDegPerSec" to s.servoMaxSpeedDegPerSec.toDouble()
     )
 
+    private fun pairInputToMap(p: PairInputSettings): Map<String, Any?> = mapOf(
+        "inputSource" to p.inputSource
+    )
+
+    private fun emgToMap(e: EmgSettings): Map<String, Any?> = mapOf(
+        "channels" to e.channels,
+        "pins" to listOf(e.pin0, e.pin1, e.pin2),
+        "mode" to e.mode,
+        "bendFullMoves" to e.bendFullMoves,
+        "unfoldFullMoves" to e.unfoldFullMoves,
+        "minSwitchDelaySec" to e.minSwitchDelaySec,
+        "reverseDirection" to e.reverseDirection
+    )
+
     private fun espToPayload(settings: EspSettings): Map<String, Any?> {
         return mapOf(
             "fsrPin" to settings.fsrPin,
@@ -551,6 +567,8 @@ class AuthRepository(context: Context) {
 
             "flexSettings" to settings.flexSettings.map { flexToMap(it) },
             "servoSettings" to settings.servoSettings.map { servoToMap(it) },
+            "pairInputSettings" to settings.pairInputSettings.map { pairInputToMap(it) },
+            "emgSettings" to settings.emgSettings.map { emgToMap(it) },
 
             "vibroPin" to settings.vibroPin,
             "vibroMode" to settings.vibroMode,

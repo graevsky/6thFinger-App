@@ -33,7 +33,7 @@
     <!-- Account -->
     <string name="account_avatar">Аватар</string>
 
-    <!-- Avatar (added) -->
+    <!-- Avatar -->
     <string name="avatar_change">Сменить аватар</string>
     <string name="avatar_choose_photo">Выбрать фото</string>
     <string name="avatar_remove_photo">Удалить фото</string>
@@ -43,7 +43,7 @@
     <string name="avatar_error_save_failed">Не удалось сохранить аватар.</string>
     <string name="avatar_error_crop_result">Не удалось получить результат обрезки.</string>
 
-    <!-- Generic labels (added) -->
+    <!-- Generic labels -->
     <string name="label_json">JSON</string>
 
     <!-- BLE / Connectivity -->
@@ -67,6 +67,7 @@
     <string name="device_save">Сохранить</string>
     <string name="device_open">Открыть</string>
     <string name="device_cancel">Отмена</string>
+    <string name="delete_pair">Удалить пару</string>
 
     <!-- Control Screen -->
     <string name="control_sensitivity_pullup">Чувствительность и подтяжка</string>
@@ -94,6 +95,39 @@
     <string name="flex_folded">Согнут</string>
     <string name="sim_angle">Угол: %1$s°</string>
     <string name="sim_flex">Сопротивление: %1$s Ω</string>
+
+    <!-- EMG -->
+    <string name="input_source">Источник управления</string>
+    <string name="input_source_flex">Flex</string>
+    <string name="input_source_emg">EMG</string>
+    <string name="emg_settings">Настройки EMG</string>
+    <string name="emg_use_instead_of_flex">Использовать EMG вместо Flex</string>
+    <string name="emg_channels">Каналы</string>
+    <string name="emg_pin_1">EMG пин 1</string>
+    <string name="emg_pin_2">EMG пин 2</string>
+    <string name="emg_pin_3">EMG пин 3</string>
+    <string name="emg_mode">Режим EMG</string>
+    <string name="emg_mode_bend_other">Bend/Other</string>
+    <string name="emg_mode_directional">Directional</string>
+    <string name="emg_bend_full_moves">Движений до полного сгиба</string>
+    <string name="emg_unfold_full_moves">Движений до полного разгиба</string>
+    <string name="emg_min_delay_sec">Мин. задержка переключения, с</string>
+    <string name="emg_reverse_direction">Инвертировать направление</string>
+    <string name="emg_current_event">Событие EMG</string>
+    <string name="emg_current_action">Действие EMG</string>
+    <string name="emg_cooldown">Кулдаун, мс</string>
+    <string name="emg_channel_value">Канал %1$d</string>
+    <string name="emg_bend_progress">Прогресс сгиба</string>
+    <string name="emg_unfold_progress">Прогресс разгиба</string>
+    <string name="emg_not_set">EMG не настроен</string>
+    <string name="emg_event_none">Нет</string>
+    <string name="emg_event_other">Other</string>
+    <string name="emg_event_bend">Bend</string>
+    <string name="emg_event_unfold">Unfold</string>
+    <string name="emg_action_none">Нет</string>
+    <string name="emg_action_bend">Сгиб</string>
+    <string name="emg_action_unfold">Разгиб</string>
+    <string name="emg_action_cooldown_ignored">Игнор из-за кулдауна</string>
 
     <!-- Vibro -->
     <string name="vibro_settings">Вибро</string>
@@ -127,7 +161,7 @@
     <string name="err_user_not_found">Пользователь не найден</string>
     <string name="err_unknown">Произошла ошибка</string>
 
-    <!-- Account/Device errors (added) -->
+    <!-- Account/Device errors -->
     <string name="err_failed_load_devices">Не удалось загрузить устройства</string>
     <string name="err_failed_pull_settings">Не удалось получить настройки</string>
     <string name="err_failed_push_settings">Не удалось отправить настройки</string>
@@ -157,17 +191,17 @@
     <string name="fsr_n_vibro_settings">Настройки FSR и Вибро</string>
     <string name="fsr_n_force_curr_vals">Текущие показания FSR и силы</string>
     <string name="pair_1">Пара 1</string>
-    <string name="flex_n_servo_curr_vals">Текущие показания Flex и сервы</string>
+    <string name="flex_n_servo_curr_vals">Текущие значения</string>
     <string name="pair_no">Пара</string>
     <string name="notification">Предупреждение</string>
-    <string name="setup_not_full">Найдены видимы пары с неполной настройкой - один из пинов имеет стандартное значение (255). Телеметрия\\управление может работать некорректно.</string>
+    <string name="setup_not_full">Найдены видимы пары с неполной настройкой - один из обязательных источников для пары не задан.</string>
     <string name="continue_anyway">Все равно продолжить</string>
-    <string name="flex_not_set">Датчик изгиба имеен стандартное значение пина (255). Обновите его для корректной работы.</string>
-    <string name="servo_not_set">Сервопривод имеен стандартное значение пина (255). Обновите его для корректной работы.</string>
+    <string name="flex_not_set">Flex не настроен.</string>
+    <string name="servo_not_set">Сервопривод не настроен.</string>
 
     <string name="pin_enabled">PIN установлен</string>
     <string name="pin_disabled">PIN снят</string>
-    <string name="pin_reset">СброситьPIN</string>
+    <string name="pin_reset">Сбросить PIN</string>
 
     <string name="pin_title">PIN-код</string>
     <string name="pin_hint">Введите 4 цифры</string>
@@ -263,7 +297,7 @@
     <string name="password_reset_done">Пароль обновлён. Теперь можно войти.</string>
     <string name="password_reset_no_reset_session">Не найдена сессия сброса. Попробуйте ещё раз.</string>
 
-    <!-- Account: Email (RU) -->
+    <!-- Account: Email -->
     <string name="account_email_title">Почта</string>
     <string name="account_email_current">Текущая почта: %1$s</string>
     <string name="account_email_not_set">Почта не задана</string>
@@ -279,7 +313,6 @@
     <string name="account_email_remove_warning">После удаления почты вы потеряете возможность восстановления через email. Восстановление по одноразовым резервным кодам останется доступным.</string>
     <string name="account_email_change_step_old">Шаг 1/2: подтвердите удаление старой почты</string>
     <string name="account_email_change_step_new">Шаг 2/2: добавьте и подтвердите новую почту</string>
-
 
     <!-- Post-register email -->
     <string name="postreg_email_title">Добавить почту</string>

@@ -32,7 +32,7 @@
     <!-- Account -->
     <string name="account_avatar">Avatar</string>
 
-    <!-- Avatar (NEW) -->
+    <!-- Avatar -->
     <string name="avatar_change">Change avatar</string>
     <string name="avatar_choose_photo">Choose photo</string>
     <string name="avatar_remove_photo">Remove photo</string>
@@ -42,7 +42,7 @@
     <string name="avatar_error_save_failed">Failed to save avatar.</string>
     <string name="avatar_error_crop_result">Failed to get crop result.</string>
 
-    <!-- Generic labels (NEW) -->
+    <!-- Generic labels -->
     <string name="label_json">JSON</string>
 
     <!-- BLE / Connectivity -->
@@ -66,6 +66,7 @@
     <string name="device_save">Save</string>
     <string name="device_open">Open</string>
     <string name="device_cancel">Cancel</string>
+    <string name="delete_pair">Delete pair</string>
 
     <!-- Control Screen -->
     <string name="control_sensitivity_pullup">Sensitivity and pull-up</string>
@@ -93,6 +94,39 @@
     <string name="flex_folded">Folded</string>
     <string name="sim_angle">Angle: %1$s°</string>
     <string name="sim_flex">Flex: %1$s Ω</string>
+
+    <!-- EMG -->
+    <string name="input_source">Input source</string>
+    <string name="input_source_flex">Flex</string>
+    <string name="input_source_emg">EMG</string>
+    <string name="emg_settings">EMG Settings</string>
+    <string name="emg_use_instead_of_flex">Use EMG instead of Flex</string>
+    <string name="emg_channels">Channels</string>
+    <string name="emg_pin_1">EMG pin 1</string>
+    <string name="emg_pin_2">EMG pin 2</string>
+    <string name="emg_pin_3">EMG pin 3</string>
+    <string name="emg_mode">EMG mode</string>
+    <string name="emg_mode_bend_other">Bend/Other</string>
+    <string name="emg_mode_directional">Directional</string>
+    <string name="emg_bend_full_moves">Bend full moves</string>
+    <string name="emg_unfold_full_moves">Unfold full moves</string>
+    <string name="emg_min_delay_sec">Min switch delay, s</string>
+    <string name="emg_reverse_direction">Reverse direction</string>
+    <string name="emg_current_event">EMG event</string>
+    <string name="emg_current_action">EMG action</string>
+    <string name="emg_cooldown">Cooldown, ms</string>
+    <string name="emg_channel_value">Channel %1$d</string>
+    <string name="emg_bend_progress">Bend progress</string>
+    <string name="emg_unfold_progress">Unfold progress</string>
+    <string name="emg_not_set">EMG is not set</string>
+    <string name="emg_event_none">None</string>
+    <string name="emg_event_other">Other</string>
+    <string name="emg_event_bend">Bend</string>
+    <string name="emg_event_unfold">Unfold</string>
+    <string name="emg_action_none">None</string>
+    <string name="emg_action_bend">Bend</string>
+    <string name="emg_action_unfold">Unfold</string>
+    <string name="emg_action_cooldown_ignored">Cooldown ignored</string>
 
     <!-- Vibro -->
     <string name="vibro_settings">Vibro</string>
@@ -126,7 +160,7 @@
     <string name="err_user_not_found">User does not exist</string>
     <string name="err_unknown">Something went wrong</string>
 
-    <!-- Account/Device errors (NEW) -->
+    <!-- Account/Device errors -->
     <string name="err_failed_load_devices">Failed to load devices</string>
     <string name="err_failed_pull_settings">Failed to pull settings</string>
     <string name="err_failed_push_settings">Failed to push settings</string>
@@ -156,12 +190,12 @@
     <string name="fsr_n_vibro_settings">FSR and Vibro Settings</string>
     <string name="fsr_n_force_curr_vals">Current values of FSR and Force</string>
     <string name="pair_1">Pair 1</string>
-    <string name="flex_n_servo_curr_vals">Current values of Flex and Servo</string>
+    <string name="flex_n_servo_curr_vals">Current values</string>
     <string name="pair_no">Pair</string>
     <string name="notification">Notification</string>
     <string name="setup_not_full">Setup not finished</string>
     <string name="continue_anyway">Continue anyway</string>
-    <string name="flex_not_set">flex not set</string>
+    <string name="flex_not_set">Flex is not set</string>
     <string name="servo_not_set">Servo not set</string>
 
     <string name="pin_enabled">PIN set</string>
@@ -262,7 +296,7 @@
     <string name="password_reset_done">Password updated. You can log in now.</string>
     <string name="password_reset_no_reset_session">Reset session is missing. Try again.</string>
 
-    <!-- Account: Email (EN) -->
+    <!-- Account: Email -->
     <string name="account_email_title">Email</string>
     <string name="account_email_current">Current email: %1$s</string>
     <string name="account_email_not_set">Email is not set</string>
@@ -278,7 +312,6 @@
     <string name="account_email_remove_warning">After removing email you will lose the ability to recover access via email. You can still recover via one-time recovery codes.</string>
     <string name="account_email_change_step_old">Step 1/2: confirm removal of the old email</string>
     <string name="account_email_change_step_new">Step 2/2: add and confirm the new email</string>
-
 
     <!-- Post-register email -->
     <string name="postreg_email_title">Add email</string>

@@ -3,8 +3,10 @@ package com.example.a6thfingercontrollapp.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +15,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -26,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,10 +41,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.BleViewModel
 import com.example.a6thfingercontrollapp.R
+import com.example.a6thfingercontrollapp.ble.EMG_MODE_BEND_OTHER
+import com.example.a6thfingercontrollapp.ble.EmgSettings
+import com.example.a6thfingercontrollapp.ble.EspSettings
+import com.example.a6thfingercontrollapp.ble.INPUT_SOURCE_EMG
+import com.example.a6thfingercontrollapp.ble.INPUT_SOURCE_FLEX
+import com.example.a6thfingercontrollapp.ble.Telemetry
 
 @Composable
 fun SimulationScreen(vm: BleViewModel) {
@@ -59,13 +73,9 @@ fun SimulationScreen(vm: BleViewModel) {
             else -> false
         }
 
-    val servoArray = t.servoDeg
-    val flexArray = t.flexOhm
-
-    val availablePairs: List<Int> = remember(servoArray, flexArray) {
-        servoArray.indices.filter { idx ->
-            servoArray[idx].isFinite() || flexArray[idx].isFinite()
-        }.ifEmpty { listOf(0) }
+    val availablePairs: List<Int> = remember(t, s) {
+        (0 until 4).filter { idx -> pairShouldBeVisibleInSimulation(s, t, idx) }
+            .ifEmpty { listOf(0) }
     }
 
     var selectedPair by remember(availablePairs) { mutableStateOf(availablePairs.first()) }
@@ -78,9 +88,10 @@ fun SimulationScreen(vm: BleViewModel) {
 
     val hasMultiplePairs = availablePairs.size > 1
     val isLive = livePairs.contains(selectedPair)
+    val source = s.pairInputSettings.getOrNull(selectedPair)?.inputSource ?: INPUT_SOURCE_FLEX
 
-    val currentServoDeg = servoArray.getOrNull(selectedPair) ?: Float.NaN
-    val currentFlexOhm = flexArray.getOrNull(selectedPair) ?: Float.NaN
+    val currentServoDeg = t.servoDeg.getOrNull(selectedPair) ?: Float.NaN
+    val currentFlexOhm = t.flexOhm.getOrNull(selectedPair) ?: Float.NaN
 
     val liveAngles = remember { mutableStateMapOf<Int, Float>() }
     val liveAngle = liveAngles[selectedPair]
@@ -94,12 +105,13 @@ fun SimulationScreen(vm: BleViewModel) {
         hasMultiplePairs = hasMultiplePairs,
         availablePairs = availablePairs,
         onPairSelected = { selectedPair = it },
-
+        source = source,
+        settings = s,
+        telemetry = t,
         servoDeg = if (isLive) liveAngle else currentServoDeg,
         flexOhm = currentFlexOhm,
         fsrForceN = t.fsrForceN,
         fsrSoftThresholdN = s.fsrSoftThresholdN,
-
         liveEnabled = isLive,
         onLiveEnabled = { en ->
             vm.setServoLiveEnabled(selectedPair, en)
@@ -121,11 +133,13 @@ private fun SimulationContent(
     hasMultiplePairs: Boolean,
     availablePairs: List<Int>,
     onPairSelected: (Int) -> Unit,
+    source: Int,
+    settings: EspSettings,
+    telemetry: Telemetry,
     servoDeg: Float,
     flexOhm: Float,
     fsrForceN: Float,
     fsrSoftThresholdN: Float,
-
     liveEnabled: Boolean,
     onLiveEnabled: (Boolean) -> Unit,
     liveAngle: Float,
@@ -144,6 +158,7 @@ private fun SimulationContent(
     )
 
     val pairNo = stringResource(R.string.pair_no)
+    val emgCfg = settings.emgSettings[selectedPairIndex]
 
     Column(
         modifier = Modifier
@@ -217,40 +232,201 @@ private fun SimulationContent(
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(24.dp),
-                contentAlignment = Alignment.TopCenter
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)
             ) {
-                RoboFinger(angle = animAngle, tipColor = tipColor)
+                val parentMaxHeight = this.maxHeight
+                val sheetHeight = (parentMaxHeight * 0.68f).coerceIn(180.dp, 360.dp)
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    RoboFinger(
+                        angle = animAngle,
+                        tipColor = tipColor,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(bottom = 24.dp)
+                    )
+
+                    TelemetryBottomSheet(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(sheetHeight),
+                        sheetHeight = sheetHeight,
+                        selectedPairIndex = selectedPairIndex,
+                        source = source,
+                        telemetry = telemetry,
+                        emgCfg = emgCfg,
+                        servoDeg = servoDeg,
+                        flexOhm = flexOhm,
+                        fsrForceN = fsrForceN,
+                        fsrPressed = fsrPressed
+                    )
+                }
             }
         }
+    }
+}
 
-        Card(modifier = Modifier.fillMaxWidth()) {
+@Composable
+private fun TelemetryBottomSheet(
+    modifier: Modifier = Modifier,
+    sheetHeight: androidx.compose.ui.unit.Dp,
+    selectedPairIndex: Int,
+    source: Int,
+    telemetry: Telemetry,
+    emgCfg: EmgSettings,
+    servoDeg: Float,
+    flexOhm: Float,
+    fsrForceN: Float,
+    fsrPressed: Boolean
+) {
+    val density = LocalDensity.current
+    val peekHeight = 56.dp
+    val scrollState = rememberScrollState()
+    val pairNo = stringResource(R.string.pair_no)
+    val title = stringResource(R.string.tele)
+
+    val maxOffsetPx = with(density) { (sheetHeight - peekHeight).toPx() }
+
+    var sheetOffsetPx by remember(selectedPairIndex) { mutableFloatStateOf(Float.NaN) }
+
+    LaunchedEffect(maxOffsetPx) {
+        sheetOffsetPx = if (sheetOffsetPx.isNaN()) {
+            maxOffsetPx
+        } else {
+            sheetOffsetPx.coerceIn(0f, maxOffsetPx)
+        }
+    }
+
+    val animatedOffsetPx by animateFloatAsState(
+        targetValue = if (sheetOffsetPx.isNaN()) maxOffsetPx else sheetOffsetPx,
+        label = "telemetrySheetOffset"
+    )
+
+    Card(
+        modifier = modifier.graphicsLayer { translationY = animatedOffsetPx },
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+        )
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(maxOffsetPx) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, dragAmount ->
+                                change.consume()
+                                sheetOffsetPx = (sheetOffsetPx + dragAmount).coerceIn(0f, maxOffsetPx)
+                            },
+                            onDragEnd = {
+                                sheetOffsetPx = if (sheetOffsetPx > maxOffsetPx / 2f) {
+                                    maxOffsetPx
+                                } else {
+                                    0f
+                                }
+                            }
+                        )
+                    }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(42.dp)
+                        .height(4.dp)
+                        .background(
+                            MaterialTheme.colorScheme.outlineVariant,
+                            RoundedCornerShape(50)
+                        )
+                )
+
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+
+                Text(
+                    text = "$pairNo ${selectedPairIndex + 1}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    "$pairNo ${selectedPairIndex + 1}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Text("${stringResource(R.string.input_source)}: ${inputSourceLabel(source)}")
                 Text(stringResource(R.string.sim_angle, prettyValue(servoDeg)))
-                Text(stringResource(R.string.sim_flex, prettyValue(flexOhm)))
                 Text(stringResource(R.string.sim_force, prettyValue(fsrForceN)))
                 Text(
-                    text =
-                        stringResource(
-                            if (fsrPressed) R.string.sim_fsr_pressed
-                            else R.string.sim_fsr_idle
-                        ),
-                    color =
-                        if (fsrPressed) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurface
+                    text = stringResource(
+                        if (fsrPressed) R.string.sim_fsr_pressed
+                        else R.string.sim_fsr_idle
+                    ),
+                    color = if (fsrPressed) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
                 )
+
+                if (source == INPUT_SOURCE_EMG) {
+                    val channelCount = emgCfg.channels.coerceIn(1, 3)
+                    val modeText = if (telemetry.emgMode[selectedPairIndex] >= 0) {
+                        emgModeLabel(telemetry.emgMode[selectedPairIndex])
+                    } else {
+                        emgModeLabel(emgCfg.mode)
+                    }
+
+                    Text("${stringResource(R.string.emg_mode)}: $modeText")
+                    Text(
+                        "${stringResource(R.string.emg_current_event)}: ${
+                            emgEventLabel(telemetry.emgEvent[selectedPairIndex])
+                        }"
+                    )
+                    Text(
+                        "${stringResource(R.string.emg_current_action)}: ${
+                            emgActionLabel(telemetry.emgAction[selectedPairIndex])
+                        }"
+                    )
+                    Text(
+                        "${stringResource(R.string.emg_cooldown)}: ${
+                            prettyIntValue(telemetry.emgCooldownMs[selectedPairIndex])
+                        }"
+                    )
+
+                    if (emgCfg.mode == EMG_MODE_BEND_OTHER) {
+                        Text(
+                            "${stringResource(R.string.emg_bend_progress)}: ${
+                                prettyIntValue(telemetry.emgBendProgress[selectedPairIndex])
+                            }"
+                        )
+                        Text(
+                            "${stringResource(R.string.emg_unfold_progress)}: ${
+                                prettyIntValue(telemetry.emgUnfoldProgress[selectedPairIndex])
+                            }"
+                        )
+                    }
+
+                    repeat(channelCount) { ch ->
+                        Text(
+                            "${stringResource(R.string.emg_channel_value, ch + 1)}: ${
+                                prettyValue(telemetry.emgChannelValue(selectedPairIndex, ch))
+                            }"
+                        )
+                    }
+                } else {
+                    Text(stringResource(R.string.sim_flex, prettyValue(flexOhm)))
+                }
             }
         }
     }
@@ -302,10 +478,38 @@ private fun PairSelector(
     }
 }
 
+private fun pairShouldBeVisibleInSimulation(
+    settings: EspSettings,
+    telemetry: Telemetry,
+    pairIdx: Int
+): Boolean {
+    val source = settings.pairInputSettings.getOrNull(pairIdx)?.inputSource ?: INPUT_SOURCE_FLEX
+    val servoSet = settings.servoSettings.getOrNull(pairIdx)?.servoPin != 0xFF
+    val flexSet = settings.flexSettings.getOrNull(pairIdx)?.flexPin != 0xFF
+    val emgSet = settings.emgSettings.getOrNull(pairIdx)?.activePins()?.all { it != 0xFF } == true
+
+    val telePresent =
+        telemetry.servoDeg.getOrNull(pairIdx)?.isFinite() == true ||
+                telemetry.flexOhm.getOrNull(pairIdx)?.isFinite() == true ||
+                telemetry.emgChannelValue(pairIdx, 0).isFinite() ||
+                telemetry.emgChannelValue(pairIdx, 1).isFinite() ||
+                telemetry.emgChannelValue(pairIdx, 2).isFinite() ||
+                telemetry.emgEvent.getOrNull(pairIdx)?.let { it >= 0 } == true ||
+                telemetry.emgAction.getOrNull(pairIdx)?.let { it >= 0 } == true
+
+    return telePresent || servoSet || (source == INPUT_SOURCE_FLEX && flexSet) || (source == INPUT_SOURCE_EMG && emgSet)
+}
+
 private fun prettyValue(v: Float) = if (v.isFinite()) "%.1f".format(v) else "--"
 
+private fun prettyIntValue(v: Int) = if (v >= 0) v.toString() else "--"
+
 @Composable
-private fun RoboFinger(angle: Float, tipColor: Color) {
+private fun RoboFinger(
+    angle: Float,
+    tipColor: Color,
+    modifier: Modifier = Modifier
+) {
     val t = 1f - ((angle - 40f) / (180f - 40f))
 
     val baseBend = 75f * t
@@ -319,7 +523,10 @@ private fun RoboFinger(angle: Float, tipColor: Color) {
     val tipH = 80.dp
     val width = 38.dp
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Box(
             modifier =
                 Modifier

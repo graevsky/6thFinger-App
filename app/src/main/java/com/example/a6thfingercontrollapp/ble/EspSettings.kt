@@ -3,6 +3,24 @@ package com.example.a6thfingercontrollapp.ble
 import org.json.JSONArray
 import org.json.JSONObject
 
+const val INPUT_SOURCE_FLEX = 0
+const val INPUT_SOURCE_EMG = 1
+
+const val EMG_MODE_BEND_OTHER = 0
+const val EMG_MODE_DIRECTIONAL = 1
+
+const val EMG_EVENT_NONE = 0
+const val EMG_EVENT_OTHER = 1
+const val EMG_EVENT_BEND = 2
+const val EMG_EVENT_UNFOLD = 3
+
+const val EMG_ACTION_NONE = 0
+const val EMG_ACTION_BEND = 1
+const val EMG_ACTION_UNFOLD = 2
+const val EMG_ACTION_COOLDOWN_IGNORED = 3
+
+private const val PIN_PLACEHOLDER = 0xFF
+
 data class EspSettings(
     val fsrPin: Int = 33,
     val fsrPullupOhm: Int = 10_000,
@@ -11,6 +29,8 @@ data class EspSettings(
 
     val flexSettings: Array<FlexSettings> = defaultFlexSettings(),
     val servoSettings: Array<ServoSettings> = defaultServoSettings(),
+    val pairInputSettings: Array<PairInputSettings> = defaultPairInputSettings(),
+    val emgSettings: Array<EmgSettings> = defaultEmgSettings(),
 
     val vibroPin: Int = 5,
     val vibroMode: Int = 0,
@@ -26,7 +46,7 @@ data class EspSettings(
     val pinSet: Boolean = false,
     val authRequired: Boolean = false,
 
-    val settingsVersion: Int = 1
+    val settingsVersion: Int = 2
 ) {
 
     fun toJsonString(): String {
@@ -38,6 +58,11 @@ data class EspSettings(
 
             put("flexSettings", JSONArray().apply { flexSettings.forEach { put(it.toJson()) } })
             put("servoSettings", JSONArray().apply { servoSettings.forEach { put(it.toJson()) } })
+            put(
+                "pairInputSettings",
+                JSONArray().apply { pairInputSettings.forEach { put(it.toJson()) } }
+            )
+            put("emgSettings", JSONArray().apply { emgSettings.forEach { put(it.toJson()) } })
 
             put("vibroPin", vibroPin)
             put("vibroMode", vibroMode)
@@ -56,12 +81,12 @@ data class EspSettings(
 
     companion object {
 
-        private fun defaultFlexForIndex(idx: Int): FlexSettings =
+        fun defaultFlexForIndex(idx: Int): FlexSettings =
             if (idx == 0) {
                 FlexSettings()
             } else {
                 FlexSettings(
-                    flexPin = 0xFF,
+                    flexPin = PIN_PLACEHOLDER,
                     flexPullupOhm = 0,
                     flexStraightOhm = 0,
                     flexBendOhm = 0,
@@ -69,12 +94,12 @@ data class EspSettings(
                 )
             }
 
-        private fun defaultServoForIndex(idx: Int): ServoSettings =
+        fun defaultServoForIndex(idx: Int): ServoSettings =
             if (idx == 0) {
                 ServoSettings()
             } else {
                 ServoSettings(
-                    servoPin = 0xFF,
+                    servoPin = PIN_PLACEHOLDER,
                     servoMinDeg = 40,
                     servoMaxDeg = 180,
                     servoManual = 0,
@@ -83,11 +108,35 @@ data class EspSettings(
                 )
             }
 
+        fun defaultPairInputForIndex(idx: Int): PairInputSettings =
+            PairInputSettings(
+                inputSource = INPUT_SOURCE_FLEX
+            )
+
+        fun defaultEmgForIndex(idx: Int): EmgSettings =
+            EmgSettings(
+                channels = 1,
+                pin0 = PIN_PLACEHOLDER,
+                pin1 = PIN_PLACEHOLDER,
+                pin2 = PIN_PLACEHOLDER,
+                mode = EMG_MODE_BEND_OTHER,
+                bendFullMoves = 1,
+                unfoldFullMoves = 1,
+                minSwitchDelaySec = 1,
+                reverseDirection = false
+            )
+
         private fun defaultFlexSettings(): Array<FlexSettings> =
             Array(4) { idx -> defaultFlexForIndex(idx) }
 
         private fun defaultServoSettings(): Array<ServoSettings> =
             Array(4) { idx -> defaultServoForIndex(idx) }
+
+        private fun defaultPairInputSettings(): Array<PairInputSettings> =
+            Array(4) { idx -> defaultPairInputForIndex(idx) }
+
+        private fun defaultEmgSettings(): Array<EmgSettings> =
+            Array(4) { idx -> defaultEmgForIndex(idx) }
 
         private fun parseFlexArray(json: JSONObject): Array<FlexSettings> {
             json.optJSONArray("flexSettings")?.let { arr ->
@@ -135,11 +184,59 @@ data class EspSettings(
             return defaultServoSettings()
         }
 
+        private fun parsePairInputArray(json: JSONObject): Array<PairInputSettings> {
+            json.optJSONArray("pairInputSettings")?.let { arr ->
+                return Array(4) { idx ->
+                    val obj = arr.optJSONObject(idx)
+                    if (obj != null) PairInputSettings.fromJson(obj) else defaultPairInputForIndex(idx)
+                }
+            }
+
+            val raw = json.optString("pairInputSettings", null)
+            if (raw != null) {
+                try {
+                    val arr = JSONArray(raw)
+                    return Array(4) { idx ->
+                        val obj = arr.optJSONObject(idx)
+                        if (obj != null) PairInputSettings.fromJson(obj) else defaultPairInputForIndex(idx)
+                    }
+                } catch (_: Throwable) {
+                }
+            }
+
+            return defaultPairInputSettings()
+        }
+
+        private fun parseEmgArray(json: JSONObject): Array<EmgSettings> {
+            json.optJSONArray("emgSettings")?.let { arr ->
+                return Array(4) { idx ->
+                    val obj = arr.optJSONObject(idx)
+                    if (obj != null) EmgSettings.fromJson(obj) else defaultEmgForIndex(idx)
+                }
+            }
+
+            val raw = json.optString("emgSettings", null)
+            if (raw != null) {
+                try {
+                    val arr = JSONArray(raw)
+                    return Array(4) { idx ->
+                        val obj = arr.optJSONObject(idx)
+                        if (obj != null) EmgSettings.fromJson(obj) else defaultEmgForIndex(idx)
+                    }
+                } catch (_: Throwable) {
+                }
+            }
+
+            return defaultEmgSettings()
+        }
+
         fun fromJson(json: JSONObject): EspSettings {
             val def = EspSettings()
 
             val flexArray = parseFlexArray(json)
             val servoArray = parseServoArray(json)
+            val pairInputArray = parsePairInputArray(json)
+            val emgArray = parseEmgArray(json)
 
             val pinCode = json.optInt("pinCode", 0)
             val pinSet = json.optBoolean("pinSet", pinCode != 0)
@@ -157,6 +254,8 @@ data class EspSettings(
 
                 flexSettings = flexArray,
                 servoSettings = servoArray,
+                pairInputSettings = pairInputArray,
+                emgSettings = emgArray,
 
                 vibroPin = json.optInt("vibroPin", def.vibroPin),
                 vibroMode = json.optInt("vibroMode", def.vibroMode),
@@ -171,6 +270,80 @@ data class EspSettings(
                 authRequired = authRequired,
 
                 settingsVersion = json.optInt("settingsVersion", def.settingsVersion)
+            )
+        }
+    }
+}
+
+data class PairInputSettings(
+    val inputSource: Int = INPUT_SOURCE_FLEX
+) {
+    fun toJson(): JSONObject {
+        return JSONObject().apply {
+            put("inputSource", inputSource)
+        }
+    }
+
+    companion object {
+        fun fromJson(json: JSONObject): PairInputSettings {
+            return PairInputSettings(
+                inputSource = json.optInt("inputSource", INPUT_SOURCE_FLEX)
+                    .coerceIn(INPUT_SOURCE_FLEX, INPUT_SOURCE_EMG)
+            )
+        }
+    }
+}
+
+data class EmgSettings(
+    val channels: Int = 1,
+    val pin0: Int = PIN_PLACEHOLDER,
+    val pin1: Int = PIN_PLACEHOLDER,
+    val pin2: Int = PIN_PLACEHOLDER,
+    val mode: Int = EMG_MODE_BEND_OTHER,
+    val bendFullMoves: Int = 1,
+    val unfoldFullMoves: Int = 1,
+    val minSwitchDelaySec: Int = 1,
+    val reverseDirection: Boolean = false
+) {
+    fun toJson(): JSONObject {
+        return JSONObject().apply {
+            put("channels", channels.coerceIn(1, 3))
+            put("pins", JSONArray().apply {
+                put(pin0)
+                put(pin1)
+                put(pin2)
+            })
+            put("mode", mode.coerceIn(EMG_MODE_BEND_OTHER, EMG_MODE_DIRECTIONAL))
+            put("bendFullMoves", bendFullMoves.coerceIn(1, 5))
+            put("unfoldFullMoves", unfoldFullMoves.coerceIn(1, 5))
+            put("minSwitchDelaySec", minSwitchDelaySec.coerceIn(1, 60))
+            put("reverseDirection", reverseDirection)
+        }
+    }
+
+    fun activePins(): List<Int> = listOf(pin0, pin1, pin2).take(channels.coerceIn(1, 3))
+
+    companion object {
+        fun fromJson(json: JSONObject): EmgSettings {
+            val pinsArr = json.optJSONArray("pins")
+            val p0 = pinsArr?.optInt(0, json.optInt("pin0", PIN_PLACEHOLDER))
+                ?: json.optInt("pin0", PIN_PLACEHOLDER)
+            val p1 = pinsArr?.optInt(1, json.optInt("pin1", PIN_PLACEHOLDER))
+                ?: json.optInt("pin1", PIN_PLACEHOLDER)
+            val p2 = pinsArr?.optInt(2, json.optInt("pin2", PIN_PLACEHOLDER))
+                ?: json.optInt("pin2", PIN_PLACEHOLDER)
+
+            return EmgSettings(
+                channels = json.optInt("channels", 1).coerceIn(1, 3),
+                pin0 = p0,
+                pin1 = p1,
+                pin2 = p2,
+                mode = json.optInt("mode", EMG_MODE_BEND_OTHER)
+                    .coerceIn(EMG_MODE_BEND_OTHER, EMG_MODE_DIRECTIONAL),
+                bendFullMoves = json.optInt("bendFullMoves", 1).coerceIn(1, 5),
+                unfoldFullMoves = json.optInt("unfoldFullMoves", 1).coerceIn(1, 5),
+                minSwitchDelaySec = json.optInt("minSwitchDelaySec", 1).coerceIn(1, 60),
+                reverseDirection = json.optBoolean("reverseDirection", false)
             )
         }
     }
