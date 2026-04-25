@@ -21,46 +21,92 @@ import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.Path
 
+/**
+ * Retrofit interface for the backend API.
+ *
+ * Responsibilities:
+ * - expose SRP authentication endpoints
+ * - manage access/refresh token based sessions
+ * - sync app settings and device settings with the cloud
+ * - upload, download and delete user avatars
+ * - support email management and password reset flows
+ */
 interface BackendApi {
+    /**
+     * Loads SRP parameters shared by registration and login.
+     */
     @GET("/auth/params")
     suspend fun getSrpParams(): RegisterParamsOut
 
+    /**
+     * Creates a new account using an SRP verifier.
+     */
     @POST("/auth/register")
     suspend fun register(@Body body: RegisterIn): RegisterOut
 
+    /**
+     * Starts SRP login and receives salt, server public value and SRP parameters.
+     */
     @POST("/auth/login/start")
     suspend fun loginStart(@Body body: LoginStartIn): LoginStartOut
 
+    /**
+     * Finishes SRP login by sending client proof and receiving session tokens.
+     */
     @POST("/auth/login/finish")
     suspend fun loginFinish(@Body body: LoginFinishIn): LoginFinishOut
 
+    /**
+     * Exchanges a refresh token for a new access token.
+     */
     @POST("/auth/refresh")
     suspend fun refreshToken(@Body body: RefreshTokenIn): RefreshTokenOut
 
+    /**
+     * Invalidates the current authenticated session on the backend.
+     */
     @POST("/auth/logout")
     suspend fun logout(@Header("Authorization") auth: String): GenericOk
 
+    /**
+     * Returns information about the currently authenticated user.
+     */
     @GET("/auth/me")
     suspend fun getMe(@Header("Authorization") auth: String): MeOut
 
+    /**
+     * Loads user-level app settings.
+     */
     @GET("/settings/")
     suspend fun getAppSettings(@Header("Authorization") auth: String): AppSettingsOut
 
+    /**
+     * Saves user-level app settings to the backend.
+     */
     @PUT("/settings/")
     suspend fun putAppSettings(
         @Header("Authorization") auth: String,
         @Body body: AppSettingsIn
     ): AppSettingsOut
 
+    /**
+     * Lists BLE devices registered for the current user.
+     */
     @GET("/device/")
     suspend fun listDevices(@Header("Authorization") auth: String): List<DeviceOut>
 
+    /**
+     * Registers a new BLE device in the user cloud account.
+     */
     @POST("/device/")
     suspend fun createDevice(
         @Header("Authorization") auth: String,
         @Body body: DeviceCreate
     ): DeviceOut
 
+    /**
+     * Updates data for an existing device.
+     */
     @PUT("/device/{id}")
     suspend fun updateDevice(
         @Header("Authorization") auth: String,
@@ -68,18 +114,27 @@ interface BackendApi {
         @Body body: DeviceUpdate
     ): DeviceOut
 
+    /**
+     * Loads the latest settings snapshot for a device.
+     */
     @GET("/device/{id}/settings")
     suspend fun getDeviceSettings(
         @Header("Authorization") auth: String,
         @Path("id") deviceId: String
     ): DeviceSettingsOut
 
+    /**
+     * Loads device settings as a raw Retrofit response.
+     */
     @GET("/device/{id}/settings")
     suspend fun getDeviceSettingsResponse(
         @Header("Authorization") auth: String,
         @Path("id") deviceId: String
     ): Response<DeviceSettingsOut>
 
+    /**
+     * Stores a new version of device settings in the cloud.
+     */
     @POST("/device/{id}/settings")
     suspend fun postDeviceSettings(
         @Header("Authorization") auth: String,
@@ -87,6 +142,9 @@ interface BackendApi {
         @Body body: DeviceSettingsIn
     ): DeviceSettingsOut
 
+    /**
+     * Uploads the current user avatar as image data.
+     */
     @Multipart
     @POST("/avatar/")
     suspend fun uploadAvatar(
@@ -94,65 +152,104 @@ interface BackendApi {
         @Part file: MultipartBody.Part
     ): AvatarOut
 
+    /**
+     * Downloads the current user avatar as raw response bytes.
+     */
     @GET("/avatar/")
     suspend fun downloadAvatar(
         @Header("Authorization") auth: String
     ): Response<ResponseBody>
 
+    /**
+     * Deletes the current user avatar from the backend.
+     */
     @DELETE("/avatar/")
     suspend fun deleteAvatar(
         @Header("Authorization") auth: String
     ): Response<Unit>
 
+    /**
+     * Starts email attachment flow by sending a verification code.
+     */
     @POST("/auth/email/start-add")
     suspend fun emailStartAdd(
         @Header("Authorization") auth: String,
         @Body body: EmailStartAddIn
     ): GenericOk
 
+    /**
+     * Confirms a new account email using the received verification code.
+     */
     @POST("/auth/email/confirm-add")
     suspend fun emailConfirmAdd(
         @Header("Authorization") auth: String,
         @Body body: EmailConfirmIn
     ): GenericOk
 
+    /**
+     * Starts email removal flow by sending a verification code to the current email.
+     */
     @POST("/auth/email/start-remove")
     suspend fun emailStartRemove(
         @Header("Authorization") auth: String
     ): GenericOk
 
+    /**
+     * Confirms email removal using either an email code or recovery code.
+     */
     @POST("/auth/email/confirm-remove")
     suspend fun emailConfirmRemove(
         @Header("Authorization") auth: String,
         @Body body: EmailRemoveConfirmIn
     ): GenericOk
 
+    /**
+     * Starts password reset and returns available recovery methods.
+     */
     @POST("/auth/password-reset/start")
     suspend fun passwordResetStart(
         @Body body: PasswordResetStartIn
     ): PasswordResetStartOut
 
+    /**
+     * Sends password reset code to the provided email.
+     */
     @POST("/auth/password-reset/email/send")
     suspend fun passwordResetEmailSend(
         @Body body: PasswordResetEmailSendIn
     ): GenericOk
 
+    /**
+     * Verifies email reset code and returns a reset session id.
+     */
     @POST("/auth/password-reset/email/verify")
     suspend fun passwordResetEmailVerify(
         @Body body: PasswordResetEmailVerifyIn
     ): PasswordResetVerifyOut
 
+    /**
+     * Verifies recovery code and returns a reset session id.
+     */
     @POST("/auth/password-reset/recovery/verify")
     suspend fun passwordResetRecoveryVerify(
         @Body body: PasswordResetRecoveryVerifyIn
     ): PasswordResetVerifyOut
 
+    /**
+     * Finishes password reset by storing a new SRP salt and verifier.
+     */
     @POST("/auth/password-reset/finish")
     suspend fun passwordResetFinish(
         @Body body: PasswordResetFinishIn
     ): GenericOk
 
     companion object {
+        /**
+         * App level client token to every backend request.
+         *
+         * The header is controlled by BuildConfig so it can be disabled for builds
+         * that do not require extra client authentication.
+         */
         private fun clientTokenInterceptor(): Interceptor {
             return Interceptor { chain ->
                 val original = chain.request()
@@ -176,6 +273,9 @@ interface BackendApi {
             }
         }
 
+        /**
+         * Builds a Retrofit API instance with Moshi serialization and OkHttp.
+         */
         fun create(): BackendApi {
             val logging = HttpLoggingInterceptor().apply {
                 level = if (BuildConfig.DEBUG) {

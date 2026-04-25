@@ -4,7 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.example.a6thfingercontrollapp.R
 
-/* This WILL BE refactored later, I promise...*/
+/**
+ * Converts internal error keys into localized text for Compose UI.
+ */
 @Composable
 fun uiErrorText(raw: String?): String? {
     val k = raw?.trim()?.lowercase()?.replace("\n", "")
@@ -35,5 +37,8 @@ fun uiErrorText(raw: String?): String? {
     }
 }
 
+/**
+ * Helper used by retry loops to detect errors caused by temporary connectivity loss.
+ */
 fun isNetworkErrorKey(raw: String?): Boolean =
     raw?.trim()?.lowercase()?.startsWith("network_error") == true

@@ -26,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.utils.uiErrorText
 
+/**
+ * Optional post-registration step where a user can attach an email address.
+ */
 @Composable
 fun PostRegisterAddEmailScreen(
     initialEmail: String,
@@ -95,6 +98,9 @@ fun PostRegisterAddEmailScreen(
     }
 }
 
+/**
+ * Verification step for the optional email that was entered after registration.
+ */
 @Composable
 fun PostRegisterVerifyEmailScreen(
     email: String,

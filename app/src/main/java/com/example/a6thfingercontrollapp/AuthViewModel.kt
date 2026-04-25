@@ -21,6 +21,9 @@ import kotlinx.coroutines.withContext
 import com.example.a6thfingercontrollapp.data.avatarFile as dataAvatarFile
 import com.example.a6thfingercontrollapp.data.deleteAvatarIfExists as dataDeleteAvatarIfExists
 
+/**
+ * Authentication state exposed to the UI layer.
+ */
 sealed class UiAuthState {
     object Loading : UiAuthState()
     object Guest : UiAuthState()
@@ -28,11 +31,19 @@ sealed class UiAuthState {
     data class LoggedIn(val username: String) : UiAuthState()
 }
 
+/**
+ * Temporary registration result that must be shown to the user before finishing signup.
+ */
 data class PendingRecoveryCodes(
     val username: String,
     val codes: List<String>
 )
 
+/**
+ * ViewModel that coordinates authentication, account settings sync and avatar sync.
+ *
+ * The repository performs network/storage work.
+ */
 class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = AuthRepository(app)
@@ -46,12 +57,14 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     private var lastRegisteredUser: String? = null
 
+    /** Pending cloud sync jobs retried by background workers while the app is alive. */
     private val pendingAppSettingsUpload = MutableStateFlow<Map<String, Any?>?>(null)
     private val pendingAvatarUploadPath = MutableStateFlow<String?>(null)
 
     private val _pendingRecoveryCodes = MutableStateFlow<PendingRecoveryCodes?>(null)
     val pendingRecoveryCodes: StateFlow<PendingRecoveryCodes?> = _pendingRecoveryCodes
 
+    /** Credentials are kept only during post-registration email setup flow. */
     private var pendingRegisterUsername: String? = null
     private var pendingRegisterPassword: String? = null
 
@@ -86,6 +99,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         _error.value = null
     }
 
+    /**
+     * Switches the app into guest mode without creating a server session.
+     */
     fun continueAsGuest() {
         viewModelScope.launch {
             repo.continueAsGuest()
@@ -100,6 +116,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         _pendingRecoveryCodes.value = null
     }
 
+    /**
+     * Removes all local avatar copies and clears the stored avatar path.
+     */
     private suspend fun clearLocalAvatar() {
         val avatarPath = appSettings.getAvatarPath().first()
 
@@ -111,6 +130,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         appSettings.setAvatarPath(null)
     }
 
+    /**
+     * Resets all account-related local state after logout or expired session.
+     */
     private suspend fun forceUnauthenticatedCleanup() {
         pendingAppSettingsUpload.value = null
         pendingAvatarUploadPath.value = null
@@ -121,6 +143,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         _auth.value = UiAuthState.Unauthenticated
     }
 
+    /**
+     * Runs an authorized operation and forces local logout if the server session expired.
+     */
     private suspend fun <T> runProtected(action: suspend () -> T): T {
         try {
             return action()
@@ -132,6 +157,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Registers a new user and stores recovery codes for the mandatory post-register screen.
+     */
     fun register(username: String, password: String, onSuccess: (() -> Unit)? = null) {
         viewModelScope.launch {
             try {
@@ -153,6 +181,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Performs login and starts app settings/avatar synchronization.
+     */
     fun login(username: String, password: String) {
         viewModelScope.launch {
             try {
@@ -170,6 +201,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Logs out remotely when possible and always clears local account state.
+     */
     fun logout() {
         viewModelScope.launch {
             repo.logout()
@@ -177,6 +211,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Finishes registration without adding email and immediately logs in.
+     */
     suspend fun postRegisterFinishWithoutEmail() {
         val u = pendingRegisterUsername ?: throw Exception("Registration state expired")
         val p = pendingRegisterPassword ?: throw Exception("Registration state expired")
@@ -191,6 +228,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         clearPostRegisterState()
     }
 
+    /**
+     * Logs in during registration if needed and starts email verification.
+     */
     suspend fun postRegisterEmailStart(email: String) {
         val u = pendingRegisterUsername ?: throw Exception("Registration state expired")
         val p = pendingRegisterPassword ?: throw Exception("Registration state expired")
@@ -208,11 +248,17 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         runProtected { repo.emailStartAdd(email) }
     }
 
+    /**
+     * Confirms post-registration email and clears temporary registration state.
+     */
     suspend fun postRegisterEmailConfirm(email: String, code: String) {
         runProtected { repo.emailConfirmAdd(email, code) }
         clearPostRegisterState()
     }
 
+    /**
+     * Queues app settings upload for retry worker.
+     */
     fun scheduleAppSettingsUpload(payload: Map<String, Any?>) {
         val state = _auth.value
         if (state is UiAuthState.LoggedIn) {
@@ -220,6 +266,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Queues avatar upload for retry worker.
+     */
     fun scheduleAvatarUpload(localPath: String) {
         val state = _auth.value
         if (state is UiAuthState.LoggedIn) {
@@ -227,6 +276,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Removes remote avatar without blocking the UI.
+     */
     fun deleteAvatarRemote() {
         val state = _auth.value
         if (state !is UiAuthState.LoggedIn) return
@@ -238,6 +290,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Retry loop for avatar uploads scheduled by AccountScreen.
+     */
     private fun uploadAvatarWorker() {
         viewModelScope.launch {
             val retryDelayMs = 30_000L
@@ -260,6 +315,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Downloads the current user's avatar into local storage if it exists.
+     */
     private fun tryPullAvatarToLocal() {
         viewModelScope.launch {
             runCatching {
@@ -298,6 +356,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun emailConfirmRemove(code: String?, recoveryCode: String?) =
         runProtected { repo.emailConfirmRemove(code, recoveryCode) }
 
+    /**
+     * On login, chooses between pulling remote app settings and pushing local defaults.
+     */
     private suspend fun syncAppSettingsOnLogin(username: String) {
         val localLang = appSettings.getLanguage().first()
 
@@ -328,6 +389,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Periodically pulls app settings while the user remains logged in.
+     */
     private suspend fun periodicSettingsPullLoop() {
         val intervalMs = 15 * 60 * 1000L
         while (auth.value is UiAuthState.LoggedIn) {
@@ -343,6 +407,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Retry loop for app settings upload.
+     */
     private suspend fun uploadSettingsWorker() {
         val retryDelayMs = 30_000L
         while (true) {
@@ -378,6 +445,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun ensureDevice(address: String, alias: String?): DeviceOut =
         runProtected { repo.ensureDevice(address, alias) }
 
+    /**
+     * Pushes language update immediately or queues it for retry if the network fails.
+     */
     fun updateLanguageRemote(newLang: String) {
         viewModelScope.launch {
             try {

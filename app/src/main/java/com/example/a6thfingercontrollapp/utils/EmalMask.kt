@@ -1,5 +1,11 @@
 package com.example.a6thfingercontrollapp.utils
 
+/**
+ * Masks the local part of an email while keeping the first character and domain visible.
+ *
+ * Used during password reset so the user can identify the linked address without
+ * exposing the full email on screen.
+ */
 fun maskEmail(email: String): String {
     val e = email.trim()
     val at = e.indexOf('@')

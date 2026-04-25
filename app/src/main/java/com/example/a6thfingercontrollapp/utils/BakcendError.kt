@@ -9,8 +9,14 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
 
-/*This WILL BE refactored later :P*/
+/**
+ * Converts low-level Retrofit, HTTP and network exceptions into stable error keys.
+ *
+ * UI code should not depend on raw exception messages, so this mapper normalizes
+ * backend failures into short string identifiers used by UiErrorMapper.
+ */
 fun parseBackendError(e: Throwable): String {
+    // Network-related exceptions are grouped into one key for offline/retry UI.
     if (e is UnknownHostException || e is ConnectException || e is SocketTimeoutException) {
         return "network_error"
     }
@@ -23,10 +29,12 @@ fun parseBackendError(e: Throwable): String {
         val body = runCatching { e.response()?.errorBody()?.string().orEmpty() }.getOrDefault("")
         val lc = body.lowercase()
 
+        // Prefer structured backend error keys when the response body contains them.
         parseJsonErrorKey(body)?.let { jsonKey ->
             return jsonKey
         }
 
+        // Fallback mapping for older/plain-text backend responses.
         if (code == 409) {
             if ("email already in use" in lc || ("email" in lc && "use" in lc)) return "email_in_use"
             if ("username" in lc && ("taken" in lc || "exists" in lc)) return "username_taken"
@@ -57,6 +65,9 @@ fun parseBackendError(e: Throwable): String {
     return e.message?.takeIf { it.isNotBlank() } ?: "unknown_error"
 }
 
+/**
+ * Extracts backend-provided error fields from JSON response bodies.
+ */
 private fun parseJsonErrorKey(body: String): String? {
     if (body.isBlank()) return null
 
@@ -76,6 +87,9 @@ private fun parseJsonErrorKey(body: String): String? {
     return null
 }
 
+/**
+ * Maps backend enum-style error names to app-level lowercase keys.
+ */
 private fun toErrorKey(err: String): String =
     when (err.trim().uppercase()) {
         "USERNAME_TAKEN" -> "username_taken"

@@ -4,6 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.example.a6thfingercontrollapp.R
 
+/**
+ * Converts normalized BLE status keys from the transport layer into localized
+ * text displayed on the connection screen.
+ */
 @Composable
 fun bleStatusUiText(statusKeyRaw: String): String {
     val key = statusKeyRaw.trim().lowercase()

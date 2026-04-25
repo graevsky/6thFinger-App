@@ -20,6 +20,9 @@ import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.EspSettings
 
+/**
+ * Dialog for editing global FSR pressure sensor and vibration threshold settings.
+ */
 @Composable
 fun FsrDialog(
     s: EspSettings,
@@ -32,7 +35,11 @@ fun FsrDialog(
     var soft by remember { mutableStateOf(s.fsrSoftThresholdN.toInt().toString()) }
     var hard by remember { mutableStateOf(s.fsrHardMaxN.toInt().toString()) }
 
-    BaseDialog(title = stringResource(R.string.fsr_settings), onDismiss = onDismiss, haptic = haptic) {
+    BaseDialog(
+        title = stringResource(R.string.fsr_settings),
+        onDismiss = onDismiss,
+        haptic = haptic
+    ) {
         NumberField(stringResource(R.string.fsr_pin), pin) { pin = it }
         NumberField(stringResource(R.string.fsr_pullup), pull) { pull = it }
         NumberField(stringResource(R.string.fsr_start_threshold), soft) { soft = it }

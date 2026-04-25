@@ -2,6 +2,16 @@ package com.example.a6thfingercontrollapp.ble
 
 import java.util.UUID
 
+/**
+ * BLE UUIDs used by the ESP32 custom GATT service.
+ *
+ * The protocol is split by purpose:
+ * - CFG_IN: app -> board configuration commands
+ * - CFG_OUT: board -> app configuration payload
+ * - ACK: acknowledgements for commands
+ * - TELE: telemetry stream
+ * - SERVO_LIVE: low-latency live servo control channel
+ */
 object NewBleConstants {
 
     val SERVICE_UUID: UUID = UUID.fromString("6F1A0000-0000-4A4A-AA00-001122334400")

@@ -40,12 +40,18 @@ import retrofit2.HttpException
 import retrofit2.Response
 import java.io.File
 
+/**
+ * Cloud-stored settings snapshot for one prosthesis device.
+ */
 data class DeviceSettingsRecord(
     val settings: EspSettings,
     val version: Int,
     val updatedAt: String
 )
 
+/**
+ * Persistent authentication state used by the repository layer.
+ */
 sealed class AuthState {
     object Unauthenticated : AuthState()
     object Guest : AuthState()
@@ -53,18 +59,43 @@ sealed class AuthState {
         AuthState()
 }
 
+/**
+ * Internal signal used when stored credentials can no longer be refreshed.
+ */
 private class SessionExpiredException : Exception("session_expired")
 
+/**
+ * Main data layer for authentication, cloud settings, devices and avatar sync.
+ *
+ * Responsibilities:
+ * - perform registration/login against the backend
+ * - store and refresh access/refresh tokens
+ * - wrap authorized backend calls with automatic token refresh
+ * - synchronize app settings, device settings and avatars with the cloud
+ * - expose account email and password reset operations
+ */
 class AuthRepository(context: Context) {
 
     private val api = BackendApi.create()
     private val store = AuthStore(context.applicationContext)
     private val appContext = context.applicationContext
 
+    /**
+     * Serializes token refresh requests to avoid overlapping refresh calls.
+     */
     private val tokenRefreshMutex = Mutex()
 
+    /**
+     * Raw stored auth flow from DataStore.
+     */
     val stored = store.authState
 
+    /**
+     * Resolves the app startup auth state from locally stored credentials.
+     *
+     * Stored logged-in sessions are validated through the backend. Invalid or
+     * expired sessions are cleared.
+     */
     suspend fun resolveInitialState(): AuthState {
         val s = stored.first()
         return when {
@@ -82,6 +113,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Validates the currently stored tokens by requesting the current user.
+     */
     private suspend fun validateStoredSession(): AuthState {
         val storedState = stored.first()
         val refreshToken = storedState.refreshToken ?: throw SessionExpiredException()
@@ -95,6 +129,9 @@ class AuthRepository(context: Context) {
         return AuthState.LoggedIn(username, accessToken, refreshToken)
     }
 
+    /**
+     * Reads the current backend user and refreshes the access token if needed.
+     */
     private suspend fun getMeWithRefreshFallback(): MeOut {
         val s = stored.first()
         val accessToken = s.accessToken ?: throw SessionExpiredException()
@@ -111,6 +148,12 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Refreshes access token using the stored refresh token.
+     *
+     * If another coroutine already refreshed the same failed token, the new
+     * stored access token is reused instead of issuing another refresh request.
+     */
     private suspend fun refreshAccessToken(failedAccessToken: String? = null): String =
         tokenRefreshMutex.withLock {
             val currentState = stored.first()
@@ -135,6 +178,9 @@ class AuthRepository(context: Context) {
             }
         }
 
+    /**
+     * Executes an authorized API call and retries once after access-token refresh.
+     */
     private suspend fun <T> withAuthorizedRequest(
         block: suspend (authHeader: String) -> T
     ): T {
@@ -161,6 +207,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Used by endpoints where non-2xx statuses such as 404 are meaningful.
+     */
     private suspend fun <T> withAuthorizedResponse(
         block: suspend (authHeader: String) -> Response<T>
     ): Response<T> {
@@ -182,11 +231,20 @@ class AuthRepository(context: Context) {
         return secondResponse
     }
 
+    /**
+     * Stores guest mode locally and returns the corresponding state.
+     */
     suspend fun continueAsGuest(): AuthState {
         store.setGuest()
         return AuthState.Guest
     }
 
+    /**
+     * Registers a new user.
+     *
+     * The raw password is never sent to the backend; only salt and verifier are
+     * submitted. Backend recovery codes are returned for the post-registration flow.
+     */
     suspend fun register(username: String, password: String): List<String> {
         try {
             val normalized = username.trim().lowercase()
@@ -217,6 +275,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Logs in with SRP challenge-response and persists received tokens.
+     */
     suspend fun login(username: String, password: String): AuthState {
         try {
             val normalized = username.trim().lowercase()
@@ -253,6 +314,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Logs out remotely when possible, then clears local auth state.
+     */
     suspend fun logout(): AuthState {
         val currentState = stored.first()
 
@@ -272,6 +336,9 @@ class AuthRepository(context: Context) {
         return AuthState.Unauthenticated
     }
 
+    /**
+     * Downloads user-level app settings payload from the backend.
+     */
     suspend fun pullAppSettings(): Map<String, Any?>? {
         return try {
             val res = withAuthorizedRequest { auth ->
@@ -283,6 +350,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Uploads user-level app settings payload to the backend.
+     */
     suspend fun pushAppSettings(payload: Map<String, Any?>) {
         try {
             withAuthorizedRequest { auth ->
@@ -293,6 +363,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Lists all prosthesis devices registered for the current account.
+     */
     suspend fun listDevices(): List<DeviceOut> {
         return try {
             withAuthorizedRequest { auth ->
@@ -303,6 +376,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Converts ESP settings to backend payload and stores a new server version.
+     */
     suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings): DeviceSettingsRecord {
         val payload = espToPayload(settings)
 
@@ -325,6 +401,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Fetches the latest cloud settings record for a device.
+     */
     suspend fun getDeviceSettingsRecord(deviceId: String): DeviceSettingsRecord? {
         return try {
             val resp = withAuthorizedResponse { auth ->
@@ -347,10 +426,16 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Convenience wrapper that returns only parsed settings.
+     */
     suspend fun pullDeviceSettings(deviceId: String): EspSettings? {
         return getDeviceSettingsRecord(deviceId)?.settings
     }
 
+    /**
+     * Uploads local avatar file as multipart data.
+     */
     suspend fun uploadAvatar(localPath: String) {
         val f = File(localPath)
         if (!f.exists()) throw Exception("Avatar file not found")
@@ -368,6 +453,11 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Downloads account avatar into the app's private local storage.
+     *
+     * Missing remote avatar is treated as a valid null result.
+     */
     suspend fun downloadAvatarToLocal(): String? {
         val resp = try {
             withAuthorizedResponse { auth ->
@@ -391,6 +481,9 @@ class AuthRepository(context: Context) {
         return outFile.absolutePath
     }
 
+    /**
+     * Deletes remote avatar.
+     */
     suspend fun deleteAvatarRemote() {
         try {
             val resp = withAuthorizedResponse { auth ->
@@ -405,6 +498,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Starts account email addition by asking the backend to send a code.
+     */
     suspend fun emailStartAdd(email: String) {
         try {
             withAuthorizedRequest { auth ->
@@ -415,6 +511,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Confirms account email addition using a verification code.
+     */
     suspend fun emailConfirmAdd(email: String, code: String) {
         try {
             withAuthorizedRequest { auth ->
@@ -425,6 +524,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Starts account email removal by sending a confirmation code.
+     */
     suspend fun emailStartRemove() {
         try {
             withAuthorizedRequest { auth ->
@@ -435,6 +537,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Confirms email removal using either email code or recovery code.
+     */
     suspend fun emailConfirmRemove(code: String?, recoveryCode: String?) {
         try {
             withAuthorizedRequest { auth ->
@@ -451,6 +556,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Retrieves password reset capabilities for the requested username.
+     */
     suspend fun passwordResetStart(username: String): PasswordResetStartOut {
         try {
             return api.passwordResetStart(PasswordResetStartIn(username.trim().lowercase()))
@@ -459,6 +567,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Sends a password reset code to the provided account email.
+     */
     suspend fun passwordResetEmailSend(username: String, email: String) {
         try {
             api.passwordResetEmailSend(
@@ -472,6 +583,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Verifies password reset email code and returns a reset session id.
+     */
     suspend fun passwordResetEmailVerify(username: String, email: String, code: String): String {
         try {
             val out = api.passwordResetEmailVerify(
@@ -487,6 +601,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Verifies a recovery code and returns a reset session id.
+     */
     suspend fun passwordResetRecoveryVerify(username: String, recoveryCode: String): String {
         try {
             val out = api.passwordResetRecoveryVerify(
@@ -501,6 +618,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Finishes password reset by generating a new SRP salt/verifier pair.
+     */
     suspend fun passwordResetFinish(resetSessionId: String, username: String, newPassword: String) {
         try {
             val params = api.getSrpParams()
@@ -527,6 +647,9 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Converts one flex settings object to a backend-friendly map.
+     */
     private fun flexToMap(f: FlexSettings): Map<String, Any?> = mapOf(
         "flexPin" to f.flexPin,
         "flexPullupOhm" to f.flexPullupOhm,
@@ -535,6 +658,9 @@ class AuthRepository(context: Context) {
         "flexTolerancePct" to f.flexTolerancePct
     )
 
+    /**
+     * Converts one servo settings object to a backend-friendly map.
+     */
     private fun servoToMap(s: ServoSettings): Map<String, Any?> = mapOf(
         "servoPin" to s.servoPin,
         "servoMinDeg" to s.servoMinDeg,
@@ -544,10 +670,16 @@ class AuthRepository(context: Context) {
         "servoMaxSpeedDegPerSec" to s.servoMaxSpeedDegPerSec.toDouble()
     )
 
+    /**
+     * Converts pair input source settings to a backend-friendly map.
+     */
     private fun pairInputToMap(p: PairInputSettings): Map<String, Any?> = mapOf(
         "inputSource" to p.inputSource
     )
 
+    /**
+     * Converts one EMG settings object to a backend-friendly map.
+     */
     private fun emgToMap(e: EmgSettings): Map<String, Any?> = mapOf(
         "channels" to e.channels,
         "pins" to listOf(e.pin0, e.pin1, e.pin2),
@@ -558,6 +690,9 @@ class AuthRepository(context: Context) {
         "reverseDirection" to e.reverseDirection
     )
 
+    /**
+     * Converts the full ESP32 settings snapshot into backend payload format.
+     */
     private fun espToPayload(settings: EspSettings): Map<String, Any?> {
         return mapOf(
             "fsrPin" to settings.fsrPin,
@@ -587,6 +722,9 @@ class AuthRepository(context: Context) {
         )
     }
 
+    /**
+     * Parses backend payload back into the app's ESP32 settings model.
+     */
     private fun payloadToEsp(payload: Map<String, Any?>): EspSettings? {
         return try {
             val json = JSONObject(payload)
@@ -596,6 +734,12 @@ class AuthRepository(context: Context) {
         }
     }
 
+    /**
+     * Ensures that a BLE device exists in the user's cloud device list.
+     *
+     * Existing devices are matched by MAC address. If alias changed locally,
+     * the backend record is updated before returning it.
+     */
     suspend fun ensureDevice(address: String, alias: String?): DeviceOut {
         return try {
             withAuthorizedRequest { auth ->

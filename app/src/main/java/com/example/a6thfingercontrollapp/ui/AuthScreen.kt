@@ -53,6 +53,12 @@ import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.utils.PasswordPolicy
 import com.example.a6thfingercontrollapp.utils.uiErrorText
 
+/**
+ * First screen shown to unauthenticated users.
+ *
+ * It provides login/register/guest entry points, language switching and a link
+ * to the quick start guide.
+ */
 @Composable
 fun StartScreen(
     bleVm: BleViewModel,
@@ -69,6 +75,7 @@ fun StartScreen(
     val guideUrl =
         "https://docs.google.com/document/d/1MEejkdQEGTkvxDuX7fgXnzfzSTgcVONKTlj-WCBkAp0/edit?usp=sharing" // temp hardcode :/
 
+    /** Opens the external guide from the landing screen. */
     fun openUrl(url: String) {
         try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -200,6 +207,9 @@ fun StartScreen(
     }
 }
 
+/**
+ * Login form that delegates authentication to AuthViewModel.
+ */
 @Composable
 fun LoginScreen(
     vm: AuthViewModel,
@@ -300,6 +310,9 @@ fun LoginScreen(
     }
 }
 
+/**
+ * Registration form with local password policy validation.
+ */
 @Composable
 fun RegisterScreen(
     vm: AuthViewModel,

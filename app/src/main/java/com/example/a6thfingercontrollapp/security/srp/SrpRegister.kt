@@ -3,23 +3,40 @@ package com.example.a6thfingercontrollapp.security.srp
 import java.math.BigInteger
 import java.security.SecureRandom
 
+/**
+ * SRP registration helper.
+ */
 object SrpRegister {
 
+    /**
+     * Registration payload produced by the client.
+     */
     data class RegistrationResult(val saltHex: String, val verifierHex: String)
 
+    /** Secure random source for salt generation. */
     private val random = SecureRandom()
 
+    /**
+     * Generates a random 128-bit salt encoded as hex.
+     */
     fun generateSaltHex(): String {
         val buf = ByteArray(16)
         random.nextBytes(buf)
         return SrpUtils.hexFromBytes(buf)
     }
 
+    /**
+     * Generates SRP verifier for a new account.
+     *
+     * Output:
+     * - saltHex is stored with the account
+     * - verifierHex is stored instead of the password
+     */
     fun generateVerifier(
-            username: String,
-            password: String,
-            primeHex: String,
-            generatorHex: String
+        username: String,
+        password: String,
+        primeHex: String,
+        generatorHex: String
     ): RegistrationResult {
         val user = username.trim().lowercase()
 

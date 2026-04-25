@@ -34,8 +34,22 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * Low-level BLE transport layer for the ESP32 controller.
+ *
+ * Responsibilities:
+ * - scan/connect/disconnect
+ * - discover required GATT characteristics
+ * - subscribe to telemetry/config/ack channels
+ * - send chunked JSON commands to the board
+ * - parse incoming telemetry/config/auth/ack JSON
+ * - expose BLE state as StateFlow for the rest of the app
+ */
 class BleClient(private val context: Context) {
 
+    /**
+     * Debug-only raw config stream reconstructed exactly as received.
+     */
     private val _rawCfgText = MutableStateFlow("")
     val rawCfgText: StateFlow<String> = _rawCfgText.asStateFlow()
 
@@ -58,18 +72,28 @@ class BleClient(private val context: Context) {
 
     private var gatt: BluetoothGatt? = null
 
+    // Cached characteristic references resolved after service discovery.
     private var chCfgIn: BluetoothGattCharacteristic? = null
     private var chCfgOut: BluetoothGattCharacteristic? = null
     private var chAck: BluetoothGattCharacteristic? = null
     private var chTele: BluetoothGattCharacteristic? = null
     private var chServoLive: BluetoothGattCharacteristic? = null
 
+    /**
+     * Notification enabling must be serialized: Android writes CCC descriptor
+     * one characteristic at a time
+     */
     private val notifyQueue = ArrayDeque<BluetoothGattCharacteristic>()
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val _telemetry = MutableStateFlow(Telemetry())
     val telemetry: StateFlow<Telemetry> = _telemetry.asStateFlow()
+
+    /**
+     * state is an alias kept for the rest of the app.
+     * It combines transport status + parsed telemetry in one flow.
+     */
     val state: StateFlow<Telemetry> = telemetry
 
     private val _settings = MutableStateFlow<EspSettings?>(null)
@@ -88,15 +112,24 @@ class BleClient(private val context: Context) {
     private var cfgParser = ChunkParser()
     private var ackParser = ChunkParser()
 
+    /**
+     * Synchronizes writeJsonChunked and live-write operations.
+     * Android BLE writes are sensitive to overlap.
+     */
     private val writeMutex = Any()
 
     @Volatile
     private var writeInProgress: Boolean = false
+
     @Volatile
     private var lastWriteOk: Boolean = true
+
     @Volatile
     private var pendingWriteUuid: java.util.UUID? = null
 
+    /**
+     * Guard so cfg_ok is sent only once after the app is ready to consume telemetry.
+     */
     @Volatile
     private var teleUnlocked: Boolean = false
 
@@ -114,24 +147,37 @@ class BleClient(private val context: Context) {
 
     @Volatile
     private var authAttemptId: Long = 0L
+
     @Volatile
     private var sessionAuthed: Boolean = false
+
     @Volatile
     private var devicePinSet: Boolean = false
+
     @Volatile
     private var seenTelemetry: Boolean = false
 
+    /**
+     * Used for commands that expect a specific ACK (e.g. tele_set).
+     * Only one such command is allowed at a time.
+     */
     private val commandMutex = Mutex()
+
     @Volatile
     private var expectedAckFor: String? = null
+
     @Volatile
     private var expectedAckDeferred: CompletableDeferred<JSONObject>? = null
+
     @Volatile
     private var lastTeleRxMs: Long = 0L
 
     fun start() { /* no-op */
     }
 
+    /**
+     * Full BLE shutdown entry point used by the app lifecycle.
+     */
     fun stop() {
         stopScan()
         disconnectNow()
@@ -141,6 +187,9 @@ class BleClient(private val context: Context) {
 
     fun isBleReady(): Boolean = adapter?.isEnabled == true
 
+    /**
+     * Starts BLE scan using low-latency mode.
+     */
     fun scan() {
         if (scanning.getAndSet(true)) return
 
@@ -174,6 +223,9 @@ class BleClient(private val context: Context) {
         }
     }
 
+    /**
+     * Connects to a known MAC address
+     */
     fun connectByAddress(addr: String) {
         val dev = try {
             adapter?.getRemoteDevice(addr)
@@ -187,23 +239,35 @@ class BleClient(private val context: Context) {
         connect(dev)
     }
 
+    /**
+     * Sends the full settings snapshot to the board using chunked JSON protocol.
+     */
     fun applySettings(settings: EspSettings): Boolean {
         val base = JSONObject(settings.toJsonString())
         base.put("type", "cfg_set")
         val json = base.toString()
-        Log.d(TAG_CFG, "ANDROID_SEND_CFG_JSON = $json")
+        //Log.d(TAG_CFG, "ANDROID_SEND_CFG_JSON = $json")
         return writeJsonChunked(json)
     }
 
+    /**
+     * Requests current board configuration. Uses delay for safety.
+     */
     fun requestConfig() {
         scope.launch {
             delay(200)
             val obj = JSONObject().apply { put("type", "cfg_get") }
-            Log.d(TAG_CFG, "ANDROID_SEND_CFG_GET = $obj")
+            //Log.d(TAG_CFG, "ANDROID_SEND_CFG_GET = $obj")
             writeJsonChunked(obj.toString())
         }
     }
 
+    /**
+     * Sends telemetry enable/disable command and waits for its ACK.
+     *
+     * This is blocking from the caller's perspective and is used when the app
+     * must guarantee telemetry state before continuing
+     */
     suspend fun setTelemetryEnabledBlocking(enabled: Boolean): Boolean =
         commandMutex.withLock {
             _telemetryEnabled.value = enabled
@@ -221,7 +285,7 @@ class BleClient(private val context: Context) {
                 put("enabled", enabled)
             }
 
-            Log.d(TAG_CFG, "ANDROID_SEND_TELE_SET_BLOCKING = $obj")
+            //Log.d(TAG_CFG, "ANDROID_SEND_TELE_SET_BLOCKING = $obj")
             val sent = writeJsonChunked(obj.toString())
             if (!sent) {
                 expectedAckFor = null
@@ -235,16 +299,20 @@ class BleClient(private val context: Context) {
             val ok = ack.optBoolean("ok", false)
             if (!ok) return false
 
+            // When telemetry is disabled, also wait until packets actually stop arriving.
             if (!enabled) {
                 val quietOk = waitTelemetryQuiet(minQuietMs = 400, timeoutMs = 3500)
                 if (!quietOk) {
-                    Log.w(TAG_CFG, "Telemetry quiet wait timeout (may still be flowing)")
+                    //Log.w(TAG_CFG, "Telemetry quiet wait timeout (may still be flowing)")
                 }
             }
 
             true
         }
 
+    /**
+     * Waits until no telemetry packet has been received for the requested quiet period.
+     */
     private suspend fun waitTelemetryQuiet(minQuietMs: Long, timeoutMs: Long): Boolean {
         val start = SystemClock.elapsedRealtime()
         while (SystemClock.elapsedRealtime() - start < timeoutMs) {
@@ -257,6 +325,9 @@ class BleClient(private val context: Context) {
         return false
     }
 
+    /**
+     * Dumb wrapper for telemetry switching.
+     */
     fun setTelemetryEnabled(enabled: Boolean) {
         _telemetryEnabled.value = enabled
         scope.launch {
@@ -264,6 +335,12 @@ class BleClient(private val context: Context) {
         }
     }
 
+    /**
+     * Sends low-latency live servo angle command.
+     *
+     * Unlike config JSON writes, this uses the dedicated SERVO_LIVE characteristic
+     * with a small CSV-like payload to reduce latency.
+     */
     @SuppressLint("MissingPermission")
     fun sendServoLive(pairIdx: Int, deg: Int): Boolean =
         synchronized(writeMutex) {
@@ -275,7 +352,7 @@ class BleClient(private val context: Context) {
             val angle = deg.coerceIn(0, 180)
 
             val payload = "A,$idx,$angle"
-            Log.d(TAG_LIVE, "ANDROID_SEND_LIVE='$payload'")
+            //Log.d(TAG_LIVE, "ANDROID_SEND_LIVE='$payload'")
 
             val props = ch.properties
             val supportsNoResp =
@@ -291,6 +368,9 @@ class BleClient(private val context: Context) {
             ok
         }
 
+    /**
+     * Stops live control for a single servo pair.
+     */
     @SuppressLint("MissingPermission")
     fun stopServoLive(pairIdx: Int): Boolean =
         synchronized(writeMutex) {
@@ -300,7 +380,7 @@ class BleClient(private val context: Context) {
 
             val idx = pairIdx.coerceIn(0, 3)
             val payload = "S,$idx"
-            Log.d(TAG_LIVE, "ANDROID_SEND_LIVE_STOP='$payload'")
+            //Log.d(TAG_LIVE, "ANDROID_SEND_LIVE_STOP='$payload'")
 
             val props = ch.properties
             val supportsNoResp =
@@ -316,6 +396,11 @@ class BleClient(private val context: Context) {
             ok
         }
 
+    /**
+     * Sends a 4-digit PIN to the board.
+     *
+     * Result is handled asynchronously when an auth JSON response arrives.
+     */
     fun sendAuthPin(pin4: String): Boolean {
         val pin = pin4.trim()
         if (pin.length != 4 || !pin.all { it.isDigit() }) {
@@ -336,7 +421,7 @@ class BleClient(private val context: Context) {
                 put("type", "auth")
                 put("pin", pin)
             }
-            Log.d(TAG_CFG, "ANDROID_SEND_AUTH = $obj")
+            //Log.d(TAG_CFG, "ANDROID_SEND_AUTH = $obj")
 
             val sentOk = writeJsonChunked(obj.toString())
             if (!sentOk) {
@@ -359,13 +444,19 @@ class BleClient(private val context: Context) {
         return true
     }
 
+    /**
+     * Sent once after config was received and the app is ready.
+     *
+     * In this protocol cfg_ok acts as a handshake telling firmware that the app
+     * successfully consumed config and telemetry can proceed normally.
+     */
     private fun sendCfgOkOnce() {
         if (teleUnlocked) return
         teleUnlocked = true
 
         scope.launch {
             val okObj = JSONObject().apply { put("type", "cfg_ok") }
-            Log.d(TAG_CFG, "ANDROID_SEND_CFG_OK = $okObj")
+            //Log.d(TAG_CFG, "ANDROID_SEND_CFG_OK = $okObj")
             val ok = writeJsonChunked(okObj.toString())
             if (ok) {
                 setTelemetryEnabledBlocking(_telemetryEnabled.value)
@@ -392,6 +483,9 @@ class BleClient(private val context: Context) {
         }
     }
 
+    /**
+     * Scan callback filters only devices that match expected service UUID or name.
+     */
     private val scanCallback = object : ScanCallback() {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -428,6 +522,9 @@ class BleClient(private val context: Context) {
         }
     }
 
+    /**
+     * Internal connect routine that resets all per-session state before opening GATT.
+     */
     @SuppressLint("MissingPermission")
     private fun connect(dev: BluetoothDevice) {
         if (connecting.getAndSet(true)) return
@@ -480,6 +577,9 @@ class BleClient(private val context: Context) {
         }
     }
 
+    /**
+     * BLE session is destroyed here
+     */
     @SuppressLint("MissingPermission")
     private fun disconnect() {
         connecting.set(false)
@@ -531,11 +631,14 @@ class BleClient(private val context: Context) {
         updateStatus("Disconnected")
     }
 
+    /**
+     * Core GATT callback implementing the BLE connection state machine.
+     */
     private val gattCallback = object : BluetoothGattCallback() {
 
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
-            Log.d(TAG_CFG, "onConnectionStateChange status=$status newState=$newState")
+            //Log.d(TAG_CFG, "onConnectionStateChange status=$status newState=$newState")
 
             if (status == BluetoothGatt.GATT_SUCCESS &&
                 newState == BluetoothProfile.STATE_CONNECTED
@@ -628,6 +731,9 @@ class BleClient(private val context: Context) {
             handleNotify(ch.uuid, value)
         }
 
+        /**
+         * Used by writeJsonChunked to know when the current write finished.
+         */
         override fun onCharacteristicWrite(
             g: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
@@ -644,6 +750,9 @@ class BleClient(private val context: Context) {
         }
     }
 
+    /**
+     * Routes incoming bytes to the correct parser by characteristic UUID.
+     */
     private fun handleNotify(uuid: java.util.UUID, bytes: ByteArray) {
         val text = decodeAscii(bytes)
         when (uuid) {
@@ -660,6 +769,9 @@ class BleClient(private val context: Context) {
         enableNotifyOrIndicate(g, ch)
     }
 
+    /**
+     * Enables either notifications or indications depending on the channel type.
+     */
     @SuppressLint("MissingPermission")
     private fun enableNotifyOrIndicate(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
         try {
@@ -699,7 +811,7 @@ class BleClient(private val context: Context) {
         pushRawCfgChunk(s)
         if (!cfgParser.push(s)) return
         val json = cfgParser.jsonOrNull() ?: return
-        Log.d(TAG_CFG_JSON, "FULL_JSON (cfg) = $json")
+        //Log.d(TAG_CFG_JSON, "FULL_JSON (cfg) = $json")
         handleIncomingJson(json)
     }
 
@@ -709,12 +821,18 @@ class BleClient(private val context: Context) {
         handleIncomingJson(json)
     }
 
+    /**
+     * Sends reboot command to the board.
+     */
     fun rebootEsp(): Boolean {
         val obj = JSONObject().apply { put("type", "reboot") }
-        Log.d(TAG_CFG, "ANDROID_SEND_REBOOT = $obj")
+        //Log.d(TAG_CFG, "ANDROID_SEND_REBOOT = $obj")
         return writeJsonChunked(obj.toString())
     }
 
+    /**
+     * Resolves the current waiting ACK if the received ACK matches expected "for".
+     */
     private fun maybeCompleteAckWaiter(json: JSONObject) {
         val def = expectedAckDeferred ?: return
         val want = expectedAckFor
@@ -729,6 +847,9 @@ class BleClient(private val context: Context) {
         }
     }
 
+    /**
+     * Main protocol dispatcher for every JSON object received from the board.
+     */
     private fun handleIncomingJson(json: JSONObject) {
         val type = json.optString("type", "")
 
@@ -872,6 +993,19 @@ class BleClient(private val context: Context) {
         }
     }
 
+    /**
+     * Sends JSON in small BLE-friendly fragments.
+     *
+     * Protocol:
+     * [BEGIN]
+     * chunk1
+     * chunk2
+     * ...
+     * [END]
+     *
+     * Each chunk write waits synchronously for onCharacteristicWrite callback.
+     * This is important because Android BLE writes are strictly sequential.
+     */
     @SuppressLint("MissingPermission")
     private fun writeJsonChunked(json: String): Boolean =
         synchronized(writeMutex) {
@@ -941,6 +1075,9 @@ class BleClient(private val context: Context) {
             }
         }
 
+    /**
+     * Stores normalized status key inside the telemetry flow.
+     */
     private fun updateStatus(text: String) {
         val key = normalizeStatusKey(text)
         scope.launch {
@@ -949,6 +1086,9 @@ class BleClient(private val context: Context) {
         }
     }
 
+    /**
+     * Converts arbitrary debug text into stable UI-friendly status keys.
+     */
     private fun normalizeStatusKey(text: String): String {
         val t = text.trim().lowercase()
 
@@ -983,6 +1123,9 @@ class BleClient(private val context: Context) {
         }
     }
 
+    /**
+     * Keeps only printable ASCII characters from BLE payload.
+     */
     private fun decodeAscii(bytes: ByteArray): String {
         val sb = StringBuilder()
         for (b in bytes) {
@@ -992,6 +1135,9 @@ class BleClient(private val context: Context) {
         return sb.toString().trim()
     }
 
+    /**
+     * Stores the raw config text exactly as it is reconstructed from chunks. Used for debugging mostly
+     */
     private fun pushRawCfgChunk(s: String) {
         when (s) {
             "[BEGIN]" -> {

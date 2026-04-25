@@ -40,6 +40,7 @@ import com.example.a6thfingercontrollapp.utils.maskEmail
 import com.example.a6thfingercontrollapp.utils.uiErrorText
 import kotlinx.coroutines.launch
 
+/** Steps of the password reset/change wizard. */
 private enum class ResetStep {
     EnterUsername,
     ChooseMethod,
@@ -50,6 +51,12 @@ private enum class ResetStep {
     Done
 }
 
+/**
+ * Multi-step password reset screen.
+ *
+ * It supports both public forgotten-password flow and logged-in password change
+ * flow. Verification can be done through recovery code or email code.
+ */
 @Composable
 fun PasswordResetScreen(
     authVm: AuthViewModel,
@@ -82,10 +89,12 @@ fun PasswordResetScreen(
 
     val error = uiErrorText(errorKey) ?: errorKey?.takeIf { it.isNotBlank() }
 
+    /** Stores a backend/localized error key for the currently visible step. */
     fun setErr(e: Throwable) {
         errorKey = e.message ?: authVm.error.value ?: "unknown_error"
     }
 
+    // In change-password mode the username is already known, so start immediately.
     LaunchedEffect(skipUsername, username) {
         if (!skipUsername) return@LaunchedEffect
         if (username.isBlank()) return@LaunchedEffect

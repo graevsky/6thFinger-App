@@ -1,8 +1,14 @@
 package com.example.a6thfingercontrollapp.utils
 
+/**
+ * Local password validation rules shared by registration and password reset UI.
+ */
 object PasswordPolicy {
     const val MIN_LEN = 8
 
+    /**
+     * Result of checking a password against all required rules.
+     */
     data class Result(
         val minLen: Boolean,
         val hasUpper: Boolean,
@@ -13,6 +19,9 @@ object PasswordPolicy {
         val ok: Boolean get() = minLen && hasUpper && hasLower && hasDigit && hasSpecial
     }
 
+    /**
+     * Checks a candidate password locally.
+     */
     fun check(pw: String): Result {
         val s = pw
         val minLen = s.length >= MIN_LEN

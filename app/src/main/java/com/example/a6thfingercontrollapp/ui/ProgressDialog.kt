@@ -21,6 +21,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.a6thfingercontrollapp.R
 
+/**
+ * Non-cancelable progress dialog used for operations where the user must wait
+ * until the BLE/auth flow reaches a safe state.
+ */
 @Composable
 fun BlockingProgressDialog(
     visible: Boolean,

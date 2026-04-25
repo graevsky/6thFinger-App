@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.R
 
+/** Steps of the flex sensor calibration wizard. */
 private enum class FlexCalibStep {
     Intro,
     Flat,
@@ -28,6 +29,12 @@ private enum class FlexCalibStep {
     Review
 }
 
+/**
+ * Guided calibration flow for flex sensor resistance values.
+ *
+ * The wizard captures live resistance once in the straight position and once in
+ * the bent position, then sends the normalized pair back to the caller.
+ */
 @Composable
 fun FlexCalibrationWizardDialog(
     index: Int,
@@ -40,6 +47,7 @@ fun FlexCalibrationWizardDialog(
     var flatOhm by remember { mutableStateOf<Float?>(null) }
     var bendOhm by remember { mutableStateOf<Float?>(null) }
 
+    /** Calibration can capture only a valid live telemetry value. */
     fun canCaptureNow(): Boolean = currentFlexOhm.isFinite() && currentFlexOhm > 0f
 
     val liveText = if (currentFlexOhm.isFinite()) "${pretty(currentFlexOhm)} Ω" else "—"

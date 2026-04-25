@@ -31,8 +31,12 @@ import com.example.a6thfingercontrollapp.ble.EMG_MODE_DIRECTIONAL
 import com.example.a6thfingercontrollapp.ble.EmgSettings
 import com.example.a6thfingercontrollapp.ble.EspSettings
 
+/** Firmware placeholder for an unused EMG pin. */
 private const val UNUSED_PIN = 0xFF
 
+/**
+ * Dialog for editing EMG input configuration for one servo pair.
+ */
 @Composable
 fun EmgDialog(
     s: EspSettings,
@@ -67,6 +71,7 @@ fun EmgDialog(
         mutableStateOf(emgSetting.reverseDirection)
     }
 
+    /** Builds a safe EMG settings object from the editable UI state. */
     fun buildUpdatedEmg(): EmgSettings {
         val normalizedChannels = channels.coerceIn(1, 3)
         val parsedPins = listOf(pin0, pin1, pin2).mapIndexed { idx, raw ->
@@ -83,9 +88,14 @@ fun EmgDialog(
             pin1 = parsedPins[1],
             pin2 = parsedPins[2],
             mode = mode.coerceIn(EMG_MODE_BEND_OTHER, EMG_MODE_DIRECTIONAL),
-            bendFullMoves = (bendFullMoves.toIntOrNull() ?: emgSetting.bendFullMoves).coerceIn(1, 5),
-            unfoldFullMoves = (unfoldFullMoves.toIntOrNull() ?: emgSetting.unfoldFullMoves).coerceIn(1, 5),
-            minSwitchDelaySec = (minSwitchDelaySec.toIntOrNull() ?: emgSetting.minSwitchDelaySec).coerceIn(1, 60),
+            bendFullMoves = (bendFullMoves.toIntOrNull() ?: emgSetting.bendFullMoves).coerceIn(
+                1,
+                5
+            ),
+            unfoldFullMoves = (unfoldFullMoves.toIntOrNull()
+                ?: emgSetting.unfoldFullMoves).coerceIn(1, 5),
+            minSwitchDelaySec = (minSwitchDelaySec.toIntOrNull()
+                ?: emgSetting.minSwitchDelaySec).coerceIn(1, 60),
             reverseDirection = reverseDirection
         )
     }
@@ -178,6 +188,9 @@ fun EmgDialog(
     }
 }
 
+/**
+ * Reusable dropdown field used by EMG settings for channel count and mode.
+ */
 @Composable
 private fun SelectionDropdownField(
     label: String,

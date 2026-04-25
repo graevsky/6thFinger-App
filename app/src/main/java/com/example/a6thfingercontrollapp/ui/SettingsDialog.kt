@@ -29,11 +29,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.R
 
+/** External link item displayed inside the settings dialog. */
 data class SettingsLink(
     val title: String,
     val url: String
 )
 
+/**
+ * Shared application settings dialog.
+ *
+ * It is used both on the start screen and inside the account screen. Optional
+ * account callbacks enable email/password controls only for logged-in users.
+ */
 @Composable
 fun SettingsDialog(
     currentLang: String,
@@ -54,6 +61,7 @@ fun SettingsDialog(
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
 
+    /** Opens project documentation/repository links in an external app. */
     fun openUrl(url: String) {
         try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -182,6 +190,7 @@ fun SettingsDialog(
     )
 }
 
+/** Single radio row used to choose the application language. */
 @Composable
 private fun LanguageOptionRow(
     title: String,

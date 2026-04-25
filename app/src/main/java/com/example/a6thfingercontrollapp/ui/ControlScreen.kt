@@ -50,11 +50,9 @@ import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.EMG_MODE_BEND_OTHER
 import com.example.a6thfingercontrollapp.ble.EmgSettings
 import com.example.a6thfingercontrollapp.ble.EspSettings
-import com.example.a6thfingercontrollapp.ble.FlexSettings
 import com.example.a6thfingercontrollapp.ble.INPUT_SOURCE_EMG
 import com.example.a6thfingercontrollapp.ble.INPUT_SOURCE_FLEX
 import com.example.a6thfingercontrollapp.ble.PairInputSettings
-import com.example.a6thfingercontrollapp.ble.ServoSettings
 import com.example.a6thfingercontrollapp.ble.Telemetry
 import com.example.a6thfingercontrollapp.restartApp
 import kotlinx.coroutines.Dispatchers
@@ -62,11 +60,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Vibration mode presented by the simplified UI controls. */
 enum class VibMode {
     Constant,
     Pulse
 }
 
+/**
+ * Main control screen for device configuration.
+ *
+ * It edits the active settings snapshot, shows current telemetry and pushes the
+ * final configuration to the board only when the user saves.
+ */
 @Composable
 fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     val activeAddress by vm.activeAddress.collectAsState()
@@ -183,6 +188,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
         pairsCount = calculateVisiblePairsCount(s)
     }
 
+    /** Saves the active settings snapshot to the ESP32 board. */
     val doSave: () -> Unit = {
         scope.launch {
             busy = true
@@ -551,6 +557,7 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     BlockingProgressDialog(visible = busy)
 }
 
+/** UI section for one flex/EMG + servo pair. */
 @Composable
 private fun PairControlSection(
     pairIdx: Int,
@@ -635,7 +642,10 @@ private fun PairControlSection(
         DiagnosticRow(stringResource(R.string.emg_mode), modeText)
         DiagnosticRow(stringResource(R.string.emg_current_event), eventText)
         DiagnosticRow(stringResource(R.string.emg_current_action), actionText)
-        DiagnosticRow(stringResource(R.string.emg_cooldown), teleInt(telemetry.emgCooldownMs[pairIdx]))
+        DiagnosticRow(
+            stringResource(R.string.emg_cooldown),
+            teleInt(telemetry.emgCooldownMs[pairIdx])
+        )
 
         if (emgSettings.mode == EMG_MODE_BEND_OTHER) {
             DiagnosticRow(
@@ -685,6 +695,7 @@ private fun PairControlSection(
     Divider(Modifier.padding(vertical = 8.dp))
 }
 
+/** Clickable card that opens a settings dialog. */
 @Composable
 private fun SettingItem(title: String, subtitle: String, onClick: () -> Unit) {
     Card(
@@ -709,6 +720,7 @@ private fun SettingItem(title: String, subtitle: String, onClick: () -> Unit) {
     }
 }
 
+/** Card with a switch control and description. */
 @Composable
 private fun SettingToggleItem(
     title: String,
@@ -742,6 +754,7 @@ private fun SettingToggleItem(
     }
 }
 
+/** Key-value telemetry row. */
 @Composable
 private fun DiagnosticRow(name: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -750,8 +763,10 @@ private fun DiagnosticRow(name: String, value: String) {
     }
 }
 
+/** Formats finite float values for diagnostic rows. */
 fun pretty(v: Float) = if (v.isFinite()) String.format("%.1f", v) else "--"
 
+/** Dialog for changing the locally stored BLE device alias. */
 @Composable
 private fun RenameDialog(
     current: String,
@@ -788,6 +803,7 @@ private fun RenameDialog(
     )
 }
 
+/** Dialog for enabling/changing the 4-digit board PIN. */
 @Composable
 private fun PinDialog(
     currentPinCode: Int,
@@ -838,6 +854,9 @@ private fun PinDialog(
     )
 }
 
+/**
+ * Shared simple dialog shell used by the small settings dialogs.
+ */
 @Composable
 fun BaseDialog(
     title: String,
@@ -863,6 +882,7 @@ fun BaseDialog(
     )
 }
 
+/** Numeric text field that keeps only digits in the editable value. */
 @Composable
 fun NumberField(label: String, value: String, onValue: (String) -> Unit) {
     OutlinedTextField(
@@ -873,6 +893,7 @@ fun NumberField(label: String, value: String, onValue: (String) -> Unit) {
     )
 }
 
+/** Small two-or-more item segmented button row. */
 @Composable
 fun SegmentedButtons(items: List<String>, selectedIndex: Int, onSelect: (Int) -> Unit) {
     require(items.size >= 2)
@@ -888,15 +909,19 @@ fun SegmentedButtons(items: List<String>, selectedIndex: Int, onSelect: (Int) ->
     }
 }
 
+/** Firmware placeholder used for disabled pins. */
 private const val PIN_PLACEHOLDER = 0xFF
 
+/** Validation issue for an incompletely configured pair. */
 private data class PairIssue(
     val pairIdx: Int,
     val missing: MissingPart
 )
 
+/** Component missing from a partially configured pair. */
 private enum class MissingPart { Flex, Servo, Emg }
 
+/** Returns pair indices that should be visible in the control list. */
 private fun visiblePairIndices(
     s: EspSettings,
     pairsCount: Int
@@ -905,6 +930,7 @@ private fun visiblePairIndices(
     return (0..maxVisibleIndex.coerceIn(0, 3)).toList()
 }
 
+/** Finds the last pair index that has any non-default data. */
 private fun highestConfiguredPairIndex(s: EspSettings): Int {
     var result = 0
     for (i in 0 until 4) {
@@ -915,10 +941,12 @@ private fun highestConfiguredPairIndex(s: EspSettings): Int {
     return result
 }
 
+/** Calculates how many pair sections should be visible initially. */
 private fun calculateVisiblePairsCount(s: EspSettings): Int {
     return (highestConfiguredPairIndex(s) + 1).coerceIn(1, 4)
 }
 
+/** Checks whether a pair contains flex, servo, EMG, or source-selection data. */
 private fun hasAnyPairData(s: EspSettings, pairIdx: Int): Boolean {
     val flexSet = isFlexConfigured(s, pairIdx)
     val servoSet = isServoConfigured(s, pairIdx)
@@ -927,22 +955,29 @@ private fun hasAnyPairData(s: EspSettings, pairIdx: Int): Boolean {
     return flexSet || servoSet || emgSet || source == INPUT_SOURCE_EMG
 }
 
+/** True when the pair has an active flex pin. */
 private fun isFlexConfigured(s: EspSettings, pairIdx: Int): Boolean {
     val flexPin = s.flexSettings.getOrNull(pairIdx)?.flexPin ?: PIN_PLACEHOLDER
     return flexPin != PIN_PLACEHOLDER
 }
 
+/** True when the pair has an active servo pin. */
 private fun isServoConfigured(s: EspSettings, pairIdx: Int): Boolean {
     val servoPin = s.servoSettings.getOrNull(pairIdx)?.servoPin ?: PIN_PLACEHOLDER
     return servoPin != PIN_PLACEHOLDER
 }
 
+/** True when every active EMG channel has a real pin. */
 private fun isEmgConfigured(s: EspSettings, pairIdx: Int): Boolean {
     val emg = s.emgSettings.getOrNull(pairIdx) ?: return false
     val activePins = emg.activePins()
     return activePins.isNotEmpty() && activePins.all { it != PIN_PLACEHOLDER }
 }
 
+/**
+ * Finds visible pairs where one side of the control pair is configured but the
+ * matching input/output part is still missing.
+ */
 private fun findIncompletePairsIssuesVisibleOnly(
     s: EspSettings,
     pairsCount: Int
@@ -981,6 +1016,7 @@ private fun findIncompletePairsIssuesVisibleOnly(
     return res
 }
 
+/** Converts a validation issue into localized user-facing text. */
 private fun PairIssue.toUiText(
     pairNo: String,
     flexNotSet: String,
@@ -995,6 +1031,7 @@ private fun PairIssue.toUiText(
     }
 }
 
+/** Checks if any telemetry field contains meaningful data. */
 private fun hasTelemetryData(t: Telemetry): Boolean {
     if (t.fsrOhm.isFinite()) return true
     if (t.fsrForceN.isFinite()) return true

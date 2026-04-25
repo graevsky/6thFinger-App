@@ -8,12 +8,18 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.max
 
+/**
+ * Returns the private file used for the current account avatar.
+ */
 internal fun avatarFile(context: Context): File {
     val dir = File(context.filesDir, "avatar")
     if (!dir.exists()) dir.mkdirs()
     return File(dir, "avatar.jpg")
 }
 
+/**
+ * Deletes an avatar file if the stored path still points to an existing file.
+ */
 internal fun deleteAvatarIfExists(path: String?) {
     if (path.isNullOrBlank()) return
     runCatching {
@@ -22,6 +28,9 @@ internal fun deleteAvatarIfExists(path: String?) {
     }
 }
 
+/**
+ * Loads a bitmap from disk with downsampling.
+ */
 internal fun loadBitmapFromFile(path: String?, maxDim: Int = 1024): Bitmap? {
     if (path.isNullOrBlank()) return null
     val f = File(path)
@@ -40,6 +49,12 @@ internal fun loadBitmapFromFile(path: String?, maxDim: Int = 1024): Bitmap? {
     return BitmapFactory.decodeFile(path, opts)
 }
 
+/**
+ * Saves a cropped avatar Uri into the app's private avatar file.
+ *
+ * The image is decoded with sampling, scaled to a fixed square size and saved
+ * as JPEG so both local display and backend upload use the same file.
+ */
 internal fun saveAvatarFromCroppedUri(
     context: Context,
     croppedUri: Uri,
@@ -74,6 +89,9 @@ internal fun saveAvatarFromCroppedUri(
     return outFile.absolutePath
 }
 
+/**
+ * Calculates a power-of-two BitmapFactory sample size for target max dimension.
+ */
 private fun computeInSampleSize(srcW: Int, srcH: Int, maxDim: Int): Int {
     var sample = 1
     val largest = max(srcW, srcH)

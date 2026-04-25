@@ -56,6 +56,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
+/**
+ * Screens that belong to the authentication overlay flow.
+ */
 private enum class AuthFlowScreen {
     Start,
     Login,
@@ -67,10 +70,17 @@ private enum class AuthFlowScreen {
     ChangePassword
 }
 
+/**
+ * Main Android activity that wires together Compose navigation, permissions,
+ * authentication flow and the persistent BLE ViewModels.
+ */
 class MainActivity : ComponentActivity() {
     private val vm by viewModels<BleViewModel>()
     private val authVm by viewModels<AuthViewModel>()
 
+    /**
+     * Applies saved locale before Compose resources are resolved.
+     */
     override fun attachBaseContext(newBase: Context) {
         val prefs = AppSettingsStore(newBase)
         val lang = runBlocking { prefs.getLanguage().first() }
@@ -78,6 +88,9 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(ctx)
     }
 
+    /**
+     * Builds the root Compose tree and routes between auth and main app screens.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -94,6 +107,7 @@ class MainActivity : ComponentActivity() {
                         ActivityResultContracts.RequestMultiplePermissions()
                     ) { res -> granted = res.all { it.value } }
 
+                // Request BLE-related permissions once the activity composition starts.
                 LaunchedEffect(Unit) { launcher.launch(permissions) }
 
                 val authState by authVm.auth.collectAsState()
@@ -107,6 +121,7 @@ class MainActivity : ComponentActivity() {
                 var postLoading by remember { mutableStateOf(false) }
                 var postErrKey by remember { mutableStateOf<String?>(null) }
 
+                // If recovery codes disappear, leave the post-register-only screens.
                 LaunchedEffect(authFlowScreen, pendingRecovery) {
                     if (
                         (authFlowScreen == AuthFlowScreen.RecoveryCodes ||
@@ -128,6 +143,7 @@ class MainActivity : ComponentActivity() {
                         else -> false
                     }
 
+                // Full-screen auth overlay screens replace the normal app scaffold.
                 if (overlayActive) {
                     when (authFlowScreen) {
                         AuthFlowScreen.RecoveryCodes -> {
@@ -190,7 +206,9 @@ class MainActivity : ComponentActivity() {
                                 errorKey = postErrKey,
                                 code = postCode,
                                 onCodeChange = { postCode = it },
-                                onBackChangeEmail = { authFlowScreen = AuthFlowScreen.PostRegisterEmail },
+                                onBackChangeEmail = {
+                                    authFlowScreen = AuthFlowScreen.PostRegisterEmail
+                                },
                                 onResend = {
                                     postErrKey = null
                                     postLoading = true
@@ -248,6 +266,7 @@ class MainActivity : ComponentActivity() {
                     return@_6thFingerControllAppTheme
                 }
 
+                // Main branch switches between unauthenticated startup and the tabbed app.
                 when (authState) {
                     is UiAuthState.Loading -> {
                         Box(
@@ -329,6 +348,7 @@ class MainActivity : ComponentActivity() {
                                 else -> false
                             }
 
+                        // Control and Simulation screens require an active unlocked BLE session.
                         LaunchedEffect(connected, unlocked, currentRoute) {
                             if ((!connected || !unlocked) &&
                                 (currentRoute == NavRoute.Control.route ||
@@ -451,6 +471,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Returns the runtime permissions required for BLE scanning/connection on this Android version.
+ */
 private fun requiredPermissions(): Array<String> {
     return if (Build.VERSION.SDK_INT >= 31) {
         arrayOf(

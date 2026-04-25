@@ -16,6 +16,9 @@ import com.example.a6thfingercontrollapp.ble.EMG_MODE_DIRECTIONAL
 import com.example.a6thfingercontrollapp.ble.INPUT_SOURCE_EMG
 import com.example.a6thfingercontrollapp.ble.INPUT_SOURCE_FLEX
 
+/**
+ * Maps the numeric input source stored in settings/telemetry to localized UI text.
+ */
 @Composable
 fun inputSourceLabel(source: Int): String {
     return when (source) {
@@ -25,6 +28,9 @@ fun inputSourceLabel(source: Int): String {
     }
 }
 
+/**
+ * Maps EMG operating mode constants to labels shown in settings and diagnostics.
+ */
 @Composable
 fun emgModeLabel(mode: Int): String {
     return when (mode) {
@@ -34,6 +40,9 @@ fun emgModeLabel(mode: Int): String {
     }
 }
 
+/**
+ * Maps the latest EMG event code from telemetry to localized text.
+ */
 @Composable
 fun emgEventLabel(event: Int): String {
     return when (event) {
@@ -45,6 +54,9 @@ fun emgEventLabel(event: Int): String {
     }
 }
 
+/**
+ * Maps the action currently executed by firmware EMG logic to localized text.
+ */
 @Composable
 fun emgActionLabel(action: Int): String {
     return when (action) {

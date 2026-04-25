@@ -35,6 +35,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrollapp.R
 
+/**
+ * Post-registration screen that shows one-time recovery codes.
+ *
+ * The user must explicitly confirm that the codes are saved before continuing.
+ */
 @Composable
 fun RecoveryCodesScreen(
     username: String,
@@ -53,6 +58,7 @@ fun RecoveryCodesScreen(
     }
     val fileCodesTitle = context.getString(R.string.recovery_codes_file_codes_title)
 
+    // Android document picker used to export codes into a plain text file.
     val createDocLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
     ) { uri: Uri? ->
@@ -170,6 +176,7 @@ fun RecoveryCodesScreen(
     }
 }
 
+/** Writes exported recovery codes into the URI selected by the user. */
 private fun writeTextToUri(context: Context, uri: Uri, text: String): Boolean {
     return try {
         context.contentResolver.openOutputStream(uri)?.use { os ->

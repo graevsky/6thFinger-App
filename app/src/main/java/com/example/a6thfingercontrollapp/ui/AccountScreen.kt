@@ -85,11 +85,21 @@ import com.example.a6thfingercontrollapp.data.avatarFile as dataAvatarFile
 import com.example.a6thfingercontrollapp.data.deleteAvatarIfExists as dataDeleteAvatarIfExists
 import com.example.a6thfingercontrollapp.data.loadBitmapFromFile as dataLoadBitmapFromFile
 
+/** Dialog type currently used by the account email management flow. */
 private enum class EmailDialogMode { None, Add, Remove, Change }
+
+/** Steps for adding a new email address. */
 private enum class AddStep { EnterEmail, EnterCode }
+
+/** Steps for removing the current email address. */
 private enum class RemoveStep { ChooseMethod, EnterEmailCode, EnterRecoveryCode }
+
+/** Steps for replacing the current email address with a new one. */
 private enum class ChangeStep { ChooseOldMethod, EnterOldEmailCode, EnterOldRecoveryCode, EnterNewEmail, EnterNewEmailCode }
 
+/**
+ * UI representation of a selectable device in the cloud settings dialog.
+ */
 private data class CloudDeviceChoice(
     val device: DeviceOut?,
     val address: String,
@@ -100,12 +110,19 @@ private data class CloudDeviceChoice(
     val title: String = alias?.takeIf { it.isNotBlank() } ?: address
 }
 
+/** Cached cloud settings lookup state for one registered device. */
 private data class CloudSettingsState(
     val checked: Boolean = false,
     val record: DeviceSettingsRecord? = null,
     val errorKey: String? = null
 )
 
+/**
+ * Account control page.
+ *
+ * This screen combines profile management, language, settings access,
+ * email management and cloud synchronization of prosthesis settings.
+ */
 @Composable
 fun AccountScreen(
     vm: BleViewModel,
@@ -208,12 +225,14 @@ fun AccountScreen(
             if (uri != null) cropLauncher.launch(CropImageContractOptions(uri, cropOptions))
         }
 
+    /** Starts Android image picker and then sends the selected image to cropper. */
     fun startPickAndCrop() {
         avatarMenuOpen = false
         cropError = null
         pickImageLauncher.launch("image/*")
     }
 
+    /** Deletes the local avatar and schedules remote deletion for logged-in users. */
     fun removeAvatar() {
         avatarMenuOpen = false
         scope.launch {
@@ -268,6 +287,7 @@ fun AccountScreen(
         }
     }
 
+    // Retry email metadata periodically when the error is network-related.
     LaunchedEffect(emailErrorKey) {
         if (!isNetworkErrorKey(emailErrorKey)) return@LaunchedEffect
         while (isNetworkErrorKey(emailErrorKey) && username != null) {
@@ -301,6 +321,7 @@ fun AccountScreen(
     var changeErrKey by remember { mutableStateOf<String?>(null) }
     var changeBusy by remember { mutableStateOf(false) }
 
+    /** Opens the add-email dialog with a clean state. */
     fun openAddEmail() {
         emailDialogMode = EmailDialogMode.Add
         addStep = AddStep.EnterEmail
@@ -310,6 +331,7 @@ fun AccountScreen(
         addBusy = false
     }
 
+    /** Opens the remove-email dialog with a clean state. */
     fun openRemoveEmail() {
         emailDialogMode = EmailDialogMode.Remove
         removeStep = RemoveStep.ChooseMethod
@@ -319,6 +341,7 @@ fun AccountScreen(
         removeBusy = false
     }
 
+    /** Opens the change-email dialog with a clean state. */
     fun openChangeEmail() {
         emailDialogMode = EmailDialogMode.Change
         changeStep = ChangeStep.ChooseOldMethod
@@ -363,6 +386,7 @@ fun AccountScreen(
             else -> false
         }
 
+    /** Stores a compact device list locally for offline account UI. */
     fun cacheDevices(list: List<DeviceOut>) {
         val arr = JSONArray()
         list.forEach { d ->
@@ -375,6 +399,7 @@ fun AccountScreen(
         scope.launch { settingsStore.setCachedDevicesJson(arr.toString()) }
     }
 
+    /** Reads locally cached devices when the backend cannot be reached. */
     fun readCachedDevices(): List<DeviceOut> {
         val raw = cachedDevicesJson ?: return emptyList()
         return runCatching {
@@ -392,6 +417,7 @@ fun AccountScreen(
         }.getOrDefault(emptyList())
     }
 
+    /** Adds or replaces a device in the local list and refreshes the cache. */
     fun mergeDeviceIntoList(device: DeviceOut) {
         val updated =
             (devices.filterNot {
@@ -402,6 +428,7 @@ fun AccountScreen(
         cacheDevices(updated)
     }
 
+    /** Ensures a selected local-only device exists on the backend before sync. */
     suspend fun resolveCloudChoice(choice: CloudDeviceChoice): DeviceOut {
         val existing = choice.device
         if (existing != null && existing.id.isNotBlank()) return existing
@@ -415,6 +442,7 @@ fun AccountScreen(
         return ensured
     }
 
+    /** Fetches and caches cloud settings metadata for a device. */
     suspend fun refreshCloudSettingsState(
         device: DeviceOut,
         force: Boolean = false
@@ -520,6 +548,7 @@ fun AccountScreen(
         cloudProbeLoading = false
     }
 
+    // Retry device list loading if the previous failure was caused by network.
     LaunchedEffect(devicesErrorKey) {
         if (!isNetworkErrorKey(devicesErrorKey)) return@LaunchedEffect
         while (isNetworkErrorKey(devicesErrorKey) && username != null) {
@@ -566,6 +595,7 @@ fun AccountScreen(
         }
     }
 
+    /** Returns cached cloud settings state for a selected device choice. */
     fun cloudStateForChoice(choice: CloudDeviceChoice?): CloudSettingsState? {
         if (choice == null) return null
         val dev = choice.device ?: return CloudSettingsState(
@@ -576,6 +606,7 @@ fun AccountScreen(
         return cloudSettingsByDeviceId[dev.id]
     }
 
+    /** Opens the cloud settings dialog and preloads JSON preview for selection. */
     fun openCloudDialog(initialKey: String) {
         dialogSelectedKey = initialKey
         dialogErrorKey = null
@@ -1567,6 +1598,7 @@ fun AccountScreen(
     }
 }
 
+/** Fullscreen avatar preview dialog. */
 @Composable
 private fun FullscreenImageDialog(
     bitmap: ImageBitmap,
@@ -1603,6 +1635,7 @@ private fun FullscreenImageDialog(
     }
 }
 
+/** Row displaying one registered/local prosthesis device. */
 @Composable
 private fun DeviceRow(
     title: String,
@@ -1650,6 +1683,7 @@ private fun DeviceRow(
     }
 }
 
+/** Dialog for previewing, pulling and pushing cloud device settings. */
 @Composable
 private fun DeviceSettingsDialog(
     devices: List<CloudDeviceChoice>,
@@ -1796,6 +1830,7 @@ private fun DeviceSettingsDialog(
     )
 }
 
+/** Device dropdown used inside the cloud settings dialog. */
 @Composable
 private fun CloudDeviceSelector(
     devices: List<CloudDeviceChoice>,
@@ -1847,6 +1882,7 @@ private fun CloudDeviceSelector(
     }
 }
 
+/** Converts cloud state into a localized status line. */
 @Composable
 private fun cloudStatusText(
     choice: CloudDeviceChoice,
@@ -1871,6 +1907,7 @@ private fun cloudStatusText(
     }
 }
 
+/** Maps known error keys or returns raw text when mapping is not available. */
 @Composable
 private fun uiErrorTextOrRaw(raw: String?): String? {
     val normalized = raw?.trim()?.lowercase()?.replace("\n", "") ?: return null
@@ -1885,6 +1922,7 @@ private fun uiErrorTextOrRaw(raw: String?): String? {
     return if (mapped == unknown && !normalized.startsWith("http_")) raw else mapped
 }
 
+/** Formats ESP settings as readable JSON for cloud settings preview. */
 private fun settingsToPrettyJson(s: EspSettings): String {
     return try {
         val obj = JSONObject(s.toJsonString())

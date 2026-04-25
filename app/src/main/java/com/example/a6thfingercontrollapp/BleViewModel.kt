@@ -26,6 +26,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+/**
+ * UI-facing ViewModel for BLE connection, active device settings and live servo control.
+ *
+ * BleClient owns the low-level transport; this class adapts it to screen state,
+ * local persistence and user actions from Compose screens.
+ */
 class BleViewModel(app: Application) : AndroidViewModel(app) {
     private val client = BleRepository.get(app)
     val rawCfgText = client.rawCfgText
@@ -35,12 +41,15 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     private val settingsStore = DeviceSettingsStore(app)
     private val appSettings = AppSettingsStore(app)
 
+    /** Current settings currently edited by UI. */
     private val _uiSettings = MutableStateFlow(EspSettings())
     val activeSettings: StateFlow<EspSettings> = _uiSettings
 
+    /** Last settings snapshot known to be applied on the ESP32. */
     private val _lastAppliedSettings = MutableStateFlow(_uiSettings.value)
     val lastAppliedSettings: StateFlow<EspSettings> = _lastAppliedSettings
 
+    /** True when settings were pulled from cloud and still need to be applied to the board. */
     private val _pendingBoardApply = MutableStateFlow(false)
     val pendingBoardApply: StateFlow<Boolean> = _pendingBoardApply
 
@@ -81,6 +90,9 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     val telemetryEnabled: StateFlow<Boolean> =
         client.telemetryEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
+    /**
+     * Toggles telemetry unless live servo control requires telemetry to stay disabled.
+     */
     fun setTelemetryEnabled(enabled: Boolean) {
         if (_liveServoPairs.value.isNotEmpty()) {
             if (!enabled) client.setTelemetryEnabled(false)
@@ -91,6 +103,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
     fun sendPin(pin4: String): Boolean = client.sendAuthPin(pin4)
 
+    /** Servo pairs currently controlled through low-latency live channel. */
     private val _liveServoPairs = MutableStateFlow<Set<Int>>(emptySet())
     val liveServoPairs: StateFlow<Set<Int>> = _liveServoPairs
 
@@ -98,6 +111,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     private val liveReady = BooleanArray(4) { false }
     private val pendingAngle = IntArray(4) { -1 }
 
+    /** Telemetry state before entering live mode, restored after the last live session ends. */
     private var teleBeforeAnyLive: Boolean = true
 
     private val lastLiveSendMs = LongArray(4) { 0L }
@@ -126,6 +140,9 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     fun connect(address: String) = client.connectByAddress(address)
     fun isBleReady(): Boolean = client.isBleReady()
 
+    /**
+     * Stops all live channels before closing the BLE session.
+     */
     fun disconnect() {
         val pairs = _liveServoPairs.value
         _liveServoPairs.value = emptySet()
@@ -144,16 +161,21 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
     fun aliasFlow(address: String): Flow<String?> = aliasStore.alias(address)
 
+    /** Saves selected device as the quick reconnect target. */
     fun saveLastDevice(name: String, address: String) {
         viewModelScope.launch { lastStore.save(name, address) }
     }
 
+    /** Renames only the currently active device locally. */
     fun renameActive(newAlias: String) {
         val addr = activeAddress.value
         if (addr.isEmpty()) return
         viewModelScope.launch { aliasStore.setAlias(addr, newAlias.trim()) }
     }
 
+    /**
+     * Applies UI edits to the active settings snapshot and persists them locally.
+     */
     fun updateActiveSettings(pairIndex: Int, update: (EspSettings) -> EspSettings) {
         val current = _uiSettings.value
         val next = update(current)
@@ -170,6 +192,9 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settingsStore.set(activeAddress.value, next) }
     }
 
+    /**
+     * Sends current settings to the ESP32 and marks them as applied on success.
+     */
     fun applyAndSaveToBoard(): Boolean {
         val addr = activeAddress.value
         if (addr.isEmpty()) return false
@@ -186,10 +211,14 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         return ok
     }
 
+    /** Restores UI settings to built-in defaults. */
     fun resetToDefaults() {
         _uiSettings.value = EspSettings()
     }
 
+    /**
+     * Loads settings from cloud into UI and marks them as pending for board apply.
+     */
     fun applySettingsFromCloud(settings: EspSettings) {
         _uiSettings.value = settings
         _pendingBoardApply.value = true
@@ -199,6 +228,11 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { appSettings.setLanguage(language) }
     }
 
+    /**
+     * Enables or disables live servo control for one pair.
+     *
+     * Live control temporarily disables telemetry to reduce BLE traffic and latency.
+     */
     fun setServoLiveEnabled(pairIdx: Int, enabled: Boolean) {
         val idx = pairIdx.coerceIn(0, 3)
 
@@ -260,6 +294,9 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Sends throttled live servo angle updates.
+     */
     fun sendServoLiveAngle(pairIdx: Int, angleDeg: Int) {
         val idx = pairIdx.coerceIn(0, 3)
         val angle = angleDeg.coerceIn(0, 180)

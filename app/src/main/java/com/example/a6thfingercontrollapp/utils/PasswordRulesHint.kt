@@ -10,6 +10,9 @@ import androidx.compose.ui.res.stringResource
 import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.utils.PasswordPolicy
 
+/**
+ * Displays the password policy checklist used by registration and reset flows.
+ */
 @Composable
 fun PasswordRulesHint(rules: PasswordPolicy.Result) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -25,6 +28,7 @@ fun PasswordRulesHint(rules: PasswordPolicy.Result) {
     }
 }
 
+/** Single visual row of the password validation checklist. */
 @Composable
 private fun RuleLine(ok: Boolean, text: String) {
     val prefix = if (ok) "✓ " else "• "

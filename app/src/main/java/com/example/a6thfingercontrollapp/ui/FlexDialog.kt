@@ -23,6 +23,12 @@ import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.EspSettings
 import kotlin.math.roundToInt
 
+/**
+ * Dialog for configuring one flex sensor input pair.
+ *
+ * It supports manual resistance entry and a small calibration wizard based on
+ * live telemetry from the board.
+ */
 @Composable
 fun FlexDialog(
     s: EspSettings,
@@ -57,9 +63,11 @@ fun FlexDialog(
 
     var calibOpen by remember { mutableStateOf(false) }
 
+    /** Returns a safe tolerance percentage accepted by firmware. */
     fun parsedTolPct(): Int =
         (tolPct.toIntOrNull() ?: flexSetting.flexTolerancePct).coerceIn(1, 50)
 
+    /** Applies calibration values and stores them into the selected pair. */
     fun applyCalibration(straightOhm: Int, bendOhm: Int) {
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 

@@ -2,8 +2,12 @@ package com.example.a6thfingercontrollapp.ble
 
 import org.json.JSONObject
 
+/** Marker for integer telemetry fields that are currently missing. */
 private const val EMG_INT_MISSING = -1
 
+/**
+ * Runtime telemetry snapshot received from the ESP32.
+ */
 data class Telemetry(
     val flexRawOhm: Array<Float> = Array(4) { Float.NaN },
     val flexFilteredOhm: Array<Float> = Array(4) { Float.NaN },
@@ -28,10 +32,24 @@ data class Telemetry(
 
     val vibroDuty: Int = 0,
     val vibroMode: Int = 0,
+
+    /**
+     * Human-readable / normalized BLE status key.
+     */
     val status: String = "Idle",
 
+    /**
+     * Monotonic timestamp of the last telemetry packet received by the app.
+     * Used to detect stale telemetry.
+     */
     val rxMs: Long = 0L
 ) {
+    /**
+     * Convenience aliases used by the UI.
+     *
+     * The board provides both raw and filtered values, but most screens display
+     * filtered values, so these accessors keep UI code cleaner.
+     */
     val flexOhm: Array<Float>
         get() = flexFilteredOhm
 
@@ -41,6 +59,9 @@ data class Telemetry(
     val servoDeg: Array<Float>
         get() = servoCurrentDeg
 
+    /**
+     * Safe channel accessor for a specific pair/channel combination.
+     */
     fun emgChannelValue(pairIdx: Int, channelIdx: Int): Float {
         return when (channelIdx) {
             0 -> emgCh0.getOrNull(pairIdx) ?: Float.NaN
@@ -51,6 +72,9 @@ data class Telemetry(
     }
 
     companion object {
+        /**
+         * Parses a telemetry snapshot from firmware JSON.
+         */
         fun fromJson(json: JSONObject): Telemetry {
             return Telemetry(
                 flexRawOhm = Array(4) { json.optDouble("flex_raw_$it", Double.NaN).toFloat() },
@@ -79,7 +103,10 @@ data class Telemetry(
                     else EMG_INT_MISSING
                 },
                 emgChannelCount = IntArray(4) {
-                    if (json.has("emg_channels_$it")) json.optInt("emg_channels_$it", EMG_INT_MISSING)
+                    if (json.has("emg_channels_$it")) json.optInt(
+                        "emg_channels_$it",
+                        EMG_INT_MISSING
+                    )
                     else EMG_INT_MISSING
                 },
                 emgEvent = IntArray(4) {

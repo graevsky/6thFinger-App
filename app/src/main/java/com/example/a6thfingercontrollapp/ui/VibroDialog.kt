@@ -22,6 +22,9 @@ import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.EspSettings
 import kotlin.math.max
 
+/**
+ * Dialog for editing vibration motor mode, pin and perceived intensity.
+ */
 @Composable
 fun VibroDialog(
     s: EspSettings,
@@ -44,6 +47,7 @@ fun VibroDialog(
     var onMs by remember { mutableStateOf("150") }
     var offMs by remember { mutableStateOf("150") }
 
+    /** Converts simplified UI fields into firmware vibration fields. */
     fun toDeviceValues(): Quad<Int, Int, Int, Int> {
         val intensityPct = intensity.toIntOrNull()?.coerceIn(0, 100) ?: 60
         val softPower = ((intensityPct * 255) / 100).coerceIn(0, 255)
@@ -63,7 +67,7 @@ fun VibroDialog(
         }
     }
 
-    BaseDialog(title =  stringResource(R.string.vibro_settings), onDismiss, haptic = haptic) {
+    BaseDialog(title = stringResource(R.string.vibro_settings), onDismiss, haptic = haptic) {
         NumberField(stringResource(R.string.vibro_pin), pin) { pin = it }
 
         Row(
@@ -113,4 +117,5 @@ fun VibroDialog(
     }
 }
 
+/** Small tuple used when converting vibration UI values to firmware values. */
 private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

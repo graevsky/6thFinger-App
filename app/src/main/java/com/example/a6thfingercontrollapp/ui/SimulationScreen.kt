@@ -54,6 +54,9 @@ import com.example.a6thfingercontrollapp.ble.INPUT_SOURCE_EMG
 import com.example.a6thfingercontrollapp.ble.INPUT_SOURCE_FLEX
 import com.example.a6thfingercontrollapp.ble.Telemetry
 
+/**
+ * Visual simulation screen for the prosthetic finger.
+ */
 @Composable
 fun SimulationScreen(vm: BleViewModel) {
     val t by vm.state.collectAsState()
@@ -125,6 +128,7 @@ fun SimulationScreen(vm: BleViewModel) {
     )
 }
 
+/** Main layout of the simulation tab. */
 @Composable
 private fun SimulationContent(
     connected: Boolean,
@@ -270,6 +274,7 @@ private fun SimulationContent(
     }
 }
 
+/** Draggable bottom sheet with detailed telemetry for the selected pair. */
 @Composable
 private fun TelemetryBottomSheet(
     modifier: Modifier = Modifier,
@@ -321,7 +326,8 @@ private fun TelemetryBottomSheet(
                         detectVerticalDragGestures(
                             onVerticalDrag = { change, dragAmount ->
                                 change.consume()
-                                sheetOffsetPx = (sheetOffsetPx + dragAmount).coerceIn(0f, maxOffsetPx)
+                                sheetOffsetPx =
+                                    (sheetOffsetPx + dragAmount).coerceIn(0f, maxOffsetPx)
                             },
                             onDragEnd = {
                                 sheetOffsetPx = if (sheetOffsetPx > maxOffsetPx / 2f) {
@@ -432,6 +438,7 @@ private fun TelemetryBottomSheet(
     }
 }
 
+/** Warning banner shown when simulation data/control is unavailable. */
 @Composable
 private fun StatusBanner(text: String) {
     Card(
@@ -449,6 +456,7 @@ private fun StatusBanner(text: String) {
     }
 }
 
+/** Dropdown for switching between configured servo pairs. */
 @Composable
 private fun PairSelector(
     selectedPairIndex: Int,
@@ -478,6 +486,7 @@ private fun PairSelector(
     }
 }
 
+/** Checks whether a pair should appear in the simulation selector. */
 private fun pairShouldBeVisibleInSimulation(
     settings: EspSettings,
     telemetry: Telemetry,
@@ -500,10 +509,15 @@ private fun pairShouldBeVisibleInSimulation(
     return telePresent || servoSet || (source == INPUT_SOURCE_FLEX && flexSet) || (source == INPUT_SOURCE_EMG && emgSet)
 }
 
+/** Formats floating point telemetry for compact display. */
 private fun prettyValue(v: Float) = if (v.isFinite()) "%.1f".format(v) else "--"
 
+/** Formats optional integer telemetry for compact display. */
 private fun prettyIntValue(v: Int) = if (v >= 0) v.toString() else "--"
 
+/**
+ * Simple articulated finger visualization driven by a servo angle.
+ */
 @Composable
 private fun RoboFinger(
     angle: Float,
@@ -574,6 +588,7 @@ private fun RoboFinger(
     }
 }
 
+/** Small joint marker used by the finger visualization. */
 @Composable
 private fun JointDot(color: Color) {
     Box(

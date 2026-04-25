@@ -8,12 +8,20 @@ import android.content.ContextWrapper
 import android.content.Intent
 import kotlin.system.exitProcess
 
+/**
+ * Walks through ContextWrapper layers until an Activity is found.
+ */
 private fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
 
+/**
+ * Restarts the app by scheduling a fresh launcher intent and closing the current process.
+ *
+ * Used after operations that require a clean Android process state, such as firmware reboot flows.
+ */
 fun restartApp(context: Context) {
     val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
         ?: return

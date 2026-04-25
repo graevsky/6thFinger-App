@@ -3,24 +3,55 @@ package com.example.a6thfingercontrollapp.ble
 import org.json.JSONArray
 import org.json.JSONObject
 
+/** Input source for a pair: flex sensor drives the servo. */
 const val INPUT_SOURCE_FLEX = 0
+
+/** Input source for a pair: EMG module drives the servo. */
 const val INPUT_SOURCE_EMG = 1
 
+/** EMG mode without directions. */
 const val EMG_MODE_BEND_OTHER = 0
+
+/** EMG mode where direction is interpreted explicitly. */
 const val EMG_MODE_DIRECTIONAL = 1
 
+/** No EMG event detected. */
 const val EMG_EVENT_NONE = 0
+
+/** Generic "other" EMG event. */
 const val EMG_EVENT_OTHER = 1
+
+/** EMG event that means bending action. */
 const val EMG_EVENT_BEND = 2
+
+/** EMG event that means unfolding action. */
 const val EMG_EVENT_UNFOLD = 3
 
+/** No EMG action currently executed. */
 const val EMG_ACTION_NONE = 0
+
+/** Servo is bending because of EMG logic. */
 const val EMG_ACTION_BEND = 1
+
+/** Servo is unfolding because of EMG logic. */
 const val EMG_ACTION_UNFOLD = 2
+
+/** EMG action was ignored because cooldown is active. */
 const val EMG_ACTION_COOLDOWN_IGNORED = 3
 
+/**
+ * Placeholder used for something that is not used.
+ */
 private const val PIN_PLACEHOLDER = 0xFF
 
+/**
+ * Full device configuration exchanged with the ESP32 and backend.
+ *
+ * This is the main configuration snapshot used by the app:
+ * - UI edits it
+ * - BLE sends it to the board
+ * - backend stores it in the cloud
+ */
 data class EspSettings(
     val fsrPin: Int = 33,
     val fsrPullupOhm: Int = 10_000,
@@ -40,15 +71,26 @@ data class EspSettings(
     val vibroSoftPower: Int = 200,
     val vibroPulseBase: Int = 120,
 
-    // PIN (0000 == 0 == отключен)
+    // PIN (0000 == 0 == disabled)
     val pinCode: Int = 0,
 
+    /**
+     * These flags are not always part of the normal serialized config,
+     * but can arrive from board/backend and affect UI/auth behavior.
+     */
     val pinSet: Boolean = false,
     val authRequired: Boolean = false,
 
+    /** Configuration schema version. */
     val settingsVersion: Int = 2
 ) {
 
+    /**
+     * Serializes settings into JSON sent to the board or stored locally.
+     *
+     * Only actual configuration values are included here.
+     * Runtime/helper fields like pinSet/authRequired are handled separately.
+     */
     fun toJsonString(): String {
         val j = JSONObject().apply {
             put("fsrPin", fsrPin)
@@ -81,6 +123,9 @@ data class EspSettings(
 
     companion object {
 
+        /**
+         * Pair 0 is the primary pair and gets a real default config.
+         */
         fun defaultFlexForIndex(idx: Int): FlexSettings =
             if (idx == 0) {
                 FlexSettings()
@@ -138,6 +183,10 @@ data class EspSettings(
         private fun defaultEmgSettings(): Array<EmgSettings> =
             Array(4) { idx -> defaultEmgForIndex(idx) }
 
+        /**
+         * The backend or board may return arrays either as real JSON arrays
+         * or as stringified JSON. These helpers support both formats.
+         */
         private fun parseFlexArray(json: JSONObject): Array<FlexSettings> {
             json.optJSONArray("flexSettings")?.let { arr ->
                 return Array(4) { idx ->
@@ -188,7 +237,9 @@ data class EspSettings(
             json.optJSONArray("pairInputSettings")?.let { arr ->
                 return Array(4) { idx ->
                     val obj = arr.optJSONObject(idx)
-                    if (obj != null) PairInputSettings.fromJson(obj) else defaultPairInputForIndex(idx)
+                    if (obj != null) PairInputSettings.fromJson(obj) else defaultPairInputForIndex(
+                        idx
+                    )
                 }
             }
 
@@ -198,7 +249,9 @@ data class EspSettings(
                     val arr = JSONArray(raw)
                     return Array(4) { idx ->
                         val obj = arr.optJSONObject(idx)
-                        if (obj != null) PairInputSettings.fromJson(obj) else defaultPairInputForIndex(idx)
+                        if (obj != null) PairInputSettings.fromJson(obj) else defaultPairInputForIndex(
+                            idx
+                        )
                     }
                 } catch (_: Throwable) {
                 }
@@ -230,6 +283,12 @@ data class EspSettings(
             return defaultEmgSettings()
         }
 
+        /**
+         * Builds EspSettings from JSON from the board, local storage or backend.
+         *
+         * Missing fields fall back to defaults, making parsing fairly tolerant
+         * to partial responses and schema changes.
+         */
         fun fromJson(json: JSONObject): EspSettings {
             val def = EspSettings()
 
@@ -275,6 +334,9 @@ data class EspSettings(
     }
 }
 
+/**
+ * Per-pair selector that tells the firmware which input source controls the servo.
+ */
 data class PairInputSettings(
     val inputSource: Int = INPUT_SOURCE_FLEX
 ) {
@@ -294,6 +356,12 @@ data class PairInputSettings(
     }
 }
 
+/**
+ * EMG configuration for one pair.
+ *
+ * channels determines how many pins are actually active.
+ * Unused pins are set to PIN_PLACEHOLDER.
+ */
 data class EmgSettings(
     val channels: Int = 1,
     val pin0: Int = PIN_PLACEHOLDER,
@@ -321,6 +389,7 @@ data class EmgSettings(
         }
     }
 
+    /** Returns only pins that are relevant for the selected channel count. */
     fun activePins(): List<Int> = listOf(pin0, pin1, pin2).take(channels.coerceIn(1, 3))
 
     companion object {
@@ -349,6 +418,9 @@ data class EmgSettings(
     }
 }
 
+/**
+ * Flex sensor calibration/settings for one pair.
+ */
 data class FlexSettings(
     val flexPin: Int = 32,
     val flexPullupOhm: Int = 47_000,
@@ -382,6 +454,9 @@ data class FlexSettings(
     }
 }
 
+/**
+ * Servo configuration for one pair.
+ */
 data class ServoSettings(
     val servoPin: Int = 18,
     val servoMinDeg: Int = 40,

@@ -28,6 +28,12 @@ import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.EspSettings
 import kotlin.math.max
 
+/**
+ * Dialog for editing servo pin/range and testing the servo in live mode.
+ *
+ * Live mode keeps the dialog open until disabled so the app can safely stop the
+ * dedicated low-latency BLE control stream before closing.
+ */
 @Composable
 fun ServoDialog(
     s: EspSettings,
@@ -62,6 +68,7 @@ fun ServoDialog(
     var live by remember(liveEnabled) { mutableStateOf(liveEnabled) }
     var showDismissHint by remember { mutableStateOf(false) }
 
+    /** Builds a new settings snapshot with the current servo fields applied. */
     fun buildSettingsWith(angle: Int): EspSettings {
         val minAngle = (min.toIntOrNull() ?: servoSetting.servoMinDeg).coerceIn(0, 180)
         val maxAngle =
@@ -84,6 +91,7 @@ fun ServoDialog(
         )
     }
 
+    /** Prevents closing the dialog while live control is still active. */
     fun tryDismiss() {
         if (live) {
             showDismissHint = true

@@ -39,6 +39,12 @@ import com.example.a6thfingercontrollapp.R
 import com.example.a6thfingercontrollapp.ble.BleDeviceUi
 import com.example.a6thfingercontrollapp.data.LastDevice
 
+/**
+ * BLE connection screen.
+ *
+ * Displays the last paired device, scanned devices, connection status and PIN
+ * authentication dialog when firmware requires it.
+ */
 @Composable
 fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
     val status by vm.state.collectAsState()
@@ -75,6 +81,7 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
     var pinDialogOpen by remember { mutableStateOf(false) }
     var pin by remember { mutableStateOf("") }
 
+    // Automatically shows the PIN dialog only while authentication is required.
     LaunchedEffect(authReq, unlocked, pinSending) {
         if (pinSending) {
             pinDialogOpen = false
@@ -237,6 +244,7 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
     BlockingProgressDialog(visible = showWait)
 }
 
+/** Maps low-level PIN error keys to localized text. */
 @Composable
 private fun pinErrorUiText(key: String?): String? {
     return when (key) {
@@ -249,6 +257,7 @@ private fun pinErrorUiText(key: String?): String? {
     }
 }
 
+/** Card with the most recently used BLE device and quick connect/disconnect. */
 @Composable
 private fun LastDeviceCard(
     last: LastDevice?,
@@ -294,6 +303,7 @@ private fun LastDeviceCard(
     }
 }
 
+/** One scanned BLE device row in the available devices list. */
 @Composable
 private fun DeviceItem(title: String, address: String, isConnected: Boolean, onClick: () -> Unit) {
     Card(
