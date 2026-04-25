@@ -115,15 +115,6 @@ interface BackendApi {
     ): DeviceOut
 
     /**
-     * Loads the latest settings snapshot for a device.
-     */
-    @GET("/device/{id}/settings")
-    suspend fun getDeviceSettings(
-        @Header("Authorization") auth: String,
-        @Path("id") deviceId: String
-    ): DeviceSettingsOut
-
-    /**
      * Loads device settings as a raw Retrofit response.
      */
     @GET("/device/{id}/settings")
@@ -279,7 +270,7 @@ interface BackendApi {
         fun create(): BackendApi {
             val logging = HttpLoggingInterceptor().apply {
                 level = if (BuildConfig.DEBUG) {
-                    HttpLoggingInterceptor.Level.BODY
+                    HttpLoggingInterceptor.Level.BASIC
                 } else {
                     HttpLoggingInterceptor.Level.NONE
                 }

@@ -52,8 +52,8 @@ fun FsrDialog(
                     s.copy(
                         fsrPin = pin.toIntOrNull() ?: s.fsrPin,
                         fsrPullupOhm = pull.toIntOrNull() ?: s.fsrPullupOhm,
-                        fsrSoftThresholdN = (soft.toFloatOrNull() ?: s.fsrSoftThresholdN),
-                        fsrHardMaxN = (hard.toFloatOrNull() ?: s.fsrHardMaxN)
+                        fsrSoftThresholdN = soft.toIntOrNull()?.toFloat() ?: s.fsrSoftThresholdN,
+                        fsrHardMaxN = hard.toIntOrNull()?.toFloat() ?: s.fsrHardMaxN
                     )
                 )
                 onDismiss()

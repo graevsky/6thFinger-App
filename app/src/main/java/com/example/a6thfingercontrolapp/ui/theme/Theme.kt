@@ -9,6 +9,10 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import com.example.a6thfingercontrolapp.data.APP_THEME_DARK
+import com.example.a6thfingercontrolapp.data.APP_THEME_LIGHT
+import com.example.a6thfingercontrolapp.data.APP_THEME_SYSTEM
+import com.example.a6thfingercontrolapp.data.normalizeAppThemeMode
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -34,11 +38,18 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun _6thFingerControllAppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: String = APP_THEME_SYSTEM,
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    val systemDark = isSystemInDarkTheme()
+    val darkTheme = when (normalizeAppThemeMode(themeMode)) {
+        APP_THEME_LIGHT -> false
+        APP_THEME_DARK -> true
+        else -> systemDark
+    }
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current

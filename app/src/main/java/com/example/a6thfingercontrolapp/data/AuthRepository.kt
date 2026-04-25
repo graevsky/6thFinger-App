@@ -427,13 +427,6 @@ class AuthRepository(context: Context) {
     }
 
     /**
-     * Convenience wrapper that returns only parsed settings.
-     */
-    suspend fun pullDeviceSettings(deviceId: String): EspSettings? {
-        return getDeviceSettingsRecord(deviceId)?.settings
-    }
-
-    /**
      * Uploads local avatar file as multipart data.
      */
     suspend fun uploadAvatar(localPath: String) {

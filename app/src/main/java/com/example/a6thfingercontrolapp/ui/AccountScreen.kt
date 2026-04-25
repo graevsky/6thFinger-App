@@ -65,9 +65,11 @@ import com.canhub.cropper.CropImageView.CropShape
 import com.canhub.cropper.CropImageView.Guidelines
 import com.example.a6thfingercontrolapp.AuthViewModel
 import com.example.a6thfingercontrolapp.BleViewModel
+import com.example.a6thfingercontrolapp.BuildConfig
 import com.example.a6thfingercontrolapp.R
 import com.example.a6thfingercontrolapp.UiAuthState
 import com.example.a6thfingercontrolapp.ble.EspSettings
+import com.example.a6thfingercontrolapp.ble.classifyBleStatus
 import com.example.a6thfingercontrolapp.data.AppSettingsStore
 import com.example.a6thfingercontrolapp.data.DeviceSettingsRecord
 import com.example.a6thfingercontrolapp.data.saveAvatarFromCroppedUri
@@ -373,18 +375,7 @@ fun AccountScreen(
     val activeAddress by vm.activeAddress.collectAsState()
     val activeAlias by vm.activeAlias.collectAsState()
 
-    val rawStatus = bleState.status.lowercase()
-    val connected =
-        when {
-            "disconnected" in rawStatus -> false
-            "subscribed" in rawStatus -> true
-            "tele" in rawStatus -> true
-            "config" in rawStatus -> true
-            "ack" in rawStatus -> true
-            "auth" in rawStatus -> true
-            "connected" in rawStatus -> true
-            else -> false
-        }
+    val connected = classifyBleStatus(bleState.status).transportConnected
 
     /** Stores a compact device list locally for offline account UI. */
     fun cacheDevices(list: List<DeviceOut>) {
@@ -448,30 +439,18 @@ fun AccountScreen(
         force: Boolean = false
     ): CloudSettingsState {
         val cached = cloudSettingsByDeviceId[device.id]
-        if (!force && cached != null && (cached.checked || !cached.errorKey.isNullOrBlank())) {
-            return cached
-        }
+        if (!force && cached != null && (cached.checked || !cached.errorKey.isNullOrBlank())) return cached
 
         return try {
             val record = authVm.fetchDeviceSettingsRecord(device.id)
-            val state = CloudSettingsState(
-                checked = true,
-                record = record,
-                errorKey = null
-            )
-            cloudSettingsByDeviceId = cloudSettingsByDeviceId.toMutableMap().apply {
-                put(device.id, state)
-            }
+            val state = CloudSettingsState(checked = true, record = record, errorKey = null)
+            cloudSettingsByDeviceId =
+                cloudSettingsByDeviceId.toMutableMap().apply { put(device.id, state) }
             state
         } catch (e: Exception) {
-            val state = CloudSettingsState(
-                checked = false,
-                record = null,
-                errorKey = e.message
-            )
-            cloudSettingsByDeviceId = cloudSettingsByDeviceId.toMutableMap().apply {
-                put(device.id, state)
-            }
+            val state = CloudSettingsState(checked = false, record = null, errorKey = e.message)
+            cloudSettingsByDeviceId =
+                cloudSettingsByDeviceId.toMutableMap().apply { put(device.id, state) }
             state
         }
     }
@@ -894,37 +873,36 @@ fun AccountScreen(
         val emailLine =
             when {
                 emailLoading -> stringResource(R.string.loading)
-                !emailErrText.isNullOrBlank() && !emailShown.isNullOrBlank() ->
-                    stringResource(R.string.account_email_current, emailShown)
+                !emailErrText.isNullOrBlank() && !emailShown.isNullOrBlank() -> stringResource(
+                    R.string.account_email_current,
+                    emailShown
+                )
 
-                !emailErrText.isNullOrBlank() && emailShown.isNullOrBlank() ->
-                    stringResource(R.string.account_email_not_set)
-
-                hasEmail && !emailShown.isNullOrBlank() ->
-                    stringResource(R.string.account_email_current, emailShown)
+                !emailErrText.isNullOrBlank() && emailShown.isNullOrBlank() -> stringResource(R.string.account_email_not_set)
+                hasEmail && !emailShown.isNullOrBlank() -> stringResource(
+                    R.string.account_email_current,
+                    emailShown
+                )
 
                 else -> stringResource(R.string.account_email_not_set)
             }
 
-        val guideUrl =
-            "https://docs.google.com/document/d/1MEejkdQEGTkvxDuX7fgXnzfzSTgcVONKTlj-WCBkAp0/edit?usp=sharing"
-
         val links = listOf(
             SettingsLink(
-                title = "Guide",
-                url = guideUrl
+                title = stringResource(R.string.settings_link_guide),
+                url = BuildConfig.APP_GUIDE_URL
             ),
             SettingsLink(
-                title = "App",
-                url = "https://github.com/graevsky/6thFinger-App"
+                title = stringResource(R.string.settings_link_app),
+                url = BuildConfig.APP_REPOSITORY_URL
             ),
             SettingsLink(
-                title = "ESP32 firmware",
-                url = "https://github.com/graevsky/6thFinger-Controller"
+                title = stringResource(R.string.settings_link_esp32_firmware),
+                url = BuildConfig.ESP32_FIRMWARE_URL
             ),
             SettingsLink(
-                title = "Backend",
-                url = "https://github.com/graevsky/6thFinger-Backend"
+                title = stringResource(R.string.settings_link_backend),
+                url = BuildConfig.BACKEND_REPOSITORY_URL
             )
         )
 
@@ -945,7 +923,6 @@ fun AccountScreen(
                 showSettings = false
                 activity?.recreate()
             },
-
             isLoggedIn = username != null,
             emailLine = emailLine,
             emailErrorLine = emailErrText,
@@ -966,7 +943,6 @@ fun AccountScreen(
                 showSettings = false
                 username?.let { onChangePassword(it) }
             },
-
             links = links
         )
     }

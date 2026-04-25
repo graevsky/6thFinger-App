@@ -1,7 +1,9 @@
 package com.example.a6thfingercontrolapp.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -29,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -37,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrolapp.BleViewModel
 import com.example.a6thfingercontrolapp.R
 import com.example.a6thfingercontrolapp.ble.BleDeviceUi
+import com.example.a6thfingercontrolapp.ble.classifyBleStatus
 import com.example.a6thfingercontrolapp.data.LastDevice
 
 /**
@@ -49,6 +54,7 @@ import com.example.a6thfingercontrolapp.data.LastDevice
 fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
     val status by vm.state.collectAsState()
     val devices by vm.devices.collectAsState()
+    val connectedAddress by vm.connectedAddress.collectAsState()
     val last by vm.lastDevice.collectAsState()
 
     val authReq by vm.authRequired.collectAsState()
@@ -56,21 +62,28 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
     val pinErrorKey by vm.pinError.collectAsState()
     val unlocked by vm.controlUnlocked.collectAsState()
 
-    val rawStatus = status.status.lowercase()
+    val bleSession = classifyBleStatus(status.status, unlocked)
     val haptic = LocalHapticFeedback.current
 
-    val isConnected =
-        when {
-            "disconnected" in rawStatus -> false
-            "subscribed" in rawStatus -> true
-            "tele" in rawStatus -> true
-            "config" in rawStatus -> true
-            "ack" in rawStatus -> true
-            "auth" in rawStatus -> true
-            else -> false
-        }
-
+    val targetAddress = last?.address.orEmpty()
+    val targetConnected = targetAddress.isNotBlank() &&
+            connectedAddress.equals(targetAddress, ignoreCase = true)
+    val anyDeviceConnected = bleSession.transportConnected || connectedAddress.isNotBlank()
+    val controlReady = targetConnected && bleSession.controlReady
     val uiStatus = bleStatusUiText(status.status)
+    val otherDeviceConnected = targetAddress.isNotBlank() &&
+            connectedAddress.isNotBlank() &&
+            !connectedAddress.equals(targetAddress, ignoreCase = true)
+    val trafficLightState = connectionTrafficLightState(
+        hasTargetDevice = targetAddress.isNotBlank(),
+        targetConnected = targetConnected,
+        otherDeviceConnected = otherDeviceConnected,
+        transportConnected = bleSession.transportConnected,
+        connecting = bleSession.connecting,
+        authRequired = authReq,
+        pinSending = pinSending,
+        controlReady = controlReady
+    )
 
     val lastAlias: String? =
         when (val ld = last) {
@@ -107,15 +120,18 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                "${stringResource(R.string.ble_status)}: $uiStatus",
-                style = MaterialTheme.typography.titleMedium
+            ConnectionTrafficLight(
+                state = trafficLightState,
+                uiStatus = uiStatus,
+                hasTargetDevice = targetAddress.isNotBlank(),
+                otherDeviceConnected = otherDeviceConnected
             )
 
             LastDeviceCard(
                 last = last,
                 alias = lastAlias,
-                isConnected = isConnected,
+                isConnected = targetConnected,
+                connectEnabled = !anyDeviceConnected && !bleSession.connecting,
                 haptic = haptic,
                 onConnect = { addr -> vm.connect(addr) },
                 onDisconnect = { vm.disconnect() }
@@ -132,7 +148,7 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
                             vm.scan()
                         }
                     },
-                    enabled = permissionsGranted && !isConnected
+                    enabled = permissionsGranted && !anyDeviceConnected && !bleSession.connecting
                 ) { Text(stringResource(R.string.ble_scan)) }
 
                 if (!permissionsGranted) {
@@ -154,7 +170,8 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
                     DeviceItem(
                         title = (alias ?: d.name).ifBlank { alias ?: d.name },
                         address = d.address,
-                        isConnected = isConnected,
+                        isConnected = connectedAddress.equals(d.address, ignoreCase = true),
+                        enabled = !anyDeviceConnected && !bleSession.connecting,
                         onClick = {
                             vm.saveLastDevice(d.name, d.address)
                             vm.connect(d.address)
@@ -231,17 +248,94 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
         )
     }
 
-    val statusKey = status.status.lowercase()
-    val waitingStage1 = !pinDialogOpen && !unlocked && !pinSending && (
-            statusKey == "connecting" ||
-                    statusKey == "discovering" ||
-                    statusKey == "subscribed" ||
-                    statusKey == "config_updated" ||
-                    isConnected
-            )
+    val waitingStage1 = !pinDialogOpen && !controlReady && !pinSending &&
+            (bleSession.connecting || targetConnected)
 
     val showWait = pinSending || waitingStage1
     BlockingProgressDialog(visible = showWait)
+}
+
+/** Three visible connection states used by the target-device indicator. */
+private enum class ConnectionTrafficLightState { Disconnected, Pending, Ready }
+
+/**
+ * Calculates the target-device traffic light without relying only on generic
+ * transport status. A
+ */
+private fun connectionTrafficLightState(
+    hasTargetDevice: Boolean,
+    targetConnected: Boolean,
+    otherDeviceConnected: Boolean,
+    transportConnected: Boolean,
+    connecting: Boolean,
+    authRequired: Boolean,
+    pinSending: Boolean,
+    controlReady: Boolean
+): ConnectionTrafficLightState {
+    if (!hasTargetDevice || otherDeviceConnected) return ConnectionTrafficLightState.Disconnected
+    if (targetConnected && controlReady) return ConnectionTrafficLightState.Ready
+
+    val waitingForTarget = connecting || pinSending || authRequired ||
+            (targetConnected && !controlReady) ||
+            (transportConnected && !targetConnected)
+
+    return if (waitingForTarget) {
+        ConnectionTrafficLightState.Pending
+    } else {
+        ConnectionTrafficLightState.Disconnected
+    }
+}
+
+/** Compact themed traffic-light indicator for target prosthesis connection state. */
+@Composable
+private fun ConnectionTrafficLight(
+    state: ConnectionTrafficLightState,
+    uiStatus: String,
+    hasTargetDevice: Boolean,
+    otherDeviceConnected: Boolean
+) {
+    val indicatorColor = when (state) {
+        ConnectionTrafficLightState.Disconnected -> MaterialTheme.colorScheme.error
+        ConnectionTrafficLightState.Pending -> MaterialTheme.colorScheme.tertiary
+        ConnectionTrafficLightState.Ready -> MaterialTheme.colorScheme.primary
+    }
+
+    val title = when {
+        !hasTargetDevice -> stringResource(R.string.connection_indicator_no_target)
+        otherDeviceConnected -> stringResource(R.string.connection_indicator_other_connected)
+        state == ConnectionTrafficLightState.Ready -> stringResource(R.string.connection_indicator_ready)
+        state == ConnectionTrafficLightState.Pending -> stringResource(R.string.connection_indicator_waiting)
+        else -> stringResource(R.string.connection_indicator_disconnected)
+    }
+
+    Card(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(14.dp)
+                    .clip(CircleShape)
+                    .background(indicatorColor)
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = indicatorColor
+                )
+                Text(
+                    text = stringResource(R.string.connection_indicator_status, uiStatus),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
 }
 
 /** Maps low-level PIN error keys to localized text. */
@@ -263,6 +357,7 @@ private fun LastDeviceCard(
     last: LastDevice?,
     alias: String?,
     isConnected: Boolean,
+    connectEnabled: Boolean,
     haptic: HapticFeedback,
     onConnect: (String) -> Unit,
     onDisconnect: () -> Unit
@@ -290,10 +385,13 @@ private fun LastDeviceCard(
                             Text(stringResource(R.string.device_disconnect))
                         }
                     } else {
-                        Button(onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.ToggleOn)
-                            onConnect(last.address)
-                        }) {
+                        Button(
+                            enabled = connectEnabled,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                                onConnect(last.address)
+                            }
+                        ) {
                             Text(stringResource(R.string.device_connect))
                         }
                     }
@@ -305,11 +403,17 @@ private fun LastDeviceCard(
 
 /** One scanned BLE device row in the available devices list. */
 @Composable
-private fun DeviceItem(title: String, address: String, isConnected: Boolean, onClick: () -> Unit) {
+private fun DeviceItem(
+    title: String,
+    address: String,
+    isConnected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
     Card(
         Modifier
             .fillMaxWidth()
-            .then(if (!isConnected) Modifier.clickable { onClick() } else Modifier)
+            .then(if (enabled && !isConnected) Modifier.clickable { onClick() } else Modifier)
     ) {
         Column(Modifier.padding(12.dp)) {
             Text(

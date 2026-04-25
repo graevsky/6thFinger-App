@@ -72,6 +72,18 @@ class BleClient(private val context: Context) {
 
     private var gatt: BluetoothGatt? = null
 
+    /**
+     * Address of the device that currently owns an established GATT session.
+     * It is used by UI to distinguish the target prosthesis from any other
+     * connected BLE device.
+     */
+    private val _connectedAddress = MutableStateFlow<String?>(null)
+    val connectedAddress: StateFlow<String?> = _connectedAddress.asStateFlow()
+
+    /** Address requested by the current connect attempt. */
+    @Volatile
+    private var connectingAddress: String? = null
+
     // Cached characteristic references resolved after service discovery.
     private var chCfgIn: BluetoothGattCharacteristic? = null
     private var chCfgOut: BluetoothGattCharacteristic? = null
@@ -132,6 +144,12 @@ class BleClient(private val context: Context) {
      */
     @Volatile
     private var teleUnlocked: Boolean = false
+
+    /**
+     * Guard for an in-flight cfg_ok write. It becomes final only after write success.
+     */
+    @Volatile
+    private var cfgOkSending: Boolean = false
 
     private val _authRequired = MutableStateFlow(false)
     val authRequired: StateFlow<Boolean> = _authRequired.asStateFlow()
@@ -264,14 +282,9 @@ class BleClient(private val context: Context) {
 
     /**
      * Sends telemetry enable/disable command and waits for its ACK.
-     *
-     * This is blocking from the caller's perspective and is used when the app
-     * must guarantee telemetry state before continuing
      */
     suspend fun setTelemetryEnabledBlocking(enabled: Boolean): Boolean =
         commandMutex.withLock {
-            _telemetryEnabled.value = enabled
-
             gatt ?: return false
             chCfgIn ?: return false
             if (!hasConnPermission()) return false
@@ -288,16 +301,24 @@ class BleClient(private val context: Context) {
             //Log.d(TAG_CFG, "ANDROID_SEND_TELE_SET_BLOCKING = $obj")
             val sent = writeJsonChunked(obj.toString())
             if (!sent) {
-                expectedAckFor = null
-                expectedAckDeferred = null
+                clearExpectedAckWaiter(waiter)
+                updateStatus("Telemetry send failed")
                 return false
             }
 
             val ack = withTimeoutOrNull(7000) { waiter.await() }
-            if (ack == null) return false
+            if (ack == null) {
+                clearExpectedAckWaiter(waiter)
+                updateStatus("Telemetry ACK timeout")
+                return false
+            }
 
             val ok = ack.optBoolean("ok", false)
-            if (!ok) return false
+            if (!ok) {
+                clearExpectedAckWaiter(waiter)
+                updateStatus("Telemetry ACK fail")
+                return false
+            }
 
             // When telemetry is disabled, also wait until packets actually stop arriving.
             if (!enabled) {
@@ -307,6 +328,7 @@ class BleClient(private val context: Context) {
                 }
             }
 
+            _telemetryEnabled.value = enabled
             true
         }
 
@@ -326,12 +348,14 @@ class BleClient(private val context: Context) {
     }
 
     /**
-     * Dumb wrapper for telemetry switching.
+     * Wrapper for telemetry switching.
      */
     fun setTelemetryEnabled(enabled: Boolean) {
-        _telemetryEnabled.value = enabled
         scope.launch {
-            setTelemetryEnabledBlocking(enabled)
+            val ok = setTelemetryEnabledBlocking(enabled)
+            if (!ok) {
+                updateStatus(if (enabled) "Telemetry enable failed" else "Telemetry disable failed")
+            }
         }
     }
 
@@ -451,15 +475,22 @@ class BleClient(private val context: Context) {
      * successfully consumed config and telemetry can proceed normally.
      */
     private fun sendCfgOkOnce() {
-        if (teleUnlocked) return
-        teleUnlocked = true
+        if (teleUnlocked || cfgOkSending) return
+        cfgOkSending = true
 
         scope.launch {
-            val okObj = JSONObject().apply { put("type", "cfg_ok") }
-            //Log.d(TAG_CFG, "ANDROID_SEND_CFG_OK = $okObj")
-            val ok = writeJsonChunked(okObj.toString())
-            if (ok) {
-                setTelemetryEnabledBlocking(_telemetryEnabled.value)
+            try {
+                val okObj = JSONObject().apply { put("type", "cfg_ok") }
+                //Log.d(TAG_CFG, "ANDROID_SEND_CFG_OK = $okObj")
+                val ok = writeJsonChunked(okObj.toString())
+                if (ok) {
+                    teleUnlocked = true
+                    setTelemetryEnabledBlocking(_telemetryEnabled.value)
+                } else {
+                    updateStatus("Cfg OK failed")
+                }
+            } finally {
+                cfgOkSending = false
             }
         }
     }
@@ -529,10 +560,16 @@ class BleClient(private val context: Context) {
     private fun connect(dev: BluetoothDevice) {
         if (connecting.getAndSet(true)) return
 
+        stopScan()
+
+        connectingAddress = dev.address
+        _connectedAddress.value = null
+
         sessionAuthed = false
         devicePinSet = false
         seenTelemetry = false
         teleUnlocked = false
+        cfgOkSending = false
         authAttemptId++
 
         _controlUnlocked.value = false
@@ -557,6 +594,7 @@ class BleClient(private val context: Context) {
 
         if (!hasConnPermission()) {
             connecting.set(false)
+            connectingAddress = null
             updateStatus("No connect permission")
             return
         }
@@ -572,6 +610,7 @@ class BleClient(private val context: Context) {
             }
         } catch (_: Throwable) {
             connecting.set(false)
+            connectingAddress = null
             updateStatus("Connect failed")
             null
         }
@@ -583,11 +622,14 @@ class BleClient(private val context: Context) {
     @SuppressLint("MissingPermission")
     private fun disconnect() {
         connecting.set(false)
+        connectingAddress = null
+        _connectedAddress.value = null
 
         sessionAuthed = false
         devicePinSet = false
         seenTelemetry = false
         teleUnlocked = false
+        cfgOkSending = false
         authAttemptId++
 
         _authRequired.value = false
@@ -644,6 +686,7 @@ class BleClient(private val context: Context) {
                 newState == BluetoothProfile.STATE_CONNECTED
             ) {
                 connecting.set(false)
+                _connectedAddress.value = connectingAddress ?: g.device.address
 
                 updateStatus("Discovering")
                 try {
@@ -831,6 +874,17 @@ class BleClient(private val context: Context) {
     }
 
     /**
+     * Clears the current waiting ACK only if it still belongs to the given waiter.
+     */
+    private fun clearExpectedAckWaiter(waiter: CompletableDeferred<JSONObject>? = null) {
+        val current = expectedAckDeferred
+        if (waiter == null || current === waiter) {
+            expectedAckDeferred = null
+            expectedAckFor = null
+        }
+    }
+
+    /**
      * Resolves the current waiting ACK if the received ACK matches expected "for".
      */
     private fun maybeCompleteAckWaiter(json: JSONObject) {
@@ -845,6 +899,14 @@ class BleClient(private val context: Context) {
             expectedAckFor = null
             def.complete(json)
         }
+    }
+
+    /**
+     * Returns true only when telemetry is allowed to unlock the UI control flow.
+     */
+    private fun canTelemetryUnlockControl(): Boolean {
+        val pinGateActive = (devicePinSet || _authRequired.value) && !sessionAuthed
+        return !pinGateActive
     }
 
     /**
@@ -924,7 +986,7 @@ class BleClient(private val context: Context) {
                 val prev = _telemetry.value
                 _telemetry.value = tParsed.copy(status = prev.status, rxMs = rx)
 
-                if (!_controlUnlocked.value) {
+                if (!_controlUnlocked.value && canTelemetryUnlockControl()) {
                     _authRequired.value = false
                     _authSending.value = false
                     _pinError.value = null
@@ -981,7 +1043,7 @@ class BleClient(private val context: Context) {
                         val prev = _telemetry.value
                         _telemetry.value = tParsed.copy(status = prev.status, rxMs = rx)
 
-                        if (!_controlUnlocked.value) {
+                        if (!_controlUnlocked.value && canTelemetryUnlockControl()) {
                             _authRequired.value = false
                             _authSending.value = false
                             _pinError.value = null
@@ -1118,6 +1180,14 @@ class BleClient(private val context: Context) {
             t.startsWith("tele parse error") -> "tele_parse_error"
             t.startsWith("ack ok") -> "ack_ok"
             t.startsWith("ack fail") -> "ack_fail"
+            t.startsWith("telemetry ack timeout") -> "telemetry_ack_timeout"
+            t.startsWith("telemetry ack fail") -> "telemetry_ack_fail"
+            t.startsWith("telemetry send failed") -> "telemetry_send_failed"
+            t.startsWith("telemetry enable failed") -> "telemetry_enable_failed"
+            t.startsWith("telemetry disable failed") -> "telemetry_disable_failed"
+            t.startsWith("cfg ok failed") -> "cfg_ok_failed"
+            t.startsWith("live write failed") -> "live_write_failed"
+            t.startsWith("live stop failed") -> "live_stop_failed"
             t.startsWith("write") -> "write_failed"
             else -> t.replace(Regex("[^a-z0-9]+"), "_").trim('_')
         }

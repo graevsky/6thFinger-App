@@ -9,7 +9,7 @@ import java.security.SecureRandom
  *
  * Responsibilities:
  * - N and g parameters
- * - generate random salts/private values
+ * - generate random private values
  * - calculate password hash/verifier values
  * - calculate client-side session secrets and proofs
  * - keep all byte/int/hex conversions in one protocol-aware place
@@ -21,14 +21,13 @@ class SrpContext(
     generatorHex: String,
     hashAlg: String = "SHA-1",
     multiplierHex: String? = null,
-    bitsRandom: Int = 1024,
-    bitsSalt: Int = 64
+    bitsRandom: Int = 1024
 ) {
 
     /** Hash algorithm used by both client and backend for SRP calculations. */
     private val hashAlgName = hashAlg
 
-    /** Secure source for salts and private ephemeral values. */
+    /** Secure source for private ephemeral values. */
     private val random = SecureRandom()
 
     /** Normalized username participating in SRP hash formulas. */
@@ -58,9 +57,6 @@ class SrpContext(
 
     /** Number of random bits used for ephemeral private values. */
     private val bitsRandomInternal = bitsRandom
-
-    /** Number of random bits used for salt generation. */
-    private val bitsSaltInternal = bitsSalt
 
     /**
      * Converts supported protocol values to bytes before hashing.
@@ -130,11 +126,6 @@ class SrpContext(
     fun generateRandom(bitsLen: Int = bitsRandomInternal): BigInteger {
         return BigInteger(bitsLen, random).abs()
     }
-
-    /**
-     * Generates a random SRP salt.
-     */
-    fun generateSalt(): BigInteger = generateRandom(bitsSaltInternal)
 
     /**
      * Calculates private password hash x.

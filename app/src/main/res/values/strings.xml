@@ -28,6 +28,13 @@
     <string name="settings_russian">Russian</string>
     <string name="settings_english">English</string>
     <string name="settings_close">Close</string>
+    <string name="settings_links">Links</string>
+    <string name="settings_link_guide">Guide</string>
+    <string name="settings_link_app">App</string>
+    <string name="settings_link_esp32_firmware">ESP32 firmware</string>
+    <string name="settings_link_backend">Backend</string>
+    <string name="start_guide_title">Quick start guide</string>
+    <string name="start_guide_subtitle">Open step-by-step instructions</string>
 
     <!-- Account -->
     <string name="account_avatar">Avatar</string>
@@ -175,9 +182,9 @@
     <string name="sim_force">Force: %1$s N</string>
 
     <string name="loading">Loading…</string>
-    <string name="prosthesis_no_devices">I dont have any prothesis registered</string>
+    <string name="prosthesis_no_devices">No prostheses registered</string>
     <string name="refresh">Update</string>
-    <string name="prosthesis_not_connected_title">Prothesis is not connected</string>
+    <string name="prosthesis_not_connected_title">Prosthesis is not connected</string>
     <string name="prosthesis_not_connected_message">Connect a prosthesis first to load server settings into it</string>
     <string name="prosthesis_no_settings_on_server">Device does not have any saved settings</string>
     <string name="prosthesis_connected">Connected</string>
@@ -214,14 +221,14 @@
 
     <string name="device_reboot">Reboot</string>
     <string name="device_reboot_subtitle">Restart app + ESP</string>
-    <string name="device_reboot_warning">The app and ESP32 will be restared.\nSettings will not be reset.\nContinue?</string>
+    <string name="device_reboot_warning">The app and ESP32 will be restarted.\nSettings will not be reset.\nContinue?</string>
     <string name="confirm">Confirm</string>
 
     <string name="tele">Telemetry</string>
     <string name="tele_on">Telemetry on</string>
     <string name="tele_off">Telemetry off</string>
     <string name="disconnected">Disconnected</string>
-    <string name="tele_off_turn_on">Telemetry is off - you can turn in on in Control section</string>
+    <string name="tele_off_turn_on">Telemetry is off - you can turn it on in the Control section</string>
 
     <string name="please_wait">Please wait…</string>
 
@@ -243,20 +250,20 @@
     <string name="ble_status_service_discovery_error">Service discovery error</string>
     <string name="ble_status_service_not_found">Service not found</string>
     <string name="ble_status_characteristics_missing">Characteristics missing</string>
-    <string name="ble_status_notify_error">Notify error</string>
+    <string name="ble_status_notify_error">Notification setup failed</string>
 
-    <string name="ble_status_config_updated">Config updated</string>
+    <string name="ble_status_config_updated">Config received</string>
     <string name="ble_status_config_parse_error">Config parse error</string>
     <string name="ble_status_tele_parse_error">Telemetry parse error</string>
 
-    <string name="ble_status_auth_ok">PIN OK</string>
+    <string name="ble_status_auth_ok">PIN accepted</string>
     <string name="ble_status_auth_fail">Wrong PIN</string>
 
-    <string name="ble_status_ack_ok">Connection established</string>
-    <string name="ble_status_ack_fail">Connection failed</string>
-    <string name="ble_status_write_failed">Write failed</string>
+    <string name="ble_status_ack_ok">Command acknowledged</string>
+    <string name="ble_status_ack_fail">Device command failed</string>
+    <string name="ble_status_write_failed">Failed to send command</string>
 
-    <string name="telemetry_placeholder">—</string>
+    <string name="telemetry_placeholder">-</string>
     <string name="telemetry_wait">Waiting for telemetry…</string>
     <string name="telemetry_wait_after_save">Applying settings… telemetry will start soon</string>
     <string name="telemetry_disabled_short">Telemetry is off</string>
@@ -265,7 +272,7 @@
 
     <string name="recovery_codes_title">Recovery codes</string>
     <string name="recovery_codes_subtitle">Save these 10 one-time codes. You will NOT be able to view them again.</string>
-    <string name="recovery_codes_warning">If you lose your password AND these codes — account recovery is impossible.</string>
+    <string name="recovery_codes_warning">If you lose your password AND these codes - account recovery is impossible.</string>
     <string name="recovery_codes_copy">Copy</string>
     <string name="recovery_codes_download">Download .txt</string>
     <string name="recovery_codes_saved_checkbox">I saved the codes</string>
@@ -392,4 +399,30 @@
     <string name="prosthesis_address">Address</string>
     <string name="prosthesis_version">Version</string>
     <string name="prosthesis_updated_at">Updated</string>
+
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">Use system setting</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+
+    <!-- Connection traffic light -->
+    <string name="connection_indicator_ready">Connected and ready</string>
+    <string name="connection_indicator_waiting">Connecting or preparing device…</string>
+    <string name="connection_indicator_disconnected">Target device is not connected</string>
+    <string name="connection_indicator_no_target">No target device selected</string>
+    <string name="connection_indicator_other_connected">Another device is connected</string>
+    <string name="connection_indicator_status">BLE status: %1$s</string>
+
+
+    <!-- Live control errors -->
+    <string name="live_control_connect_required">Connect the prosthesis to use live control.</string>
+    <string name="live_control_unlock_required">Unlock control before using live control.</string>
+    <string name="err_live_control_active">Live control is active. Disable it first.</string>
+    <string name="err_live_telemetry_disable_failed">Failed to disable telemetry for live control.</string>
+    <string name="err_live_telemetry_restore_failed">Failed to restore telemetry after live control.</string>
+    <string name="err_live_write_failed">Failed to send live-control command.</string>
+    <string name="err_live_stop_failed">Failed to stop live control.</string>
+    <string name="err_telemetry_enable_failed">Failed to enable telemetry.</string>
+    <string name="err_telemetry_disable_failed">Failed to disable telemetry.</string>
+
 </resources>

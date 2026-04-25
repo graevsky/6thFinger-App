@@ -67,7 +67,11 @@ fun VibroDialog(
         }
     }
 
-    BaseDialog(title = stringResource(R.string.vibro_settings), onDismiss, haptic = haptic) {
+    BaseDialog(
+        title = stringResource(R.string.vibro_settings),
+        onDismiss = onDismiss,
+        haptic = haptic
+    ) {
         NumberField(stringResource(R.string.vibro_pin), pin) { pin = it }
 
         Row(

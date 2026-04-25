@@ -53,6 +53,7 @@ import com.example.a6thfingercontrolapp.ble.EspSettings
 import com.example.a6thfingercontrolapp.ble.INPUT_SOURCE_EMG
 import com.example.a6thfingercontrolapp.ble.INPUT_SOURCE_FLEX
 import com.example.a6thfingercontrolapp.ble.Telemetry
+import com.example.a6thfingercontrolapp.ble.classifyBleStatus
 
 /**
  * Visual simulation screen for the prosthetic finger.
@@ -63,18 +64,15 @@ fun SimulationScreen(vm: BleViewModel) {
     val s by vm.activeSettings.collectAsState()
     val telemetryEnabled by vm.telemetryEnabled.collectAsState()
     val livePairs by vm.liveServoPairs.collectAsState()
+    val unlocked by vm.controlUnlocked.collectAsState()
+    val liveControlErrorKey by vm.liveControlError.collectAsState()
 
-    val rawStatus = t.status.lowercase()
-    val connected =
-        when {
-            "disconnected" in rawStatus -> false
-            "subscribed" in rawStatus -> true
-            "tele" in rawStatus -> true
-            "config" in rawStatus -> true
-            "ack" in rawStatus -> true
-            "auth" in rawStatus -> true
-            else -> false
-        }
+    val bleSession = classifyBleStatus(t.status, unlocked)
+    val connected = bleSession.transportConnected
+    val controlReady = bleSession.controlReady
+    val liveControlAvailable = connected && controlReady
+    val statusText = bleStatusUiText(t.status)
+    val liveControlErrorText = liveControlErrorUiText(liveControlErrorKey)
 
     val availablePairs: List<Int> = remember(t, s) {
         (0 until 4).filter { idx -> pairShouldBeVisibleInSimulation(s, t, idx) }
@@ -103,6 +101,10 @@ fun SimulationScreen(vm: BleViewModel) {
 
     SimulationContent(
         connected = connected,
+        controlReady = controlReady,
+        liveControlAvailable = liveControlAvailable,
+        liveControlErrorText = liveControlErrorText,
+        blockedStatusText = statusText,
         telemetryEnabled = telemetryEnabled,
         selectedPairIndex = selectedPair,
         hasMultiplePairs = hasMultiplePairs,
@@ -117,13 +119,15 @@ fun SimulationScreen(vm: BleViewModel) {
         fsrSoftThresholdN = s.fsrSoftThresholdN,
         liveEnabled = isLive,
         onLiveEnabled = { en ->
-            vm.setServoLiveEnabled(selectedPair, en)
-            if (en) vm.sendServoLiveAngle(selectedPair, liveAngle.toInt())
+            if (liveControlAvailable) {
+                vm.setServoLiveEnabled(selectedPair, en)
+                if (en) vm.sendServoLiveAngle(selectedPair, liveAngle.toInt())
+            }
         },
         liveAngle = liveAngle,
         onLiveAngleChange = { a ->
             liveAngles[selectedPair] = a
-            vm.sendServoLiveAngle(selectedPair, a.toInt())
+            if (liveControlAvailable) vm.sendServoLiveAngle(selectedPair, a.toInt())
         }
     )
 }
@@ -132,6 +136,10 @@ fun SimulationScreen(vm: BleViewModel) {
 @Composable
 private fun SimulationContent(
     connected: Boolean,
+    controlReady: Boolean,
+    liveControlAvailable: Boolean,
+    liveControlErrorText: String?,
+    blockedStatusText: String,
     telemetryEnabled: Boolean,
     selectedPairIndex: Int,
     hasMultiplePairs: Boolean,
@@ -163,6 +171,11 @@ private fun SimulationContent(
 
     val pairNo = stringResource(R.string.pair_no)
     val emgCfg = settings.emgSettings[selectedPairIndex]
+    val liveUnavailableText = when {
+        !connected -> stringResource(R.string.live_control_connect_required)
+        !controlReady -> stringResource(R.string.live_control_unlock_required)
+        else -> null
+    }
 
     Column(
         modifier = Modifier
@@ -195,10 +208,10 @@ private fun SimulationContent(
             }
         }
 
-        if (!connected) {
-            StatusBanner(stringResource(R.string.disconnected))
-        } else if (!telemetryEnabled) {
-            StatusBanner(stringResource(R.string.tele_off_turn_on))
+        when {
+            !connected -> StatusBanner(stringResource(R.string.disconnected))
+            !controlReady -> StatusBanner(blockedStatusText)
+            !telemetryEnabled -> StatusBanner(stringResource(R.string.tele_off_turn_on))
         }
 
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -214,6 +227,7 @@ private fun SimulationContent(
                     Text(stringResource(R.string.live_control))
                     Switch(
                         checked = liveEnabled,
+                        enabled = liveControlAvailable,
                         onCheckedChange = { onLiveEnabled(it) }
                     )
                 }
@@ -222,12 +236,28 @@ private fun SimulationContent(
                     value = liveAngle.coerceIn(0f, 180f),
                     onValueChange = { onLiveAngleChange(it) },
                     valueRange = 0f..180f,
-                    enabled = liveEnabled
+                    enabled = liveEnabled && liveControlAvailable
                 )
                 Text(
                     text = "${stringResource(R.string.servo_manual_angle)}: ${liveAngle.toInt()}°",
                     style = MaterialTheme.typography.bodySmall
                 )
+
+                if (!liveUnavailableText.isNullOrBlank()) {
+                    Text(
+                        text = liveUnavailableText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (!liveControlErrorText.isNullOrBlank()) {
+                    Text(
+                        text = liveControlErrorText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
 

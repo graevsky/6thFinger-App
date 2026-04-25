@@ -7,6 +7,26 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+/** App follows the Android system theme. */
+const val APP_THEME_SYSTEM = "system"
+
+/** App always uses the light theme. */
+const val APP_THEME_LIGHT = "light"
+
+/** App always uses the dark theme. */
+const val APP_THEME_DARK = "dark"
+
+/**
+ * Normalizes app theme values stored locally or received from the backend.
+ */
+fun normalizeAppThemeMode(raw: String?): String {
+    return when (raw?.trim()?.lowercase()) {
+        APP_THEME_LIGHT -> APP_THEME_LIGHT
+        APP_THEME_DARK -> APP_THEME_DARK
+        else -> APP_THEME_SYSTEM
+    }
+}
+
 /**
  * DataStore instance for global app settings.
  */
@@ -16,7 +36,8 @@ private val Context.dataStore by preferencesDataStore(name = "app_settings")
  * Small persistence layer for app-wide preferences and offline account cache.
  *
  * Responsibilities:
- * - store selected  language
+ * - store selected language
+ * - store selected app theme mode
  * - store local avatar path
  * - cache account email and cloud devices for offline UX
  */
@@ -26,6 +47,7 @@ class AppSettingsStore(private val context: Context) {
      */
     private object Keys {
         val LANGUAGE = stringPreferencesKey("language")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
         val AVATAR_PATH = stringPreferencesKey("avatar_path")
 
         // cache for offline UX
@@ -44,6 +66,23 @@ class AppSettingsStore(private val context: Context) {
      */
     suspend fun setLanguage(code: String) {
         context.dataStore.edit { it[Keys.LANGUAGE] = code }
+    }
+
+    /**
+     * Emits selected app theme mode: system, light or dark.
+     */
+    fun getThemeMode(): Flow<String> =
+        context.dataStore.data.map { prefs ->
+            normalizeAppThemeMode(prefs[Keys.THEME_MODE])
+        }
+
+    /**
+     * Persists selected app theme mode.
+     */
+    suspend fun setThemeMode(mode: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.THEME_MODE] = normalizeAppThemeMode(mode)
+        }
     }
 
     /**

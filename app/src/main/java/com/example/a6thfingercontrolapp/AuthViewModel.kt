@@ -8,6 +8,7 @@ import com.example.a6thfingercontrolapp.data.AppSettingsStore
 import com.example.a6thfingercontrolapp.data.AuthRepository
 import com.example.a6thfingercontrolapp.data.AuthState
 import com.example.a6thfingercontrolapp.data.DeviceSettingsRecord
+import com.example.a6thfingercontrolapp.data.normalizeAppThemeMode
 import com.example.a6thfingercontrolapp.network.DeviceOut
 import com.example.a6thfingercontrolapp.network.PasswordResetStartOut
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +69,12 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     private var pendingRegisterUsername: String? = null
     private var pendingRegisterPassword: String? = null
 
+    /** Prevents local DataStore emissions during startup/login pull from uploading stale values. */
+    private var settingsSyncReady: Boolean = false
+
+    /** Prevents remote settings we just applied locally from being uploaded back immediately. */
+    private var applyingRemoteSettings: Boolean = false
+
     init {
         viewModelScope.launch {
             val st = repo.resolveInitialState()
@@ -79,12 +86,15 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                 }
 
             if (st is AuthState.LoggedIn) {
+                syncAppSettingsOnLogin(st.username)
+                settingsSyncReady = true
                 tryPullAvatarToLocal()
             }
         }
 
         viewModelScope.launch { uploadSettingsWorker() }
         viewModelScope.launch { uploadAvatarWorker() }
+        viewModelScope.launch { themeChangeSyncLoop() }
 
         viewModelScope.launch {
             auth.collectLatest { state ->
@@ -104,6 +114,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun continueAsGuest() {
         viewModelScope.launch {
+            settingsSyncReady = false
             repo.continueAsGuest()
             _auth.value = UiAuthState.Guest
             _error.value = null
@@ -134,6 +145,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
      * Resets all account-related local state after logout or expired session.
      */
     private suspend fun forceUnauthenticatedCleanup() {
+        settingsSyncReady = false
         pendingAppSettingsUpload.value = null
         pendingAvatarUploadPath.value = null
         _error.value = null
@@ -170,6 +182,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                 pendingRegisterPassword = password
 
                 lastRegisteredUser = normalized
+                settingsSyncReady = false
                 _auth.value = UiAuthState.Unauthenticated
                 _error.value = null
 
@@ -187,12 +200,14 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     fun login(username: String, password: String) {
         viewModelScope.launch {
             try {
+                settingsSyncReady = false
                 val normalized = username.trim().lowercase()
                 val st = repo.login(normalized, password)
                 if (st is AuthState.LoggedIn) {
                     _auth.value = UiAuthState.LoggedIn(st.username)
                     _error.value = null
                     syncAppSettingsOnLogin(st.username)
+                    settingsSyncReady = true
                     tryPullAvatarToLocal()
                 }
             } catch (e: Exception) {
@@ -218,11 +233,13 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         val u = pendingRegisterUsername ?: throw Exception("Registration state expired")
         val p = pendingRegisterPassword ?: throw Exception("Registration state expired")
 
+        settingsSyncReady = false
         val st = repo.login(u, p)
         if (st is AuthState.LoggedIn) {
             _auth.value = UiAuthState.LoggedIn(st.username)
             _error.value = null
             syncAppSettingsOnLogin(st.username)
+            settingsSyncReady = true
             tryPullAvatarToLocal()
         }
         clearPostRegisterState()
@@ -236,11 +253,13 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         val p = pendingRegisterPassword ?: throw Exception("Registration state expired")
 
         if (auth.value !is UiAuthState.LoggedIn) {
+            settingsSyncReady = false
             val st = repo.login(u, p)
             if (st is AuthState.LoggedIn) {
                 _auth.value = UiAuthState.LoggedIn(st.username)
                 _error.value = null
                 syncAppSettingsOnLogin(st.username)
+                settingsSyncReady = true
                 tryPullAvatarToLocal()
             }
         }
@@ -357,35 +376,78 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         runProtected { repo.emailConfirmRemove(code, recoveryCode) }
 
     /**
-     * On login, chooses between pulling remote app settings and pushing local defaults.
+     * Builds the app-level settings payload currently stored on this device.
+     */
+    private suspend fun localAppSettingsPayload(): Map<String, Any?> = mapOf(
+        "language" to appSettings.getLanguage().first(),
+        "theme" to appSettings.getThemeMode().first()
+    )
+
+    /**
+     * Applies supported remote app settings to local DataStore.
+     */
+    private suspend fun applyRemoteAppSettings(payload: Map<String, Any?>) {
+        applyingRemoteSettings = true
+        try {
+            val lang = payload["language"]?.toString()?.trim()?.takeIf { it.isNotBlank() }
+            if (lang != null) {
+                appSettings.setLanguage(lang)
+            }
+
+            val theme = payload["theme"]?.toString()?.trim()?.takeIf { it.isNotBlank() }
+            if (theme != null) {
+                appSettings.setThemeMode(normalizeAppThemeMode(theme))
+            }
+        } finally {
+            applyingRemoteSettings = false
+        }
+    }
+
+    /**
+     * Pushes local app settings while preserving any unknown backend keys.
+     */
+    private suspend fun pushMergedAppSettings(localPayload: Map<String, Any?>) {
+        val remote = runProtected { repo.pullAppSettings() }.orEmpty()
+        val merged = remote.toMutableMap().apply { putAll(localPayload) }
+        runProtected { repo.pushAppSettings(merged) }
+    }
+
+    /**
+     * On login chooses between pulling remote app settings and pushing local defaults.
      */
     private suspend fun syncAppSettingsOnLogin(username: String) {
-        val localLang = appSettings.getLanguage().first()
+        val localPayload = localAppSettingsPayload()
 
         if (lastRegisteredUser == username) {
             lastRegisteredUser = null
             try {
-                runProtected { repo.pushAppSettings(mapOf("language" to localLang)) }
+                pushMergedAppSettings(localPayload)
             } catch (_: Exception) {
-                pendingAppSettingsUpload.value = mapOf("language" to localLang)
+                pendingAppSettingsUpload.value = localPayload
             }
             return
         }
 
         try {
             val payload = runProtected { repo.pullAppSettings() }
-            if (payload != null && payload["language"] != null) {
-                val remoteLang = payload["language"].toString()
-                appSettings.setLanguage(remoteLang)
+            if (payload != null) {
+                applyRemoteAppSettings(payload)
+
+                val needsBackfill = payload["language"] == null || payload["theme"] == null
+                if (needsBackfill) {
+                    val backfilled =
+                        payload.toMutableMap().apply { putAll(localAppSettingsPayload()) }
+                    runProtected { repo.pushAppSettings(backfilled) }
+                }
             } else {
                 try {
-                    runProtected { repo.pushAppSettings(mapOf("language" to localLang)) }
+                    pushMergedAppSettings(localPayload)
                 } catch (_: Exception) {
-                    pendingAppSettingsUpload.value = mapOf("language" to localLang)
+                    pendingAppSettingsUpload.value = localPayload
                 }
             }
         } catch (_: Exception) {
-            pendingAppSettingsUpload.value = mapOf("language" to localLang)
+            pendingAppSettingsUpload.value = localPayload
         }
     }
 
@@ -396,13 +458,26 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         val intervalMs = 15 * 60 * 1000L
         while (auth.value is UiAuthState.LoggedIn) {
             delay(intervalMs)
+            if (pendingAppSettingsUpload.value != null) continue
+
             runCatching {
                 runProtected { repo.pullAppSettings() }
             }.onSuccess { payload ->
-                if (payload != null && payload["language"] != null) {
-                    val lang = payload["language"].toString()
-                    appSettings.setLanguage(lang)
+                if (payload != null) {
+                    applyRemoteAppSettings(payload)
                 }
+            }
+        }
+    }
+
+    /**
+     * Syncs local theme changes to the backend after login synchronization is complete.
+     */
+    private suspend fun themeChangeSyncLoop() {
+        appSettings.getThemeMode().collectLatest { theme ->
+            val state = auth.value
+            if (state is UiAuthState.LoggedIn && settingsSyncReady && !applyingRemoteSettings) {
+                updateAppSettingsRemote(mapOf("theme" to theme))
             }
         }
     }
@@ -422,7 +497,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             try {
-                runProtected { repo.pushAppSettings(payload) }
+                pushMergedAppSettings(payload)
                 pendingAppSettingsUpload.value = null
             } catch (_: Exception) {
                 delay(retryDelayMs)
@@ -439,23 +514,31 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun pushDeviceSettings(deviceId: String, settings: EspSettings): DeviceSettingsRecord =
         runProtected { repo.pushDeviceSettings(deviceId, settings) }
 
-    suspend fun pullDeviceSettings(deviceId: String): EspSettings? =
-        runProtected { repo.pullDeviceSettings(deviceId) }
-
     suspend fun ensureDevice(address: String, alias: String?): DeviceOut =
         runProtected { repo.ensureDevice(address, alias) }
 
     /**
-     * Pushes language update immediately or queues it for retry if the network fails.
+     * Pushes any app settings patch immediately or queues it for retry if the network fails.
      */
-    fun updateLanguageRemote(newLang: String) {
+    fun updateAppSettingsRemote(patch: Map<String, Any?>) {
+        val state = _auth.value
+        if (state !is UiAuthState.LoggedIn) return
+
         viewModelScope.launch {
+            val payload = localAppSettingsPayload().toMutableMap().apply { putAll(patch) }
             try {
-                runProtected { repo.pushAppSettings(mapOf("language" to newLang)) }
+                pushMergedAppSettings(payload)
                 pendingAppSettingsUpload.value = null
             } catch (_: Exception) {
-                pendingAppSettingsUpload.value = mapOf("language" to newLang)
+                pendingAppSettingsUpload.value = payload
             }
         }
+    }
+
+    /**
+     * Compatibility wrapper for existing callers; app settings sync now uses a generic payload.
+     */
+    fun updateLanguageRemote(newLang: String) {
+        updateAppSettingsRemote(mapOf("language" to newLang))
     }
 }

@@ -38,6 +38,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.a6thfingercontrolapp.ble.classifyBleStatus
 import com.example.a6thfingercontrolapp.data.AppSettingsStore
 import com.example.a6thfingercontrolapp.ui.AccountScreen
 import com.example.a6thfingercontrolapp.ui.ConnectScreen
@@ -96,7 +97,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            _6thFingerControllAppTheme {
+            val appTheme by vm.appTheme.collectAsState()
+
+            _6thFingerControllAppTheme(themeMode = appTheme) {
                 val nav = rememberNavController()
                 val scope = rememberCoroutineScope()
 
@@ -119,7 +122,7 @@ class MainActivity : ComponentActivity() {
                 var postEmail by rememberSaveable { mutableStateOf("") }
                 var postCode by rememberSaveable { mutableStateOf("") }
                 var postLoading by remember { mutableStateOf(false) }
-                var postErrKey by remember { mutableStateOf<String?>(null) }
+                var postErrKey by rememberSaveable { mutableStateOf<String?>(null) }
 
                 // If recovery codes disappear, leave the post-register-only screens.
                 LaunchedEffect(authFlowScreen, pendingRecovery) {
@@ -155,6 +158,7 @@ class MainActivity : ComponentActivity() {
                                 onContinue = {
                                     prefillUsername = data.username
                                     postErrKey = null
+                                    postLoading = false
                                     authFlowScreen = AuthFlowScreen.PostRegisterEmail
                                 }
                             )
@@ -165,13 +169,21 @@ class MainActivity : ComponentActivity() {
                                 initialEmail = postEmail,
                                 loading = postLoading,
                                 errorKey = postErrKey,
-                                onBack = { authFlowScreen = AuthFlowScreen.Login },
+                                onBack = {
+                                    postErrKey = null
+                                    postLoading = false
+                                    authFlowScreen =
+                                        if (pendingRecovery != null) AuthFlowScreen.RecoveryCodes
+                                        else AuthFlowScreen.Login
+                                },
                                 onSkip = {
                                     postErrKey = null
                                     postLoading = true
                                     scope.launch {
                                         try {
                                             authVm.postRegisterFinishWithoutEmail()
+                                            postEmail = ""
+                                            postCode = ""
                                             authFlowScreen = AuthFlowScreen.Start
                                         } catch (e: Exception) {
                                             postErrKey = e.message
@@ -207,6 +219,8 @@ class MainActivity : ComponentActivity() {
                                 code = postCode,
                                 onCodeChange = { postCode = it },
                                 onBackChangeEmail = {
+                                    postErrKey = null
+                                    postLoading = false
                                     authFlowScreen = AuthFlowScreen.PostRegisterEmail
                                 },
                                 onResend = {
@@ -228,6 +242,8 @@ class MainActivity : ComponentActivity() {
                                     scope.launch {
                                         try {
                                             authVm.postRegisterEmailConfirm(postEmail, postCode)
+                                            postEmail = ""
+                                            postCode = ""
                                             authFlowScreen = AuthFlowScreen.Start
                                         } catch (e: Exception) {
                                             postErrKey = e.message
@@ -336,21 +352,12 @@ class MainActivity : ComponentActivity() {
                         val bleState by vm.state.collectAsState()
                         val unlocked by vm.controlUnlocked.collectAsState()
 
-                        val rawStatus = bleState.status.lowercase()
-                        val connected =
-                            when {
-                                "disconnected" in rawStatus -> false
-                                "subscribed" in rawStatus -> true
-                                "tele" in rawStatus -> true
-                                "config" in rawStatus -> true
-                                "ack" in rawStatus -> true
-                                "auth" in rawStatus -> true
-                                else -> false
-                            }
+                        val bleSession = classifyBleStatus(bleState.status, unlocked)
+                        val controlReady = bleSession.controlReady
 
                         // Control and Simulation screens require an active unlocked BLE session.
-                        LaunchedEffect(connected, unlocked, currentRoute) {
-                            if ((!connected || !unlocked) &&
+                        LaunchedEffect(controlReady, currentRoute) {
+                            if (!controlReady &&
                                 (currentRoute == NavRoute.Control.route ||
                                         currentRoute == NavRoute.Sim.route)
                             ) {
@@ -370,7 +377,7 @@ class MainActivity : ComponentActivity() {
                                             when (r) {
                                                 NavRoute.Connect -> true
                                                 NavRoute.Account -> true
-                                                else -> connected && unlocked
+                                                else -> controlReady
                                             }
 
                                         NavigationBarItem(

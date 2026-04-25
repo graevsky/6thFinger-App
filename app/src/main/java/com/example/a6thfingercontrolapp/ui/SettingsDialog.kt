@@ -21,6 +21,10 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +32,11 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrolapp.R
+import com.example.a6thfingercontrolapp.data.APP_THEME_DARK
+import com.example.a6thfingercontrolapp.data.APP_THEME_LIGHT
+import com.example.a6thfingercontrolapp.data.APP_THEME_SYSTEM
+import com.example.a6thfingercontrolapp.data.AppSettingsStore
+import kotlinx.coroutines.launch
 
 /** External link item displayed inside the settings dialog. */
 data class SettingsLink(
@@ -47,6 +56,9 @@ fun SettingsDialog(
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit,
 
+    currentTheme: String? = null,
+    onThemeSelect: ((String) -> Unit)? = null,
+
     isLoggedIn: Boolean = false,
     emailLine: String? = null,
     emailErrorLine: String? = null,
@@ -60,6 +72,10 @@ fun SettingsDialog(
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val settingsStore = remember { AppSettingsStore(context.applicationContext) }
+    val storedTheme by settingsStore.getThemeMode().collectAsState(initial = APP_THEME_SYSTEM)
+    val selectedTheme = currentTheme ?: storedTheme
 
     /** Opens project documentation/repository links in an external app. */
     fun openUrl(url: String) {
@@ -71,7 +87,15 @@ fun SettingsDialog(
         }
     }
 
-    val linksHeader = if (currentLang == "ru") "Ссылки" else "Links"
+    /** Updates theme without recreating the activity. */
+    fun selectTheme(theme: String) {
+        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
+        if (onThemeSelect != null) {
+            onThemeSelect(theme)
+        } else {
+            scope.launch { settingsStore.setThemeMode(theme) }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = {
@@ -86,7 +110,7 @@ fun SettingsDialog(
             ) {
                 Text("${stringResource(R.string.settings_language)}:")
 
-                LanguageOptionRow(
+                SettingsOptionRow(
                     title = stringResource(R.string.settings_russian),
                     selected = currentLang == "ru",
                     onClick = {
@@ -95,7 +119,7 @@ fun SettingsDialog(
                     }
                 )
 
-                LanguageOptionRow(
+                SettingsOptionRow(
                     title = stringResource(R.string.settings_english),
                     selected = currentLang == "en",
                     onClick = {
@@ -104,10 +128,31 @@ fun SettingsDialog(
                     }
                 )
 
+                Divider(modifier = Modifier.padding(top = 4.dp))
+                Text("${stringResource(R.string.settings_theme)}:")
+
+                SettingsOptionRow(
+                    title = stringResource(R.string.settings_theme_system),
+                    selected = selectedTheme == APP_THEME_SYSTEM,
+                    onClick = { selectTheme(APP_THEME_SYSTEM) }
+                )
+
+                SettingsOptionRow(
+                    title = stringResource(R.string.settings_theme_light),
+                    selected = selectedTheme == APP_THEME_LIGHT,
+                    onClick = { selectTheme(APP_THEME_LIGHT) }
+                )
+
+                SettingsOptionRow(
+                    title = stringResource(R.string.settings_theme_dark),
+                    selected = selectedTheme == APP_THEME_DARK,
+                    onClick = { selectTheme(APP_THEME_DARK) }
+                )
+
                 if (links.isNotEmpty()) {
                     Divider(modifier = Modifier.padding(top = 4.dp))
                     Text(
-                        linksHeader,
+                        stringResource(R.string.settings_links),
                         style = MaterialTheme.typography.titleSmall
                     )
 
@@ -190,9 +235,9 @@ fun SettingsDialog(
     )
 }
 
-/** Single radio row used to choose the application language. */
+/** Single radio row used to choose a setting option. */
 @Composable
-private fun LanguageOptionRow(
+private fun SettingsOptionRow(
     title: String,
     selected: Boolean,
     onClick: () -> Unit

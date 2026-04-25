@@ -29,6 +29,13 @@
     <string name="settings_russian">Русский</string>
     <string name="settings_english">Английский</string>
     <string name="settings_close">Закрыть</string>
+    <string name="settings_links">Ссылки</string>
+    <string name="settings_link_guide">Инструкция</string>
+    <string name="settings_link_app">Приложение</string>
+    <string name="settings_link_esp32_firmware">Прошивка ESP32</string>
+    <string name="settings_link_backend">Backend</string>
+    <string name="start_guide_title">Краткая инструкция</string>
+    <string name="start_guide_subtitle">Открыть пошаговую инструкцию</string>
 
     <!-- Account -->
     <string name="account_avatar">Аватар</string>
@@ -194,7 +201,7 @@
     <string name="flex_n_servo_curr_vals">Текущие значения</string>
     <string name="pair_no">Пара</string>
     <string name="notification">Предупреждение</string>
-    <string name="setup_not_full">Найдены видимы пары с неполной настройкой - один из обязательных источников для пары не задан.</string>
+    <string name="setup_not_full">Найдены видимые пары с неполной настройкой - один из обязательных источников для пары не задан.</string>
     <string name="continue_anyway">Все равно продолжить</string>
     <string name="flex_not_set">Flex не настроен.</string>
     <string name="servo_not_set">Сервопривод не настроен.</string>
@@ -222,7 +229,7 @@
     <string name="tele_on">Телеметрия включена</string>
     <string name="tele_off">Телеметрия отключена</string>
     <string name="disconnected">Устройство отключено</string>
-    <string name="tele_off_turn_on">Телеметрия выключена — включите её на странице управления</string>
+    <string name="tele_off_turn_on">Телеметрия выключена - включите её на странице управления</string>
 
     <string name="please_wait">Ожидайте…</string>
 
@@ -244,7 +251,7 @@
     <string name="ble_status_service_discovery_error">Ошибка поиска сервисов</string>
     <string name="ble_status_service_not_found">Сервис не найден</string>
     <string name="ble_status_characteristics_missing">Нет нужных характеристик</string>
-    <string name="ble_status_notify_error">Ошибка подписки на уведомления</string>
+    <string name="ble_status_notify_error">Не удалось включить уведомления</string>
 
     <string name="ble_status_config_updated">Конфиг получен</string>
     <string name="ble_status_config_parse_error">Ошибка разбора конфига</string>
@@ -253,11 +260,11 @@
     <string name="ble_status_auth_ok">PIN принят</string>
     <string name="ble_status_auth_fail">Неверный PIN</string>
 
-    <string name="ble_status_ack_ok">Подключение установлено</string>
-    <string name="ble_status_ack_fail">Подключение не установлено</string>
-    <string name="ble_status_write_failed">Ошибка записи</string>
+    <string name="ble_status_ack_ok">Команда подтверждена</string>
+    <string name="ble_status_ack_fail">Команда не выполнена</string>
+    <string name="ble_status_write_failed">Не удалось отправить команду</string>
 
-    <string name="telemetry_placeholder">—</string>
+    <string name="telemetry_placeholder">-</string>
     <string name="telemetry_wait">Ожидаем телеметрию…</string>
     <string name="telemetry_wait_after_save">Применяем настройки… телеметрия скоро появится</string>
     <string name="telemetry_disabled_short">Телеметрия выключена</string>
@@ -266,7 +273,7 @@
 
     <string name="recovery_codes_title">Резервные коды</string>
     <string name="recovery_codes_subtitle">Сохраните эти 10 одноразовых кодов. Посмотреть их повторно будет нельзя.</string>
-    <string name="recovery_codes_warning">Если потеряете пароль И эти коды — восстановление аккаунта невозможно.</string>
+    <string name="recovery_codes_warning">Если потеряете пароль И эти коды - восстановление аккаунта невозможно.</string>
     <string name="recovery_codes_copy">Скопировать</string>
     <string name="recovery_codes_download">Скачать .txt</string>
     <string name="recovery_codes_saved_checkbox">Я сохранил(а) коды</string>
@@ -357,7 +364,7 @@
     <!-- Password reset privacy -->
     <string name="password_reset_email_available">Восстановление по почте доступно</string>
     <string name="password_reset_email_masked_hint">Почта в аккаунте: %1$s</string>
-    <string name="err_password_rules_invalid">Пароль должен соответсвовать правилам</string>
+    <string name="err_password_rules_invalid">Пароль должен соответствовать правилам</string>
 
     <!-- Settings -->
     <string name="settings_account">Настройки аккаунта</string>
@@ -378,7 +385,7 @@
     <string name="flex_calib_wait_telemetry">Ожидаем телеметрию…</string>
 
     <string name="flex_tolerance_pct">Погрешность, %</string>
-    <string name="flex_tolerance_hint">1–50%. Больше — меньше дрожания, но медленнее реакция.</string>
+    <string name="flex_tolerance_hint">1–50%. Больше - меньше дрожания, но медленнее реакция.</string>
     <string name="live_control">Live control</string>
     <string name="live_control_disable_to_close">Выключите live control, чтобы закрыть окно.</string>
 
@@ -393,4 +400,30 @@
     <string name="prosthesis_address">Адрес</string>
     <string name="prosthesis_version">Версия</string>
     <string name="prosthesis_updated_at">Обновлено</string>
+
+    <string name="settings_theme">Тема</string>
+    <string name="settings_theme_system">Как в системе</string>
+    <string name="settings_theme_light">Светлая</string>
+    <string name="settings_theme_dark">Тёмная</string>
+
+    <!-- Connection traffic light -->
+    <string name="connection_indicator_ready">Подключено и готово</string>
+    <string name="connection_indicator_waiting">Подключение или подготовка устройства…</string>
+    <string name="connection_indicator_disconnected">Целевой протез не подключен</string>
+    <string name="connection_indicator_no_target">Целевой протез не выбран</string>
+    <string name="connection_indicator_other_connected">Подключено другое устройство</string>
+    <string name="connection_indicator_status">Статус BLE: %1$s</string>
+
+
+    <!-- Live control errors -->
+    <string name="live_control_connect_required">Подключите протез, чтобы использовать live control.</string>
+    <string name="live_control_unlock_required">Разблокируйте управление, чтобы использовать live control.</string>
+    <string name="err_live_control_active">Live control активен. Сначала отключите его.</string>
+    <string name="err_live_telemetry_disable_failed">Не удалось отключить телеметрию для live control.</string>
+    <string name="err_live_telemetry_restore_failed">Не удалось восстановить телеметрию после live control.</string>
+    <string name="err_live_write_failed">Не удалось отправить команду live control.</string>
+    <string name="err_live_stop_failed">Не удалось остановить live control.</string>
+    <string name="err_telemetry_enable_failed">Не удалось включить телеметрию.</string>
+    <string name="err_telemetry_disable_failed">Не удалось отключить телеметрию.</string>
+
 </resources>

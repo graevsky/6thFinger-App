@@ -54,6 +54,7 @@ import com.example.a6thfingercontrolapp.ble.INPUT_SOURCE_EMG
 import com.example.a6thfingercontrolapp.ble.INPUT_SOURCE_FLEX
 import com.example.a6thfingercontrolapp.ble.PairInputSettings
 import com.example.a6thfingercontrolapp.ble.Telemetry
+import com.example.a6thfingercontrolapp.ble.classifyBleStatus
 import com.example.a6thfingercontrolapp.restartApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -101,23 +102,13 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     var saveWarnOpen by remember { mutableStateOf(false) }
     var saveWarnText by remember { mutableStateOf("") }
 
-    val rawStatus = t.status.lowercase()
+    val bleSession = classifyBleStatus(t.status)
+    val connected = bleSession.transportConnected
 
     val pairNoStr = stringResource(R.string.pair_no)
     val flexNotSetStr = stringResource(R.string.flex_not_set)
     val servoNotSetStr = stringResource(R.string.servo_not_set)
     val emgNotSetStr = stringResource(R.string.emg_not_set)
-
-    val connected =
-        when {
-            "disconnected" in rawStatus -> false
-            "subscribed" in rawStatus -> true
-            "tele" in rawStatus -> true
-            "config" in rawStatus -> true
-            "ack" in rawStatus -> true
-            "auth" in rawStatus -> true
-            else -> false
-        }
 
     val dirty = (s != applied) || pendingBoardApply
 
@@ -134,11 +125,13 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
     val telemetryEnabled by vm.telemetryEnabled.collectAsState()
 
     val livePairs by vm.liveServoPairs.collectAsState()
+    val liveControlErrorKey by vm.liveControlError.collectAsState()
 
     var waitTeleAfterSave by remember { mutableStateOf(false) }
     var saveStartedMs by remember { mutableStateOf(0L) }
 
     val hasTeleData = hasTelemetryData(t)
+    val liveControlErrorText = liveControlErrorUiText(liveControlErrorKey)
 
     LaunchedEffect(telemetryEnabled) {
         if (!telemetryEnabled) waitTeleAfterSave = false
@@ -321,6 +314,14 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
                 ) { next ->
                     haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
                     vm.setTelemetryEnabled(next)
+                }
+
+                if (!liveControlErrorText.isNullOrBlank()) {
+                    Text(
+                        text = liveControlErrorText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
 
                 Divider(Modifier.padding(vertical = 8.dp))

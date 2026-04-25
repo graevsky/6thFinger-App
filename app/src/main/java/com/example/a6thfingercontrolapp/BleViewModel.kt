@@ -59,6 +59,11 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     val devices: StateFlow<List<BleDeviceUi>> =
         client.devices.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    val connectedAddress: StateFlow<String> =
+        client.connectedAddress
+            .map { it.orEmpty() }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     val lastDevice: StateFlow<LastDevice?> =
         lastStore.lastDevice.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -75,6 +80,9 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     val appLanguage: StateFlow<String> =
         appSettings.getLanguage().stateIn(viewModelScope, SharingStarted.Eagerly, "ru")
 
+    val appTheme: StateFlow<String> =
+        appSettings.getThemeMode().stateIn(viewModelScope, SharingStarted.Eagerly, "system")
+
     val authRequired: StateFlow<Boolean> =
         client.authRequired.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
@@ -90,22 +98,54 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     val telemetryEnabled: StateFlow<Boolean> =
         client.telemetryEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
-    /**
-     * Toggles telemetry unless live servo control requires telemetry to stay disabled.
-     */
+    private val _liveServoPairs = MutableStateFlow<Set<Int>>(emptySet())
+    val liveServoPairs: StateFlow<Set<Int>> = _liveServoPairs
+
+    private val _liveControlError = MutableStateFlow<String?>(null)
+    val liveControlError: StateFlow<String?> = _liveControlError
+
+    private fun isLiveControlAvailable(): Boolean {
+        return connectedAddress.value.isNotBlank() && controlUnlocked.value
+    }
+
+
+    private fun resetLiveControlTracking(errorKey: String? = null) {
+        val hadLiveSession = _liveServoPairs.value.isNotEmpty()
+
+        _liveServoPairs.value = emptySet()
+        for (i in 0..3) {
+            liveReady[i] = false
+            pendingAngle[i] = -1
+            lastLiveSendMs[i] = 0L
+            lastLiveAngle[i] = -1
+        }
+
+        if (hadLiveSession && errorKey != null) {
+            _liveControlError.value = errorKey
+        }
+    }
+
     fun setTelemetryEnabled(enabled: Boolean) {
         if (_liveServoPairs.value.isNotEmpty()) {
-            if (!enabled) client.setTelemetryEnabled(false)
+            if (enabled) {
+                _liveControlError.value = "live_control_active"
+            }
             return
         }
-        client.setTelemetryEnabled(enabled)
+
+        viewModelScope.launch {
+            val ok = client.setTelemetryEnabledBlocking(enabled)
+            _liveControlError.value = if (ok) {
+                null
+            } else if (enabled) {
+                "telemetry_enable_failed"
+            } else {
+                "telemetry_disable_failed"
+            }
+        }
     }
 
     fun sendPin(pin4: String): Boolean = client.sendAuthPin(pin4)
-
-    /** Servo pairs currently controlled through low-latency live channel. */
-    private val _liveServoPairs = MutableStateFlow<Set<Int>>(emptySet())
-    val liveServoPairs: StateFlow<Set<Int>> = _liveServoPairs
 
     private val liveOpMutex = Mutex()
     private val liveReady = BooleanArray(4) { false }
@@ -132,6 +172,22 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
+
+        viewModelScope.launch {
+            connectedAddress.collect { address ->
+                if (address.isBlank()) {
+                    resetLiveControlTracking(errorKey = "live_not_connected")
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            controlUnlocked.collect { unlocked ->
+                if (!unlocked) {
+                    resetLiveControlTracking(errorKey = "live_control_locked")
+                }
+            }
+        }
     }
 
     fun start() = client.start()
@@ -146,6 +202,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
     fun disconnect() {
         val pairs = _liveServoPairs.value
         _liveServoPairs.value = emptySet()
+        _liveControlError.value = null
         for (i in 0..3) {
             liveReady[i] = false
             pendingAngle[i] = -1
@@ -228,6 +285,10 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { appSettings.setLanguage(language) }
     }
 
+    fun setAppTheme(themeMode: String) {
+        viewModelScope.launch { appSettings.setThemeMode(themeMode) }
+    }
+
     /**
      * Enables or disables live servo control for one pair.
      *
@@ -237,9 +298,16 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         val idx = pairIdx.coerceIn(0, 3)
 
         if (enabled) {
+            if (!isLiveControlAvailable()) {
+                _liveControlError.value =
+                    if (connectedAddress.value.isBlank()) "live_not_connected" else "live_control_locked"
+                return
+            }
+
             if (_liveServoPairs.value.contains(idx)) return
 
             _liveServoPairs.value = _liveServoPairs.value + idx
+            _liveControlError.value = null
             liveReady[idx] = false
             lastLiveSendMs[idx] = 0L
             lastLiveAngle[idx] = -1
@@ -256,6 +324,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
                             if (!ok) {
                                 _liveServoPairs.value = _liveServoPairs.value - idx
                                 liveReady[idx] = false
+                                _liveControlError.value = "live_telemetry_disable_failed"
                                 return@withLock
                             }
                         } else {
@@ -266,10 +335,15 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
                     val a = pendingAngle[idx]
                     if (a >= 0) {
-                        client.sendServoLive(idx, a)
+                        val sent = client.sendServoLive(idx, a)
                         pendingAngle[idx] = -1
-                        lastLiveSendMs[idx] = SystemClock.elapsedRealtime()
-                        lastLiveAngle[idx] = a
+                        if (sent) {
+                            lastLiveSendMs[idx] = SystemClock.elapsedRealtime()
+                            lastLiveAngle[idx] = a
+                            _liveControlError.value = null
+                        } else {
+                            _liveControlError.value = "live_write_failed"
+                        }
                     }
                 }
             }
@@ -280,14 +354,22 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
             viewModelScope.launch {
                 liveOpMutex.withLock {
-                    client.stopServoLive(idx)
+                    val stopped = client.stopServoLive(idx)
+                    if (!stopped) {
+                        _liveControlError.value = "live_stop_failed"
+                    }
+
                     delay(160)
 
                     _liveServoPairs.value = _liveServoPairs.value - idx
                     pendingAngle[idx] = -1
 
                     if (_liveServoPairs.value.isEmpty() && teleBeforeAnyLive) {
-                        client.setTelemetryEnabledBlocking(true)
+                        val restored = client.setTelemetryEnabledBlocking(true)
+                        _liveControlError.value =
+                            if (restored) null else "live_telemetry_restore_failed"
+                    } else if (stopped) {
+                        _liveControlError.value = null
                     }
                 }
             }
@@ -303,6 +385,13 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
         pendingAngle[idx] = angle
 
+        if (!isLiveControlAvailable()) {
+            _liveControlError.value =
+                if (connectedAddress.value.isBlank()) "live_not_connected" else "live_control_locked"
+            resetLiveControlTracking(errorKey = null)
+            return
+        }
+
         if (!_liveServoPairs.value.contains(idx)) return
         if (!liveReady[idx]) return
 
@@ -314,7 +403,8 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
         lastLiveAngle[idx] = angle
 
         viewModelScope.launch {
-            client.sendServoLive(idx, angle)
+            val ok = client.sendServoLive(idx, angle)
+            _liveControlError.value = if (ok) null else "live_write_failed"
         }
     }
 }

@@ -18,7 +18,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -38,7 +38,7 @@ fun PostRegisterAddEmailScreen(
     onSkip: () -> Unit,
     onStartAdd: (String) -> Unit
 ) {
-    var email by remember { mutableStateOf(initialEmail) }
+    var email by rememberSaveable(initialEmail) { mutableStateOf(initialEmail) }
     val errText = uiErrorText(errorKey) ?: errorKey?.takeIf { it.isNotBlank() }
 
     Scaffold { inner ->

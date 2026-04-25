@@ -1,5 +1,5 @@
-import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -55,6 +55,30 @@ val appClientToken = readConfig(
     default = ""
 )
 
+val appGuideUrl = readConfig(
+    "APP_GUIDE_URL",
+    "app.guideUrl",
+    default = "https://docs.google.com/document/d/1MEejkdQEGTkvxDuX7fgXnzfzSTgcVONKTlj-WCBkAp0/edit?usp=sharing"
+)
+
+val appRepositoryUrl = readConfig(
+    "APP_REPOSITORY_URL",
+    "app.repositoryUrl",
+    default = "https://github.com/graevsky/6thFinger-App"
+)
+
+val esp32FirmwareUrl = readConfig(
+    "ESP32_FIRMWARE_URL",
+    "esp32.firmwareUrl",
+    default = "https://github.com/graevsky/6thFinger-Controller"
+)
+
+val backendRepositoryUrl = readConfig(
+    "BACKEND_REPOSITORY_URL",
+    "backend.repositoryUrl",
+    default = "https://github.com/graevsky/6thFinger-Backend"
+)
+
 android {
     namespace = "com.example.a6thfingercontrolapp"
     compileSdk = 36
@@ -70,8 +94,21 @@ android {
 
         buildConfigField("String", "BACKEND_BASE_URL", backendBaseUrl.asBuildConfigString())
         buildConfigField("boolean", "APP_CLIENT_TOKEN_ENABLED", appClientTokenEnabled.toString())
-        buildConfigField("String", "APP_CLIENT_HEADER_NAME", appClientHeaderName.asBuildConfigString())
+        buildConfigField(
+            "String",
+            "APP_CLIENT_HEADER_NAME",
+            appClientHeaderName.asBuildConfigString()
+        )
         buildConfigField("String", "APP_CLIENT_TOKEN", appClientToken.asBuildConfigString())
+
+        buildConfigField("String", "APP_GUIDE_URL", appGuideUrl.asBuildConfigString())
+        buildConfigField("String", "APP_REPOSITORY_URL", appRepositoryUrl.asBuildConfigString())
+        buildConfigField("String", "ESP32_FIRMWARE_URL", esp32FirmwareUrl.asBuildConfigString())
+        buildConfigField(
+            "String",
+            "BACKEND_REPOSITORY_URL",
+            backendRepositoryUrl.asBuildConfigString()
+        )
     }
 
     buildTypes {

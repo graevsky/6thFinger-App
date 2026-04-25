@@ -49,6 +49,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrolapp.AuthViewModel
 import com.example.a6thfingercontrolapp.BleViewModel
+import com.example.a6thfingercontrolapp.BuildConfig
 import com.example.a6thfingercontrolapp.R
 import com.example.a6thfingercontrolapp.utils.PasswordPolicy
 import com.example.a6thfingercontrolapp.utils.uiErrorText
@@ -72,8 +73,7 @@ fun StartScreen(
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
 
-    val guideUrl =
-        "https://docs.google.com/document/d/1MEejkdQEGTkvxDuX7fgXnzfzSTgcVONKTlj-WCBkAp0/edit?usp=sharing" // temp hardcode :/
+    val guideUrl = BuildConfig.APP_GUIDE_URL
 
     /** Opens the external guide from the landing screen. */
     fun openUrl(url: String) {
@@ -85,8 +85,8 @@ fun StartScreen(
         }
     }
 
-    val guideTitle = "Quick start guide"
-    val guideSubtitle = "Open step-by-step instructions"
+    val guideTitle = stringResource(R.string.start_guide_title)
+    val guideSubtitle = stringResource(R.string.start_guide_subtitle)
 
     Scaffold { inner ->
         Box(
