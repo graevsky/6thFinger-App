@@ -56,7 +56,7 @@ val appClientToken = readConfig(
 )
 
 android {
-    namespace = "com.example.a6thfingercontrollapp"
+    namespace = "com.example.a6thfingercontrolapp"
     compileSdk = 36
 
     defaultConfig {
