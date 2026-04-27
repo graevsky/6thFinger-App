@@ -1,494 +1,56 @@
 package com.example.a6thfingercontrolapp
 
-import android.Manifest
 import android.content.Context
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import com.example.a6thfingercontrolapp.ble.classifyBleStatus
+import com.example.a6thfingercontrolapp.account.AccountViewModel
+import com.example.a6thfingercontrolapp.auth.AuthViewModel
+import com.example.a6thfingercontrolapp.ble.BleViewModel
 import com.example.a6thfingercontrolapp.data.AppSettingsStore
-import com.example.a6thfingercontrolapp.ui.AccountScreen
-import com.example.a6thfingercontrolapp.ui.ConnectScreen
-import com.example.a6thfingercontrolapp.ui.ControlScreen
-import com.example.a6thfingercontrolapp.ui.LoginScreen
-import com.example.a6thfingercontrolapp.ui.NavRoute
-import com.example.a6thfingercontrolapp.ui.PasswordResetScreen
-import com.example.a6thfingercontrolapp.ui.PostRegisterAddEmailScreen
-import com.example.a6thfingercontrolapp.ui.PostRegisterVerifyEmailScreen
-import com.example.a6thfingercontrolapp.ui.RecoveryCodesScreen
-import com.example.a6thfingercontrolapp.ui.RegisterScreen
-import com.example.a6thfingercontrolapp.ui.SimulationScreen
-import com.example.a6thfingercontrolapp.ui.StartScreen
-import com.example.a6thfingercontrolapp.ui.theme._6thFingerControllAppTheme
+import com.example.a6thfingercontrolapp.preferences.AppPreferencesViewModel
+import com.example.a6thfingercontrolapp.ui.root.AppRootContent
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
- * Screens that belong to the authentication overlay flow.
- */
-private enum class AuthFlowScreen {
-    Start,
-    Login,
-    Register,
-    RecoveryCodes,
-    PostRegisterEmail,
-    PostRegisterEmailCode,
-    ForgotPassword,
-    ChangePassword
-}
-
-/**
- * Main Android activity that wires together Compose navigation, permissions,
- * authentication flow and the persistent BLE ViewModels.
+ * Main Android activity that provides Android lifecycle entry points and mounts
+ * the root Compose application host.
  */
 class MainActivity : ComponentActivity() {
     private val vm by viewModels<BleViewModel>()
     private val authVm by viewModels<AuthViewModel>()
+    private val accountVm by viewModels<AccountViewModel>()
+    private val appPreferencesVm by viewModels<AppPreferencesViewModel>()
 
     /**
      * Applies saved locale before Compose resources are resolved.
      */
     override fun attachBaseContext(newBase: Context) {
         val prefs = AppSettingsStore(newBase)
-        val lang = runBlocking { prefs.getLanguage().first() }
-        val ctx = LocaleManager.setLocale(newBase, lang)
-        super.attachBaseContext(ctx)
+        val language = runBlocking { prefs.getLanguage().first() }
+        val localizedContext = LocaleManager.setLocale(newBase, language)
+        super.attachBaseContext(localizedContext)
     }
 
-    /**
-     * Builds the root Compose tree and routes between auth and main app screens.
-     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         setContent {
-            val appTheme by vm.appTheme.collectAsState()
-
-            _6thFingerControllAppTheme(themeMode = appTheme) {
-                val nav = rememberNavController()
-                val scope = rememberCoroutineScope()
-
-                val permissions = remember { requiredPermissions() }
-                var granted by remember { mutableStateOf(false) }
-                val launcher =
-                    rememberLauncherForActivityResult(
-                        ActivityResultContracts.RequestMultiplePermissions()
-                    ) { res -> granted = res.all { it.value } }
-
-                // Request BLE-related permissions once the activity composition starts.
-                LaunchedEffect(Unit) { launcher.launch(permissions) }
-
-                val authState by authVm.auth.collectAsState()
-                val pendingRecovery by authVm.pendingRecoveryCodes.collectAsState()
-
-                var authFlowScreen by rememberSaveable { mutableStateOf(AuthFlowScreen.Start) }
-                var prefillUsername by rememberSaveable { mutableStateOf("") }
-
-                var postEmail by rememberSaveable { mutableStateOf("") }
-                var postCode by rememberSaveable { mutableStateOf("") }
-                var postLoading by remember { mutableStateOf(false) }
-                var postErrKey by rememberSaveable { mutableStateOf<String?>(null) }
-
-                // If recovery codes disappear, leave the post-register-only screens.
-                LaunchedEffect(authFlowScreen, pendingRecovery) {
-                    if (
-                        (authFlowScreen == AuthFlowScreen.RecoveryCodes ||
-                                authFlowScreen == AuthFlowScreen.PostRegisterEmail ||
-                                authFlowScreen == AuthFlowScreen.PostRegisterEmailCode) &&
-                        pendingRecovery == null
-                    ) {
-                        authFlowScreen = AuthFlowScreen.Login
-                    }
-                }
-
-                val overlayActive =
-                    when (authFlowScreen) {
-                        AuthFlowScreen.RecoveryCodes -> pendingRecovery != null
-                        AuthFlowScreen.PostRegisterEmail -> true
-                        AuthFlowScreen.PostRegisterEmailCode -> true
-                        AuthFlowScreen.ForgotPassword -> true
-                        AuthFlowScreen.ChangePassword -> true
-                        else -> false
-                    }
-
-                // Full-screen auth overlay screens replace the normal app scaffold.
-                if (overlayActive) {
-                    when (authFlowScreen) {
-                        AuthFlowScreen.RecoveryCodes -> {
-                            val data = pendingRecovery!!
-                            RecoveryCodesScreen(
-                                username = data.username,
-                                codes = data.codes,
-                                onBack = { authFlowScreen = AuthFlowScreen.Register },
-                                onContinue = {
-                                    prefillUsername = data.username
-                                    postErrKey = null
-                                    postLoading = false
-                                    authFlowScreen = AuthFlowScreen.PostRegisterEmail
-                                }
-                            )
-                        }
-
-                        AuthFlowScreen.PostRegisterEmail -> {
-                            PostRegisterAddEmailScreen(
-                                initialEmail = postEmail,
-                                loading = postLoading,
-                                errorKey = postErrKey,
-                                onBack = {
-                                    postErrKey = null
-                                    postLoading = false
-                                    authFlowScreen =
-                                        if (pendingRecovery != null) AuthFlowScreen.RecoveryCodes
-                                        else AuthFlowScreen.Login
-                                },
-                                onSkip = {
-                                    postErrKey = null
-                                    postLoading = true
-                                    scope.launch {
-                                        try {
-                                            authVm.postRegisterFinishWithoutEmail()
-                                            postEmail = ""
-                                            postCode = ""
-                                            authFlowScreen = AuthFlowScreen.Start
-                                        } catch (e: Exception) {
-                                            postErrKey = e.message
-                                        } finally {
-                                            postLoading = false
-                                        }
-                                    }
-                                },
-                                onStartAdd = { email ->
-                                    postEmail = email
-                                    postErrKey = null
-                                    postLoading = true
-                                    scope.launch {
-                                        try {
-                                            authVm.postRegisterEmailStart(email)
-                                            postCode = ""
-                                            authFlowScreen = AuthFlowScreen.PostRegisterEmailCode
-                                        } catch (e: Exception) {
-                                            postErrKey = e.message
-                                        } finally {
-                                            postLoading = false
-                                        }
-                                    }
-                                }
-                            )
-                        }
-
-                        AuthFlowScreen.PostRegisterEmailCode -> {
-                            PostRegisterVerifyEmailScreen(
-                                email = postEmail,
-                                loading = postLoading,
-                                errorKey = postErrKey,
-                                code = postCode,
-                                onCodeChange = { postCode = it },
-                                onBackChangeEmail = {
-                                    postErrKey = null
-                                    postLoading = false
-                                    authFlowScreen = AuthFlowScreen.PostRegisterEmail
-                                },
-                                onResend = {
-                                    postErrKey = null
-                                    postLoading = true
-                                    scope.launch {
-                                        try {
-                                            authVm.emailStartAdd(postEmail)
-                                        } catch (e: Exception) {
-                                            postErrKey = e.message
-                                        } finally {
-                                            postLoading = false
-                                        }
-                                    }
-                                },
-                                onConfirm = {
-                                    postErrKey = null
-                                    postLoading = true
-                                    scope.launch {
-                                        try {
-                                            authVm.postRegisterEmailConfirm(postEmail, postCode)
-                                            postEmail = ""
-                                            postCode = ""
-                                            authFlowScreen = AuthFlowScreen.Start
-                                        } catch (e: Exception) {
-                                            postErrKey = e.message
-                                        } finally {
-                                            postLoading = false
-                                        }
-                                    }
-                                }
-                            )
-                        }
-
-                        AuthFlowScreen.ForgotPassword -> {
-                            PasswordResetScreen(
-                                authVm = authVm,
-                                initialUsername = prefillUsername,
-                                onBack = { authFlowScreen = AuthFlowScreen.Login },
-                                onFinishedGoToLogin = { u ->
-                                    prefillUsername = u
-                                    authFlowScreen = AuthFlowScreen.Login
-                                }
-                            )
-                        }
-
-                        AuthFlowScreen.ChangePassword -> {
-                            PasswordResetScreen(
-                                authVm = authVm,
-                                initialUsername = prefillUsername,
-                                skipUsername = true,
-                                onBack = { authFlowScreen = AuthFlowScreen.Start },
-                                onFinishedGoToLogin = { _ -> authFlowScreen = AuthFlowScreen.Start }
-                            )
-                        }
-
-                        else -> Unit
-                    }
-                    return@_6thFingerControllAppTheme
-                }
-
-                // Main branch switches between unauthenticated startup and the tabbed app.
-                when (authState) {
-                    is UiAuthState.Loading -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = androidx.compose.ui.Alignment.Center
-                        ) { CircularProgressIndicator() }
-                    }
-
-                    is UiAuthState.Unauthenticated -> {
-                        when (authFlowScreen) {
-                            AuthFlowScreen.Start -> {
-                                StartScreen(
-                                    bleVm = vm,
-                                    authVm = authVm,
-                                    onLoginClick = { authFlowScreen = AuthFlowScreen.Login },
-                                    onRegisterClick = { authFlowScreen = AuthFlowScreen.Register },
-                                    onContinueAsGuest = { authVm.continueAsGuest() }
-                                )
-                            }
-
-                            AuthFlowScreen.Login -> {
-                                LoginScreen(
-                                    vm = authVm,
-                                    initialUsername = prefillUsername,
-                                    onBack = { authFlowScreen = AuthFlowScreen.Start },
-                                    onForgotPassword = { u ->
-                                        prefillUsername = u
-                                        authFlowScreen = AuthFlowScreen.ForgotPassword
-                                    }
-                                )
-                            }
-
-                            AuthFlowScreen.Register -> {
-                                RegisterScreen(
-                                    vm = authVm,
-                                    onBack = { authFlowScreen = AuthFlowScreen.Start },
-                                    onRegistered = { username ->
-                                        prefillUsername = username
-                                        authFlowScreen = AuthFlowScreen.RecoveryCodes
-                                    },
-                                    onGoToLogin = { u ->
-                                        prefillUsername = u
-                                        authFlowScreen = AuthFlowScreen.Login
-                                    }
-                                )
-                            }
-
-                            AuthFlowScreen.RecoveryCodes,
-                            AuthFlowScreen.PostRegisterEmail,
-                            AuthFlowScreen.PostRegisterEmailCode,
-                            AuthFlowScreen.ForgotPassword,
-                            AuthFlowScreen.ChangePassword -> Unit
-                        }
-                    }
-
-                    is UiAuthState.Guest, is UiAuthState.LoggedIn -> {
-                        val routes =
-                            listOf(
-                                NavRoute.Connect,
-                                NavRoute.Control,
-                                NavRoute.Sim,
-                                NavRoute.Account
-                            )
-
-                        val backStack by nav.currentBackStackEntryAsState()
-                        val currentRoute = backStack?.destination?.route ?: NavRoute.Connect.route
-                        val bleState by vm.state.collectAsState()
-                        val unlocked by vm.controlUnlocked.collectAsState()
-
-                        val bleSession = classifyBleStatus(bleState.status, unlocked)
-                        val controlReady = bleSession.controlReady
-
-                        // Control and Simulation screens require an active unlocked BLE session.
-                        LaunchedEffect(controlReady, currentRoute) {
-                            if (!controlReady &&
-                                (currentRoute == NavRoute.Control.route ||
-                                        currentRoute == NavRoute.Sim.route)
-                            ) {
-                                nav.navigate(NavRoute.Connect.route) {
-                                    launchSingleTop = true
-                                    restoreState = true
-                                    popUpTo(nav.graph.startDestinationId) { saveState = true }
-                                }
-                            }
-                        }
-
-                        Scaffold(
-                            bottomBar = {
-                                NavigationBar {
-                                    routes.forEach { r ->
-                                        val enabled =
-                                            when (r) {
-                                                NavRoute.Connect -> true
-                                                NavRoute.Account -> true
-                                                else -> controlReady
-                                            }
-
-                                        NavigationBarItem(
-                                            selected = currentRoute == r.route,
-                                            onClick = {
-                                                if (enabled) {
-                                                    nav.navigate(r.route) {
-                                                        launchSingleTop = true
-                                                        restoreState = true
-                                                        popUpTo(nav.graph.startDestinationId) {
-                                                            saveState = true
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            icon = {
-                                                when (r) {
-                                                    NavRoute.Connect -> Icon(
-                                                        Icons.Default.Bluetooth,
-                                                        null
-                                                    )
-
-                                                    NavRoute.Control -> Icon(
-                                                        Icons.Default.Settings,
-                                                        null
-                                                    )
-
-                                                    NavRoute.Sim -> Icon(
-                                                        Icons.Default.PlayArrow,
-                                                        null
-                                                    )
-
-                                                    NavRoute.Account -> Icon(
-                                                        Icons.Default.Person,
-                                                        null
-                                                    )
-                                                }
-                                            },
-                                            label = { Text(stringResource(r.labelRes)) },
-                                            enabled = enabled
-                                        )
-                                    }
-                                }
-                            }
-                        ) { innerPadding ->
-                            NavHost(
-                                navController = nav,
-                                startDestination = NavRoute.Connect.route,
-                                modifier = Modifier.padding(innerPadding)
-                            ) {
-                                composable(NavRoute.Connect.route) {
-                                    ConnectScreen(vm = vm, permissionsGranted = granted)
-                                }
-                                composable(NavRoute.Control.route) {
-                                    ControlScreen(vm = vm, authVm = authVm)
-                                }
-                                composable(NavRoute.Sim.route) {
-                                    SimulationScreen(vm = vm)
-                                }
-                                composable(NavRoute.Account.route) {
-                                    AccountScreen(
-                                        vm = vm,
-                                        authVm = authVm,
-                                        onLoginClick = {
-                                            authFlowScreen = AuthFlowScreen.Login
-                                            authVm.logout()
-                                        },
-                                        onRegisterClick = {
-                                            authFlowScreen = AuthFlowScreen.Register
-                                            authVm.logout()
-                                        },
-                                        onOpenControl = {
-                                            nav.navigate(NavRoute.Control.route) {
-                                                launchSingleTop = true
-                                                restoreState = true
-                                                popUpTo(nav.graph.startDestinationId) {
-                                                    saveState = true
-                                                }
-                                            }
-                                        },
-                                        onChangePassword = { u ->
-                                            prefillUsername = u
-                                            authFlowScreen = AuthFlowScreen.ChangePassword
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            AppRootContent(
+                vm = vm,
+                authVm = authVm,
+                accountVm = accountVm,
+                appPreferencesVm = appPreferencesVm
+            )
         }
     }
 
     override fun onStart() {
         super.onStart()
         vm.start()
-    }
-}
-
-/**
- * Returns the runtime permissions required for BLE scanning/connection on this Android version.
- */
-private fun requiredPermissions(): Array<String> {
-    return if (Build.VERSION.SDK_INT >= 31) {
-        arrayOf(
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
-    } else {
-        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
     }
 }

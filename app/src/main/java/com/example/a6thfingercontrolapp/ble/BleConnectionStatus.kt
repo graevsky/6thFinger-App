@@ -103,11 +103,6 @@ fun isBleTransportConnected(statusKeyRaw: String): Boolean {
     return key in transportConnectedKeys || key.startsWith("tele_")
 }
 
-/** True only when the device is connected and the PIN/config gate is unlocked. */
-fun isBleControlReady(statusKeyRaw: String, controlUnlocked: Boolean): Boolean {
-    val key = bleStatusKey(statusKeyRaw)
-    return isBleTransportConnected(key) && controlUnlocked && key != "auth_fail"
-}
 
 /** True while Android is in scan/connect/service-discovery stage. */
 fun isBleConnecting(statusKeyRaw: String): Boolean {

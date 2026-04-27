@@ -2,6 +2,9 @@ package com.example.a6thfingercontrolapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+/**
+ * Base color tokens used by the app theme palette.
+ */
 val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)
 val Pink80 = Color(0xFFEFB8C8)

@@ -1,6 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- App -->
+    <!-- App Identity -->
     <string name="app_name">6th Finger Control App</string>
 
     <!-- Navigation -->
@@ -9,7 +10,22 @@
     <string name="nav_simulation">Simulation</string>
     <string name="nav_account">Account</string>
 
-    <!-- Auth -->
+    <!-- Runtime Permissions -->
+    <string name="permissions_required_title">Permissions required</string>
+    <string name="permissions_required_step">Step %1$d of %2$d</string>
+    <string name="permissions_required_request_hint"> </string>
+    <string name="permissions_required_settings_hint">This permission was denied permanently. Open app Android settings and allow it there.</string>
+    <string name="permissions_grant">Grant permission</string>
+    <string name="permissions_try_again">Try again</string>
+    <string name="permissions_open_settings">Open settings</string>
+    <string name="permissions_scan_title">Bluetooth scanning</string>
+    <string name="permissions_scan_body">This permission lets the app search for your prosthesis nearby and show it in the device list.</string>
+    <string name="permissions_connect_title">Bluetooth connection</string>
+    <string name="permissions_connect_body">This permission lets the app connect to the prosthesis, exchange commands and receive telemetry.</string>
+    <string name="permissions_location_title">Location access for BLE</string>
+    <string name="permissions_location_body">Location is required for Bluetooth Low Energy scanning. The app uses it only to discover your prosthesis and does not track your location.</string>
+
+    <!-- Authentication -->
     <string name="auth_sign_in">Sign In</string>
     <string name="auth_register">Register</string>
     <string name="auth_login">Log In</string>
@@ -20,8 +36,11 @@
     <string name="auth_username">Username</string>
     <string name="auth_password">Password</string>
     <string name="auth_back">Back</string>
+    <string name="auth_forgot_password">Forgot password?</string>
+    <string name="auth_password_show">Show password</string>
+    <string name="auth_password_hide">Hide password</string>
 
-    <!-- Settings -->
+    <!-- App Settings & Links -->
     <string name="settings_title">Settings</string>
     <string name="settings_app">App Settings</string>
     <string name="settings_language">Language</string>
@@ -35,11 +54,15 @@
     <string name="settings_link_backend">Backend</string>
     <string name="start_guide_title">Quick start guide</string>
     <string name="start_guide_subtitle">Open step-by-step instructions</string>
+    <string name="settings_account">Account settings</string>
+    <string name="settings_password_change">Change password</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">Use system setting</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
 
-    <!-- Account -->
+    <!-- Account & Email -->
     <string name="account_avatar">Avatar</string>
-
-    <!-- Avatar -->
     <string name="avatar_change">Change avatar</string>
     <string name="avatar_choose_photo">Choose photo</string>
     <string name="avatar_remove_photo">Remove photo</string>
@@ -48,11 +71,23 @@
     <string name="avatar_error_title">Error</string>
     <string name="avatar_error_save_failed">Failed to save avatar.</string>
     <string name="avatar_error_crop_result">Failed to get crop result.</string>
+    <string name="account_email_title">Email</string>
+    <string name="account_email_current">Current email: %1$s</string>
+    <string name="account_email_not_set">Email is not set</string>
+    <string name="account_email_add">Add email</string>
+    <string name="account_email_remove">Remove email</string>
+    <string name="account_email_change">Change email</string>
+    <string name="account_email_refresh">Refresh</string>
+    <string name="account_email_send_code">Send code</string>
+    <string name="account_email_confirm">Confirm</string>
+    <string name="account_email_method_email">By email code</string>
+    <string name="account_email_method_recovery">By recovery code</string>
+    <string name="account_email_recovery_code">Recovery code</string>
+    <string name="account_email_remove_warning">After removing email you will lose the ability to recover access via email. You can still recover via one-time recovery codes.</string>
+    <string name="account_email_change_step_old">Step 1/2: confirm removal of the old email</string>
+    <string name="account_email_change_step_new">Step 2/2: add and confirm the new email</string>
 
-    <!-- Generic labels -->
-    <string name="label_json">JSON</string>
-
-    <!-- BLE / Connectivity -->
+    <!-- BLE Connectivity -->
     <string name="ble_connecting">Connecting</string>
     <string name="ble_connected">Connected</string>
     <string name="ble_status">Status</string>
@@ -60,8 +95,6 @@
     <string name="ble_access_denied">Access not granted</string>
     <string name="ble_available_devices">Available Devices</string>
     <string name="ble_press_to_scan">Press to scan</string>
-
-    <!-- Device list -->
     <string name="device_last">Last Device</string>
     <string name="device_no_stored">No stored devices</string>
     <string name="device_disconnect">Disconnect</string>
@@ -74,8 +107,62 @@
     <string name="device_open">Open</string>
     <string name="device_cancel">Cancel</string>
     <string name="delete_pair">Delete pair</string>
+    <string name="loading">Loading…</string>
+    <string name="refresh">Update</string>
+    <string name="pin_enabled">PIN set</string>
+    <string name="pin_disabled">PIN removed</string>
+    <string name="pin_reset">Reset PIN</string>
+    <string name="pin_title">PIN</string>
+    <string name="pin_hint">Enter 4 digits</string>
+    <string name="pin_wait">Checking PIN…</string>
+    <string name="pin_wait_btn">Please wait…</string>
+    <string name="pin_wrong">Wrong PIN</string>
+    <string name="pin_send_failed">Failed to send PIN. Try again.</string>
+    <string name="pin_timeout">No response from device. Try again.</string>
+    <string name="pin_bad_format">PIN must be 4 digits</string>
+    <string name="device_reboot">Reboot</string>
+    <string name="device_reboot_subtitle">Restart app + ESP</string>
+    <string name="device_reboot_warning">The app and ESP32 will be restarted.\nSettings will not be reset.\nContinue?</string>
+    <string name="confirm">Confirm</string>
+    <string name="tele">Telemetry</string>
+    <string name="tele_on">Telemetry on</string>
+    <string name="tele_off">Telemetry off</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="tele_off_turn_on">Telemetry is off - you can turn it on in the Control section</string>
+    <string name="please_wait">Please wait…</string>
+    <string name="ble_status_idle">Idle</string>
+    <string name="ble_status_scanning">Scanning…</string>
+    <string name="ble_status_discovering">Discovering services…</string>
+    <string name="ble_status_bluetooth_off">Bluetooth is off</string>
+    <string name="ble_status_no_scan_permission">No scan permission</string>
+    <string name="ble_status_scan_denied">Scan denied</string>
+    <string name="ble_status_scan_error">Scan error</string>
+    <string name="ble_status_scan_failed">Scan failed</string>
+    <string name="ble_status_invalid_device">Invalid device</string>
+    <string name="ble_status_connect_failed">Connect failed</string>
+    <string name="ble_status_no_connect_permission">No connect permission</string>
+    <string name="ble_status_service_discovery_failed">Service discovery failed</string>
+    <string name="ble_status_service_discovery_error">Service discovery error</string>
+    <string name="ble_status_service_not_found">Service not found</string>
+    <string name="ble_status_characteristics_missing">Characteristics missing</string>
+    <string name="ble_status_notify_error">Notification setup failed</string>
+    <string name="ble_status_config_updated">Config received</string>
+    <string name="ble_status_config_parse_error">Config parse error</string>
+    <string name="ble_status_tele_parse_error">Telemetry parse error</string>
+    <string name="ble_status_auth_ok">PIN accepted</string>
+    <string name="ble_status_auth_fail">Wrong PIN</string>
+    <string name="ble_status_ack_ok">Command acknowledged</string>
+    <string name="ble_status_ack_fail">Device command failed</string>
+    <string name="ble_status_write_failed">Failed to send command</string>
+    <string name="connection_indicator_ready">Connected and ready</string>
+    <string name="connection_indicator_waiting">Connecting or preparing device…</string>
+    <string name="connection_indicator_disconnected">Target device is not connected</string>
+    <string name="connection_indicator_no_target">No target device selected</string>
+    <string name="connection_indicator_other_connected">Another device is connected</string>
+    <string name="connection_indicator_status">BLE status: %1$s</string>
 
-    <!-- Control Screen -->
+    <!-- Control & Simulation -->
+    <string name="label_json">JSON</string>
     <string name="control_sensitivity_pullup">Sensitivity and pull-up</string>
     <string name="control_resistance_cal">Resistance calibration</string>
     <string name="control_vibro_mode">Mode and response</string>
@@ -83,8 +170,6 @@
     <string name="control_diagnostic">Diagnostic</string>
     <string name="device_reset">Reset</string>
     <string name="add_pair">Add pair</string>
-
-    <!-- FSR -->
     <string name="fsr_settings">FSR Settings</string>
     <string name="fsr_pin">FSR Pin</string>
     <string name="fsr_pullup">Pull-up, Ω</string>
@@ -92,8 +177,6 @@
     <string name="fsr_max_vibro">Max vibro</string>
     <string name="sim_fsr_pressed">FSR pressed</string>
     <string name="sim_fsr_idle">FSR idle</string>
-
-    <!-- Flex -->
     <string name="flex_settings">Flex Sensor Settings</string>
     <string name="flex_current_resistance">Current resistance</string>
     <string name="flex_pin">Flex Pin</string>
@@ -101,8 +184,6 @@
     <string name="flex_folded">Folded</string>
     <string name="sim_angle">Angle: %1$s°</string>
     <string name="sim_flex">Flex: %1$s Ω</string>
-
-    <!-- EMG -->
     <string name="input_source">Input source</string>
     <string name="input_source_flex">Flex</string>
     <string name="input_source_emg">EMG</string>
@@ -134,8 +215,6 @@
     <string name="emg_action_bend">Bend</string>
     <string name="emg_action_unfold">Unfold</string>
     <string name="emg_action_cooldown_ignored">Cooldown ignored</string>
-
-    <!-- Vibro -->
     <string name="vibro_settings">Vibro</string>
     <string name="vibro_pin">Vibro Pin</string>
     <string name="vibro_mode">Mode</string>
@@ -144,8 +223,6 @@
     <string name="vibro_intensity">Intensity</string>
     <string name="vibro_work_time">Vibration time, ms</string>
     <string name="vibro_pause_time">Pause time, ms</string>
-
-    <!-- Servo -->
     <string name="servo_settings">Servo</string>
     <string name="servo_current_angle">Current angle</string>
     <string name="servo_pin">Servo Pin</string>
@@ -153,47 +230,12 @@
     <string name="servo_max_angle">Max angle</string>
     <string name="servo_manual_control">Manual control</string>
     <string name="servo_manual_angle">Manual control angle</string>
-
-    <!-- Prosthesis cloud sync -->
-    <string name="prosthesis_settings">Prosthesis Settings</string>
-    <string name="prosthesis_settings_descr">Settings for your prosthesis</string>
-    <string name="prosthesis_settings_dialog_hint">Choose the prosthesis record on the server</string>
-    <string name="prosthesis_pull">Load device settings</string>
-    <string name="prosthesis_push">Upload device settings</string>
-
-    <!-- Errors -->
-    <string name="err_username_taken">This username is already taken</string>
-    <string name="err_wrong_password">Wrong password</string>
-    <string name="err_user_not_found">User does not exist</string>
-    <string name="err_unknown">Something went wrong</string>
-
-    <!-- Account/Device errors -->
-    <string name="err_failed_load_devices">Failed to load devices</string>
-    <string name="err_failed_pull_settings">Failed to pull settings</string>
-    <string name="err_failed_push_settings">Failed to push settings</string>
-
     <string name="control_diag_fsr_ohm">FSR, Ω</string>
     <string name="control_diag_flex_ohm">Flex, Ω</string>
     <string name="control_diag_servo_deg">Servo, °</string>
     <string name="control_diag_force_n">Force, N</string>
-
     <string name="generic_ok">OK</string>
-
     <string name="sim_force">Force: %1$s N</string>
-
-    <string name="loading">Loading…</string>
-    <string name="prosthesis_no_devices">No prostheses registered</string>
-    <string name="refresh">Update</string>
-    <string name="prosthesis_not_connected_title">Prosthesis is not connected</string>
-    <string name="prosthesis_not_connected_message">Connect a prosthesis first to load server settings into it</string>
-    <string name="prosthesis_no_settings_on_server">Device does not have any saved settings</string>
-    <string name="prosthesis_connected">Connected</string>
-    <string name="prosthesis_settings_for_device">Device settings: %1$s</string>
-    <string name="prosthesis_connect_hint">Connecting is required only for loading settings from the server into the prosthesis. Uploading local settings to the cloud is available for any selected prosthesis record.</string>
-    <string name="device">Device</string>
-    <string name="alias">Alias</string>
-    <string name="no_active">No active devices found</string>
-    <string name="alias_not_set">Alias not set</string>
     <string name="fsr_n_vibro_settings">FSR and Vibro Settings</string>
     <string name="fsr_n_force_curr_vals">Current values of FSR and Force</string>
     <string name="pair_1">Pair 1</string>
@@ -204,172 +246,10 @@
     <string name="continue_anyway">Continue anyway</string>
     <string name="flex_not_set">Flex is not set</string>
     <string name="servo_not_set">Servo not set</string>
-
-    <string name="pin_enabled">PIN set</string>
-    <string name="pin_disabled">PIN removed</string>
-    <string name="pin_reset">Reset PIN</string>
-
-    <string name="pin_title">PIN</string>
-    <string name="pin_hint">Enter 4 digits</string>
-    <string name="pin_wait">Checking PIN…</string>
-    <string name="pin_wait_btn">Please wait…</string>
-
-    <string name="pin_wrong">Wrong PIN</string>
-    <string name="pin_send_failed">Failed to send PIN. Try again.</string>
-    <string name="pin_timeout">No response from device. Try again.</string>
-    <string name="pin_bad_format">PIN must be 4 digits</string>
-
-    <string name="device_reboot">Reboot</string>
-    <string name="device_reboot_subtitle">Restart app + ESP</string>
-    <string name="device_reboot_warning">The app and ESP32 will be restarted.\nSettings will not be reset.\nContinue?</string>
-    <string name="confirm">Confirm</string>
-
-    <string name="tele">Telemetry</string>
-    <string name="tele_on">Telemetry on</string>
-    <string name="tele_off">Telemetry off</string>
-    <string name="disconnected">Disconnected</string>
-    <string name="tele_off_turn_on">Telemetry is off - you can turn it on in the Control section</string>
-
-    <string name="please_wait">Please wait…</string>
-
-    <string name="ble_status_idle">Idle</string>
-    <string name="ble_status_scanning">Scanning…</string>
-    <string name="ble_status_discovering">Discovering services…</string>
-
-    <string name="ble_status_bluetooth_off">Bluetooth is off</string>
-    <string name="ble_status_no_scan_permission">No scan permission</string>
-    <string name="ble_status_scan_denied">Scan denied</string>
-    <string name="ble_status_scan_error">Scan error</string>
-    <string name="ble_status_scan_failed">Scan failed</string>
-
-    <string name="ble_status_invalid_device">Invalid device</string>
-    <string name="ble_status_connect_failed">Connect failed</string>
-    <string name="ble_status_no_connect_permission">No connect permission</string>
-
-    <string name="ble_status_service_discovery_failed">Service discovery failed</string>
-    <string name="ble_status_service_discovery_error">Service discovery error</string>
-    <string name="ble_status_service_not_found">Service not found</string>
-    <string name="ble_status_characteristics_missing">Characteristics missing</string>
-    <string name="ble_status_notify_error">Notification setup failed</string>
-
-    <string name="ble_status_config_updated">Config received</string>
-    <string name="ble_status_config_parse_error">Config parse error</string>
-    <string name="ble_status_tele_parse_error">Telemetry parse error</string>
-
-    <string name="ble_status_auth_ok">PIN accepted</string>
-    <string name="ble_status_auth_fail">Wrong PIN</string>
-
-    <string name="ble_status_ack_ok">Command acknowledged</string>
-    <string name="ble_status_ack_fail">Device command failed</string>
-    <string name="ble_status_write_failed">Failed to send command</string>
-
     <string name="telemetry_placeholder">-</string>
     <string name="telemetry_wait">Waiting for telemetry…</string>
     <string name="telemetry_wait_after_save">Applying settings… telemetry will start soon</string>
     <string name="telemetry_disabled_short">Telemetry is off</string>
-
-    <string name="auth_forgot_password">Forgot password?</string>
-
-    <string name="recovery_codes_title">Recovery codes</string>
-    <string name="recovery_codes_subtitle">Save these 10 one-time codes. You will NOT be able to view them again.</string>
-    <string name="recovery_codes_warning">If you lose your password AND these codes - account recovery is impossible.</string>
-    <string name="recovery_codes_copy">Copy</string>
-    <string name="recovery_codes_download">Download .txt</string>
-    <string name="recovery_codes_saved_checkbox">I saved the codes</string>
-    <string name="recovery_codes_continue">Continue</string>
-    <string name="recovery_codes_copied">Copied to clipboard</string>
-    <string name="recovery_codes_saved_file_ok">Saved</string>
-    <string name="recovery_codes_saved_file_fail">Failed to save file</string>
-
-    <string name="password_reset_title">Password recovery</string>
-    <string name="password_reset_next">Next</string>
-    <string name="password_reset_enter_username">Enter your username</string>
-    <string name="password_reset_choose_method">Choose recovery method</string>
-    <string name="password_reset_by_recovery">Use recovery code</string>
-    <string name="password_reset_by_email">Use email</string>
-    <string name="password_reset_email_hint">Email on account: %1$s</string>
-    <string name="password_reset_email_not_available">Email recovery is not available for this account</string>
-    <string name="password_reset_enter_recovery">Enter a recovery code</string>
-    <string name="password_reset_recovery_code">Recovery code</string>
-    <string name="password_reset_enter_email">Enter your email</string>
-    <string name="password_reset_email">Email</string>
-    <string name="password_reset_enter_email_code">Enter code from email</string>
-    <string name="password_reset_code">Code</string>
-    <string name="password_reset_resend">Resend code</string>
-    <string name="password_reset_new_password">Set a new password</string>
-    <string name="password_reset_password1">New password</string>
-    <string name="password_reset_password2">Repeat password</string>
-    <string name="password_reset_passwords_mismatch">Passwords do not match</string>
-    <string name="password_reset_done">Password updated. You can log in now.</string>
-    <string name="password_reset_no_reset_session">Reset session is missing. Try again.</string>
-
-    <!-- Account: Email -->
-    <string name="account_email_title">Email</string>
-    <string name="account_email_current">Current email: %1$s</string>
-    <string name="account_email_not_set">Email is not set</string>
-    <string name="account_email_add">Add email</string>
-    <string name="account_email_remove">Remove email</string>
-    <string name="account_email_change">Change email</string>
-    <string name="account_email_refresh">Refresh</string>
-    <string name="account_email_send_code">Send code</string>
-    <string name="account_email_confirm">Confirm</string>
-    <string name="account_email_method_email">By email code</string>
-    <string name="account_email_method_recovery">By recovery code</string>
-    <string name="account_email_recovery_code">Recovery code</string>
-    <string name="account_email_remove_warning">After removing email you will lose the ability to recover access via email. You can still recover via one-time recovery codes.</string>
-    <string name="account_email_change_step_old">Step 1/2: confirm removal of the old email</string>
-    <string name="account_email_change_step_new">Step 2/2: add and confirm the new email</string>
-
-    <!-- Post-register email -->
-    <string name="postreg_email_title">Add email</string>
-    <string name="postreg_email_subtitle">Email is optional, but it enables password recovery via email.</string>
-    <string name="postreg_email_label">Email</string>
-    <string name="postreg_email_skip">Continue without email</string>
-    <string name="postreg_email_add">Add email</string>
-
-    <string name="postreg_email_code_title">Verify email</string>
-    <string name="postreg_email_code_hint">We sent a code to: %1$s</string>
-    <string name="postreg_email_code_label">Code</string>
-    <string name="postreg_email_resend">Resend code</string>
-    <string name="postreg_email_change">Change email</string>
-    <string name="postreg_email_confirm">Confirm</string>
-
-    <!-- Recovery codes file text -->
-    <string name="recovery_codes_file_username">Username: %1$s</string>
-    <string name="recovery_codes_file_codes_title">Recovery codes (one-time):</string>
-
-    <!-- Password visibility -->
-    <string name="auth_password_show">Show password</string>
-    <string name="auth_password_hide">Hide password</string>
-
-    <!-- Password rules -->
-    <string name="password_rules_title">Password must include:</string>
-    <string name="password_rule_len">At least 8 characters</string>
-    <string name="password_rule_upper">At least one uppercase letter</string>
-    <string name="password_rule_lower">At least one lowercase letter</string>
-    <string name="password_rule_digit">At least one digit</string>
-    <string name="password_rule_special">At least one special character</string>
-
-    <!-- Errors -->
-    <string name="err_email_in_use">This email is already linked to another account</string>
-    <string name="err_email_mismatch">Email does not match the account email</string>
-    <string name="err_email_not_set">Email is not set</string>
-    <string name="err_wrong_code">Wrong code</string>
-    <string name="err_code_expired">Code expired</string>
-    <string name="err_no_pending_code">No active code. Request a new one.</string>
-    <string name="err_too_many_requests">Too many attempts. Try again later.</string>
-    <string name="err_network">No connection to the server</string>
-
-    <!-- Password reset privacy -->
-    <string name="password_reset_email_available">Email recovery is available</string>
-    <string name="password_reset_email_masked_hint">Account email: %1$s</string>
-    <string name="err_password_rules_invalid">Password should follow rules</string>
-
-    <!-- Settings -->
-    <string name="settings_account">Account settings</string>
-    <string name="settings_password_change">Change password</string>
-
-    <!-- Flex calibration wizard -->
     <string name="flex_calibrate">Calibrate</string>
     <string name="flex_calib_title">Flex calibration</string>
     <string name="flex_calib_intro">Flex sensor resistance will be measured in two positions:\n\n1) Flat (unfolded)\n2) Bent (folded)\n\nMake sure telemetry is running. The live resistance is shown below.</string>
@@ -382,12 +262,28 @@
     <string name="flex_calib_apply">Apply</string>
     <string name="flex_calib_live">Live resistance: %1$s</string>
     <string name="flex_calib_wait_telemetry">Waiting for telemetry…</string>
-
     <string name="flex_tolerance_pct">Noise tolerance, %</string>
     <string name="flex_tolerance_hint">1–50%. Higher value = less jitter, but slower response.</string>
     <string name="live_control">Live control</string>
     <string name="live_control_disable_to_close">Disable live control to close.</string>
 
+    <!-- Prosthesis Cloud -->
+    <string name="prosthesis_settings">Prosthesis Settings</string>
+    <string name="prosthesis_settings_descr">Settings for your prosthesis</string>
+    <string name="prosthesis_settings_dialog_hint">Choose the prosthesis record on the server</string>
+    <string name="prosthesis_pull">Load device settings</string>
+    <string name="prosthesis_push">Upload device settings</string>
+    <string name="prosthesis_no_devices">No prostheses registered</string>
+    <string name="prosthesis_not_connected_title">Prosthesis is not connected</string>
+    <string name="prosthesis_not_connected_message">Connect a prosthesis first to load server settings into it</string>
+    <string name="prosthesis_no_settings_on_server">Device does not have any saved settings</string>
+    <string name="prosthesis_connected">Connected</string>
+    <string name="prosthesis_settings_for_device">Device settings: %1$s</string>
+    <string name="prosthesis_connect_hint">Connecting is required only for loading settings from the server into the prosthesis. Uploading local settings to the cloud is available for any selected prosthesis record.</string>
+    <string name="device">Device</string>
+    <string name="alias">Alias</string>
+    <string name="no_active">No active devices found</string>
+    <string name="alias_not_set">Alias not set</string>
     <string name="prosthesis_preview">View settings</string>
     <string name="prosthesis_target_device">Target prosthesis</string>
     <string name="prosthesis_select_target">Choose prosthesis</string>
@@ -400,23 +296,84 @@
     <string name="prosthesis_version">Version</string>
     <string name="prosthesis_updated_at">Updated</string>
 
-    <string name="settings_theme">Theme</string>
-    <string name="settings_theme_system">Use system setting</string>
-    <string name="settings_theme_light">Light</string>
-    <string name="settings_theme_dark">Dark</string>
+    <!-- Post-Registration Email -->
+    <string name="postreg_email_title">Add email</string>
+    <string name="postreg_email_subtitle">Email is optional, but it enables password recovery via email.</string>
+    <string name="postreg_email_label">Email</string>
+    <string name="postreg_email_skip">Continue without email</string>
+    <string name="postreg_email_add">Add email</string>
+    <string name="postreg_email_continue_verification">Continue verification</string>
+    <string name="postreg_email_code_title">Verify email</string>
+    <string name="postreg_email_code_hint">We sent a code to: %1$s</string>
+    <string name="postreg_email_code_label">Code</string>
+    <string name="postreg_email_resend">Resend code</string>
+    <string name="postreg_email_change">Change email</string>
+    <string name="postreg_email_confirm">Confirm</string>
 
-    <!-- Connection traffic light -->
-    <string name="connection_indicator_ready">Connected and ready</string>
-    <string name="connection_indicator_waiting">Connecting or preparing device…</string>
-    <string name="connection_indicator_disconnected">Target device is not connected</string>
-    <string name="connection_indicator_no_target">No target device selected</string>
-    <string name="connection_indicator_other_connected">Another device is connected</string>
-    <string name="connection_indicator_status">BLE status: %1$s</string>
+    <!-- Recovery Codes -->
+    <string name="recovery_codes_title">Recovery codes</string>
+    <string name="recovery_codes_subtitle">Save these 10 one-time codes. You will NOT be able to view them again.</string>
+    <string name="recovery_codes_warning">If you lose your password AND these codes - account recovery is impossible.</string>
+    <string name="recovery_codes_copy">Copy</string>
+    <string name="recovery_codes_download">Download .txt</string>
+    <string name="recovery_codes_saved_checkbox">I saved the codes</string>
+    <string name="recovery_codes_continue">Continue</string>
+    <string name="recovery_codes_copied">Copied to clipboard</string>
+    <string name="recovery_codes_saved_file_ok">Saved</string>
+    <string name="recovery_codes_saved_file_fail">Failed to save file</string>
+    <string name="recovery_codes_file_username">Username: %1$s</string>
+    <string name="recovery_codes_file_codes_title">Recovery codes (one-time):</string>
 
+    <!-- Password Reset -->
+    <string name="password_reset_title">Password recovery</string>
+    <string name="password_reset_next">Next</string>
+    <string name="password_reset_enter_username">Enter your username</string>
+    <string name="password_reset_choose_method">Choose recovery method</string>
+    <string name="password_reset_by_recovery">Use recovery code</string>
+    <string name="password_reset_by_email">Use email</string>
+    <string name="password_reset_email_hint">Email on account: %1$s</string>
+    <string name="password_reset_email_not_available">Email recovery is not available for this account</string>
+    <string name="password_reset_enter_recovery">Enter a recovery code</string>
+    <string name="password_reset_recovery_code">Recovery code</string>
+    <string name="password_reset_recovery_code_hint">Enter one recovery code in the original format.</string>
+    <string name="password_reset_enter_email">Enter your email</string>
+    <string name="password_reset_email">Email</string>
+    <string name="password_reset_enter_email_code">Enter code from email</string>
+    <string name="password_reset_code">Code</string>
+    <string name="password_reset_resend">Resend code</string>
+    <string name="code_resend_wait">Resend in %1$ds</string>
+    <string name="password_reset_new_password">Set a new password</string>
+    <string name="password_reset_password1">New password</string>
+    <string name="password_reset_password2">Repeat password</string>
+    <string name="password_reset_passwords_mismatch">Passwords do not match</string>
+    <string name="password_reset_done">Password updated. You can log in now.</string>
+    <string name="password_reset_no_reset_session">Reset session is missing. Try again.</string>
+    <string name="password_rules_title">Password must include:</string>
+    <string name="password_rule_len">At least 8 characters</string>
+    <string name="password_rule_upper">At least one uppercase letter</string>
+    <string name="password_rule_lower">At least one lowercase letter</string>
+    <string name="password_rule_digit">At least one digit</string>
+    <string name="password_rule_special">At least one special character</string>
+    <string name="password_reset_email_available">Email recovery is available</string>
+    <string name="password_reset_email_masked_hint">Account email: %1$s</string>
 
-    <!-- Live control errors -->
-    <string name="live_control_connect_required">Connect the prosthesis to use live control.</string>
-    <string name="live_control_unlock_required">Unlock control before using live control.</string>
+    <!-- Errors -->
+    <string name="err_username_taken">This username is already taken</string>
+    <string name="err_wrong_password">Wrong password</string>
+    <string name="err_user_not_found">User does not exist</string>
+    <string name="err_unknown">Something went wrong</string>
+    <string name="err_failed_load_devices">Failed to load devices</string>
+    <string name="err_failed_pull_settings">Failed to pull settings</string>
+    <string name="err_failed_push_settings">Failed to push settings</string>
+    <string name="err_email_in_use">This email is already linked to another account</string>
+    <string name="err_email_mismatch">Email does not match the account email</string>
+    <string name="err_email_not_set">Email is not set</string>
+    <string name="err_wrong_code">Wrong code</string>
+    <string name="err_code_expired">Code expired</string>
+    <string name="err_no_pending_code">No active code. Request a new one.</string>
+    <string name="err_too_many_requests">Too many attempts. Try again later.</string>
+    <string name="err_network">No connection to the server</string>
+    <string name="err_password_rules_invalid">Password should follow rules</string>
     <string name="err_live_control_active">Live control is active. Disable it first.</string>
     <string name="err_live_telemetry_disable_failed">Failed to disable telemetry for live control.</string>
     <string name="err_live_telemetry_restore_failed">Failed to restore telemetry after live control.</string>
@@ -424,5 +381,9 @@
     <string name="err_live_stop_failed">Failed to stop live control.</string>
     <string name="err_telemetry_enable_failed">Failed to enable telemetry.</string>
     <string name="err_telemetry_disable_failed">Failed to disable telemetry.</string>
+
+    <!-- Miscellaneous -->
+    <string name="live_control_connect_required">Connect the prosthesis to use live control.</string>
+    <string name="live_control_unlock_required">Unlock control before using live control.</string>
 
 </resources>

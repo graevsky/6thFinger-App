@@ -47,10 +47,16 @@ fun parseBackendError(e: Throwable): String {
             if ("no pending code" in lc) return "no_pending_code"
             if ("code expired" in lc) return "code_expired"
             if ("wrong code" in lc) return "wrong_code"
+            if ("invalid code" in lc) return "wrong_code"
+            if ("recovery" in lc && "code" in lc && ("invalid" in lc || "wrong" in lc || "not found" in lc)) {
+                return "wrong_code"
+            }
             if ("email mismatch" in lc) return "email_mismatch"
             if ("email not set" in lc) return "email_not_set"
             return "bad_request"
         }
+
+        if (code == 422 && "recovery" in lc && "code" in lc) return "wrong_code"
 
         if (code == 401) return "wrong_password"
 
@@ -100,5 +106,19 @@ private fun toErrorKey(err: String): String =
         "TOO_MANY_REQUESTS" -> "too_many_requests"
         "CODE_EXPIRED" -> "code_expired"
         "WRONG_CODE" -> "wrong_code"
+        "INVALID_CODE", "INVALID_RECOVERY_CODE", "RECOVERY_CODE_INVALID", "RECOVERY_CODE_NOT_FOUND" -> "wrong_code"
         else -> "unknown_error"
     }
+
+/**
+ * Backend errors wrapper.
+ */
+internal suspend inline fun <T> wrapAuthErrors(
+    crossinline block: suspend () -> T
+): T {
+    return try {
+        block()
+    } catch (e: Exception) {
+        throw Exception(parseBackendError(e))
+    }
+}

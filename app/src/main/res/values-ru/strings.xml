@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- App -->
+    <!-- App Identity -->
     <string name="app_name">6th Finger Control App</string>
 
     <!-- Navigation -->
@@ -10,7 +10,22 @@
     <string name="nav_simulation">Симуляция</string>
     <string name="nav_account">Аккаунт</string>
 
-    <!-- Auth -->
+    <!-- Runtime Permissions -->
+    <string name="permissions_required_title">Нужны разрешения</string>
+    <string name="permissions_required_step">Шаг %1$d из %2$d</string>
+    <string name="permissions_required_request_hint"> </string>
+    <string name="permissions_required_settings_hint">Разрешение не получено. Откройте настройки приложения и выдайте его там.</string>
+    <string name="permissions_grant">Выдать разрешение</string>
+    <string name="permissions_try_again">Попробовать снова</string>
+    <string name="permissions_open_settings">Открыть настройки</string>
+    <string name="permissions_scan_title">Сканирование Bluetooth</string>
+    <string name="permissions_scan_body">Это разрешение позволяет приложению искать ваш протез поблизости и показывать его в списке устройств.</string>
+    <string name="permissions_connect_title">Подключение по Bluetooth</string>
+    <string name="permissions_connect_body">Это разрешение позволяет подключаться к протезу, отправлять команды и получать телеметрию.</string>
+    <string name="permissions_location_title">Доступ к геолокации для BLE</string>
+    <string name="permissions_location_body">Доступ к геолокации нужен для поиска BLE-устройств. Приложение использует его только для обнаружения вашего протеза и не отслеживает ваше местоположение.</string>
+
+    <!-- Authentication -->
     <string name="auth_sign_in">Войти</string>
     <string name="auth_register">Регистрация</string>
     <string name="auth_login">Вход</string>
@@ -21,8 +36,11 @@
     <string name="auth_username">Имя пользователя</string>
     <string name="auth_password">Пароль</string>
     <string name="auth_back">Назад</string>
+    <string name="auth_forgot_password">Забыли пароль?</string>
+    <string name="auth_password_show">Показать пароль</string>
+    <string name="auth_password_hide">Скрыть пароль</string>
 
-    <!-- Settings -->
+    <!-- App Settings & Links -->
     <string name="settings_title">Настройки</string>
     <string name="settings_app">Настройки приложения</string>
     <string name="settings_language">Язык</string>
@@ -36,11 +54,15 @@
     <string name="settings_link_backend">Backend</string>
     <string name="start_guide_title">Краткая инструкция</string>
     <string name="start_guide_subtitle">Открыть пошаговую инструкцию</string>
+    <string name="settings_account">Настройки аккаунта</string>
+    <string name="settings_password_change">Сменить пароль</string>
+    <string name="settings_theme">Тема</string>
+    <string name="settings_theme_system">Как в системе</string>
+    <string name="settings_theme_light">Светлая</string>
+    <string name="settings_theme_dark">Тёмная</string>
 
-    <!-- Account -->
+    <!-- Account & Email -->
     <string name="account_avatar">Аватар</string>
-
-    <!-- Avatar -->
     <string name="avatar_change">Сменить аватар</string>
     <string name="avatar_choose_photo">Выбрать фото</string>
     <string name="avatar_remove_photo">Удалить фото</string>
@@ -49,11 +71,23 @@
     <string name="avatar_error_title">Ошибка</string>
     <string name="avatar_error_save_failed">Не удалось сохранить аватар.</string>
     <string name="avatar_error_crop_result">Не удалось получить результат обрезки.</string>
+    <string name="account_email_title">Почта</string>
+    <string name="account_email_current">Текущая почта: %1$s</string>
+    <string name="account_email_not_set">Почта не задана</string>
+    <string name="account_email_add">Добавить почту</string>
+    <string name="account_email_remove">Удалить почту</string>
+    <string name="account_email_change">Изменить почту</string>
+    <string name="account_email_refresh">Обновить</string>
+    <string name="account_email_send_code">Отправить код</string>
+    <string name="account_email_confirm">Подтвердить</string>
+    <string name="account_email_method_email">По коду из письма</string>
+    <string name="account_email_method_recovery">По резервному коду</string>
+    <string name="account_email_recovery_code">Резервный код</string>
+    <string name="account_email_remove_warning">После удаления почты вы потеряете возможность восстановления через email. Восстановление по одноразовым резервным кодам останется доступным.</string>
+    <string name="account_email_change_step_old">Шаг 1/2: подтвердите удаление старой почты</string>
+    <string name="account_email_change_step_new">Шаг 2/2: добавьте и подтвердите новую почту</string>
 
-    <!-- Generic labels -->
-    <string name="label_json">JSON</string>
-
-    <!-- BLE / Connectivity -->
+    <!-- BLE Connectivity -->
     <string name="ble_connecting">Подключение</string>
     <string name="ble_connected">Подключено</string>
     <string name="ble_status">Статус</string>
@@ -61,8 +95,6 @@
     <string name="ble_access_denied">Доступ не предоставлен</string>
     <string name="ble_available_devices">Доступные устройства</string>
     <string name="ble_press_to_scan">Нажмите для сканирования</string>
-
-    <!-- Device list -->
     <string name="device_last">Последнее устройство</string>
     <string name="device_no_stored">Нет сохранённых устройств</string>
     <string name="device_disconnect">Отключить</string>
@@ -75,8 +107,62 @@
     <string name="device_open">Открыть</string>
     <string name="device_cancel">Отмена</string>
     <string name="delete_pair">Удалить пару</string>
+    <string name="loading">Загрузка…</string>
+    <string name="refresh">Обновить</string>
+    <string name="pin_enabled">PIN установлен</string>
+    <string name="pin_disabled">PIN снят</string>
+    <string name="pin_reset">Сбросить PIN</string>
+    <string name="pin_title">PIN-код</string>
+    <string name="pin_hint">Введите 4 цифры</string>
+    <string name="pin_wait">Проверяем PIN…</string>
+    <string name="pin_wait_btn">Ждите…</string>
+    <string name="pin_wrong">Неверный PIN-код</string>
+    <string name="pin_send_failed">Не удалось отправить PIN. Попробуйте ещё раз.</string>
+    <string name="pin_timeout">Нет ответа от устройства. Попробуйте ещё раз.</string>
+    <string name="pin_bad_format">PIN должен быть из 4 цифр</string>
+    <string name="device_reboot">Перезапуск</string>
+    <string name="device_reboot_subtitle">Перезапуск приложения + протеза</string>
+    <string name="device_reboot_warning">Будет выполнен перезапуск приложения и ESP32.\nНастройки и хранилища не будут сброшены.\nПродолжить?</string>
+    <string name="confirm">Подтвердить</string>
+    <string name="tele">Телеметрия</string>
+    <string name="tele_on">Телеметрия включена</string>
+    <string name="tele_off">Телеметрия отключена</string>
+    <string name="disconnected">Устройство отключено</string>
+    <string name="tele_off_turn_on">Телеметрия выключена - включите её на странице управления</string>
+    <string name="please_wait">Ожидайте…</string>
+    <string name="ble_status_idle">Ожидание</string>
+    <string name="ble_status_scanning">Сканирование…</string>
+    <string name="ble_status_discovering">Поиск сервисов…</string>
+    <string name="ble_status_bluetooth_off">Bluetooth выключен</string>
+    <string name="ble_status_no_scan_permission">Нет прав на сканирование</string>
+    <string name="ble_status_scan_denied">Сканирование запрещено</string>
+    <string name="ble_status_scan_error">Ошибка сканирования</string>
+    <string name="ble_status_scan_failed">Сканирование не удалось</string>
+    <string name="ble_status_invalid_device">Некорректное устройство</string>
+    <string name="ble_status_connect_failed">Не удалось подключиться</string>
+    <string name="ble_status_no_connect_permission">Нет прав на подключение</string>
+    <string name="ble_status_service_discovery_failed">Не удалось найти сервисы</string>
+    <string name="ble_status_service_discovery_error">Ошибка поиска сервисов</string>
+    <string name="ble_status_service_not_found">Сервис не найден</string>
+    <string name="ble_status_characteristics_missing">Нет нужных характеристик</string>
+    <string name="ble_status_notify_error">Не удалось включить уведомления</string>
+    <string name="ble_status_config_updated">Конфиг получен</string>
+    <string name="ble_status_config_parse_error">Ошибка разбора конфига</string>
+    <string name="ble_status_tele_parse_error">Ошибка разбора телеметрии</string>
+    <string name="ble_status_auth_ok">PIN принят</string>
+    <string name="ble_status_auth_fail">Неверный PIN</string>
+    <string name="ble_status_ack_ok">Команда подтверждена</string>
+    <string name="ble_status_ack_fail">Команда не выполнена</string>
+    <string name="ble_status_write_failed">Не удалось отправить команду</string>
+    <string name="connection_indicator_ready">Подключено и готово</string>
+    <string name="connection_indicator_waiting">Подключение или подготовка устройства…</string>
+    <string name="connection_indicator_disconnected">Целевой протез не подключен</string>
+    <string name="connection_indicator_no_target">Целевой протез не выбран</string>
+    <string name="connection_indicator_other_connected">Подключено другое устройство</string>
+    <string name="connection_indicator_status">Статус BLE: %1$s</string>
 
-    <!-- Control Screen -->
+    <!-- Control & Simulation -->
+    <string name="label_json">JSON</string>
     <string name="control_sensitivity_pullup">Чувствительность и подтяжка</string>
     <string name="control_resistance_cal">Калибровка сопротивления</string>
     <string name="control_vibro_mode">Режим и отклик</string>
@@ -84,8 +170,6 @@
     <string name="control_diagnostic">Диагностика</string>
     <string name="device_reset">Сбросить</string>
     <string name="add_pair">Доб. пару</string>
-
-    <!-- FSR -->
     <string name="fsr_settings">Настройки FSRа</string>
     <string name="fsr_pin">FSR пин</string>
     <string name="fsr_pullup">Подтяжка, Ω</string>
@@ -93,8 +177,6 @@
     <string name="fsr_max_vibro">Макс. вибро</string>
     <string name="sim_fsr_pressed">Нажат</string>
     <string name="sim_fsr_idle">Отжат</string>
-
-    <!-- Flex -->
     <string name="flex_settings">Настройки гибкого датчика</string>
     <string name="flex_current_resistance">Текущее сопротивление</string>
     <string name="flex_pin">Пин флекса</string>
@@ -102,8 +184,6 @@
     <string name="flex_folded">Согнут</string>
     <string name="sim_angle">Угол: %1$s°</string>
     <string name="sim_flex">Сопротивление: %1$s Ω</string>
-
-    <!-- EMG -->
     <string name="input_source">Источник управления</string>
     <string name="input_source_flex">Flex</string>
     <string name="input_source_emg">EMG</string>
@@ -135,8 +215,6 @@
     <string name="emg_action_bend">Сгиб</string>
     <string name="emg_action_unfold">Разгиб</string>
     <string name="emg_action_cooldown_ignored">Игнор из-за кулдауна</string>
-
-    <!-- Vibro -->
     <string name="vibro_settings">Вибро</string>
     <string name="vibro_pin">Пин вибро</string>
     <string name="vibro_mode">Режим</string>
@@ -145,8 +223,6 @@
     <string name="vibro_intensity">Интенсивность</string>
     <string name="vibro_work_time">Длительность вибрации, мс</string>
     <string name="vibro_pause_time">Пауза, мс</string>
-
-    <!-- Servo -->
     <string name="servo_settings">Сервопривод</string>
     <string name="servo_current_angle">Текущий угол</string>
     <string name="servo_pin">Пин серво</string>
@@ -154,47 +230,12 @@
     <string name="servo_max_angle">Макс. угол</string>
     <string name="servo_manual_control">Ручное управление</string>
     <string name="servo_manual_angle">Ручной угол</string>
-
-    <!-- Prosthesis cloud sync -->
-    <string name="prosthesis_settings">Настройки протеза</string>
-    <string name="prosthesis_settings_descr">Настройки вашего протеза</string>
-    <string name="prosthesis_settings_dialog_hint">Синхронизация настроек протеза</string>
-    <string name="prosthesis_pull">Загрузить настройки</string>
-    <string name="prosthesis_push">Отправить настройки</string>
-
-    <!-- Errors -->
-    <string name="err_username_taken">Имя пользователя уже занято</string>
-    <string name="err_wrong_password">Неверный пароль</string>
-    <string name="err_user_not_found">Пользователь не найден</string>
-    <string name="err_unknown">Произошла ошибка</string>
-
-    <!-- Account/Device errors -->
-    <string name="err_failed_load_devices">Не удалось загрузить устройства</string>
-    <string name="err_failed_pull_settings">Не удалось получить настройки</string>
-    <string name="err_failed_push_settings">Не удалось отправить настройки</string>
-
     <string name="control_diag_fsr_ohm">FSR, Ω</string>
     <string name="control_diag_flex_ohm">Гибкий датчик, Ω</string>
     <string name="control_diag_servo_deg">Серво, °</string>
     <string name="control_diag_force_n">Сила, Н</string>
-
     <string name="generic_ok">ОК</string>
-
     <string name="sim_force">Сила: %1$s Н</string>
-
-    <string name="loading">Загрузка…</string>
-    <string name="prosthesis_no_devices">Нет зарегистрированных протезов</string>
-    <string name="refresh">Обновить</string>
-    <string name="prosthesis_not_connected_title">Протез не подключен</string>
-    <string name="prosthesis_not_connected_message">Подключите протез, чтобы получить настройки.</string>
-    <string name="prosthesis_no_settings_on_server">Для этого протеза ещё нет сохранённых настроек на сервере.</string>
-    <string name="prosthesis_connected">Подключен</string>
-    <string name="prosthesis_settings_for_device">Настройки протеза: %1$s</string>
-    <string name="prosthesis_connect_hint">Подключите протез, чтобы можно было получить настройки с сервера.</string>
-    <string name="device">Устройство</string>
-    <string name="alias">Имя</string>
-    <string name="no_active">Нет активного устройства</string>
-    <string name="alias_not_set">Имя устройства не задано</string>
     <string name="fsr_n_vibro_settings">Настройки FSR и Вибро</string>
     <string name="fsr_n_force_curr_vals">Текущие показания FSR и силы</string>
     <string name="pair_1">Пара 1</string>
@@ -205,172 +246,10 @@
     <string name="continue_anyway">Все равно продолжить</string>
     <string name="flex_not_set">Flex не настроен.</string>
     <string name="servo_not_set">Сервопривод не настроен.</string>
-
-    <string name="pin_enabled">PIN установлен</string>
-    <string name="pin_disabled">PIN снят</string>
-    <string name="pin_reset">Сбросить PIN</string>
-
-    <string name="pin_title">PIN-код</string>
-    <string name="pin_hint">Введите 4 цифры</string>
-    <string name="pin_wait">Проверяем PIN…</string>
-    <string name="pin_wait_btn">Ждите…</string>
-
-    <string name="pin_wrong">Неверный PIN-код</string>
-    <string name="pin_send_failed">Не удалось отправить PIN. Попробуйте ещё раз.</string>
-    <string name="pin_timeout">Нет ответа от устройства. Попробуйте ещё раз.</string>
-    <string name="pin_bad_format">PIN должен быть из 4 цифр</string>
-
-    <string name="device_reboot">Перезапуск</string>
-    <string name="device_reboot_subtitle">Перезапуск приложения + протеза</string>
-    <string name="device_reboot_warning">Будет выполнен перезапуск приложения и ESP32.\nНастройки и хранилища не будут сброшены.\nПродолжить?</string>
-    <string name="confirm">Подтвердить</string>
-
-    <string name="tele">Телеметрия</string>
-    <string name="tele_on">Телеметрия включена</string>
-    <string name="tele_off">Телеметрия отключена</string>
-    <string name="disconnected">Устройство отключено</string>
-    <string name="tele_off_turn_on">Телеметрия выключена - включите её на странице управления</string>
-
-    <string name="please_wait">Ожидайте…</string>
-
-    <string name="ble_status_idle">Ожидание</string>
-    <string name="ble_status_scanning">Сканирование…</string>
-    <string name="ble_status_discovering">Поиск сервисов…</string>
-
-    <string name="ble_status_bluetooth_off">Bluetooth выключен</string>
-    <string name="ble_status_no_scan_permission">Нет прав на сканирование</string>
-    <string name="ble_status_scan_denied">Сканирование запрещено</string>
-    <string name="ble_status_scan_error">Ошибка сканирования</string>
-    <string name="ble_status_scan_failed">Сканирование не удалось</string>
-
-    <string name="ble_status_invalid_device">Некорректное устройство</string>
-    <string name="ble_status_connect_failed">Не удалось подключиться</string>
-    <string name="ble_status_no_connect_permission">Нет прав на подключение</string>
-
-    <string name="ble_status_service_discovery_failed">Не удалось найти сервисы</string>
-    <string name="ble_status_service_discovery_error">Ошибка поиска сервисов</string>
-    <string name="ble_status_service_not_found">Сервис не найден</string>
-    <string name="ble_status_characteristics_missing">Нет нужных характеристик</string>
-    <string name="ble_status_notify_error">Не удалось включить уведомления</string>
-
-    <string name="ble_status_config_updated">Конфиг получен</string>
-    <string name="ble_status_config_parse_error">Ошибка разбора конфига</string>
-    <string name="ble_status_tele_parse_error">Ошибка разбора телеметрии</string>
-
-    <string name="ble_status_auth_ok">PIN принят</string>
-    <string name="ble_status_auth_fail">Неверный PIN</string>
-
-    <string name="ble_status_ack_ok">Команда подтверждена</string>
-    <string name="ble_status_ack_fail">Команда не выполнена</string>
-    <string name="ble_status_write_failed">Не удалось отправить команду</string>
-
     <string name="telemetry_placeholder">-</string>
     <string name="telemetry_wait">Ожидаем телеметрию…</string>
     <string name="telemetry_wait_after_save">Применяем настройки… телеметрия скоро появится</string>
     <string name="telemetry_disabled_short">Телеметрия выключена</string>
-
-    <string name="auth_forgot_password">Забыли пароль?</string>
-
-    <string name="recovery_codes_title">Резервные коды</string>
-    <string name="recovery_codes_subtitle">Сохраните эти 10 одноразовых кодов. Посмотреть их повторно будет нельзя.</string>
-    <string name="recovery_codes_warning">Если потеряете пароль И эти коды - восстановление аккаунта невозможно.</string>
-    <string name="recovery_codes_copy">Скопировать</string>
-    <string name="recovery_codes_download">Скачать .txt</string>
-    <string name="recovery_codes_saved_checkbox">Я сохранил(а) коды</string>
-    <string name="recovery_codes_continue">Продолжить</string>
-    <string name="recovery_codes_copied">Скопировано в буфер</string>
-    <string name="recovery_codes_saved_file_ok">Файл сохранён</string>
-    <string name="recovery_codes_saved_file_fail">Не удалось сохранить файл</string>
-
-    <string name="password_reset_title">Восстановление пароля</string>
-    <string name="password_reset_next">Далее</string>
-    <string name="password_reset_enter_username">Введите логин</string>
-    <string name="password_reset_choose_method">Выберите способ восстановления</string>
-    <string name="password_reset_by_recovery">По резервному коду</string>
-    <string name="password_reset_by_email">По почте</string>
-    <string name="password_reset_email_hint">Почта аккаунта: %1$s</string>
-    <string name="password_reset_email_not_available">Восстановление по почте недоступно для этого аккаунта</string>
-    <string name="password_reset_enter_recovery">Введите резервный код</string>
-    <string name="password_reset_recovery_code">Резервный код</string>
-    <string name="password_reset_enter_email">Введите почту</string>
-    <string name="password_reset_email">Почта</string>
-    <string name="password_reset_enter_email_code">Введите код из письма</string>
-    <string name="password_reset_code">Код</string>
-    <string name="password_reset_resend">Отправить код ещё раз</string>
-    <string name="password_reset_new_password">Установите новый пароль</string>
-    <string name="password_reset_password1">Новый пароль</string>
-    <string name="password_reset_password2">Повторите пароль</string>
-    <string name="password_reset_passwords_mismatch">Пароли не совпадают</string>
-    <string name="password_reset_done">Пароль обновлён. Теперь можно войти.</string>
-    <string name="password_reset_no_reset_session">Не найдена сессия сброса. Попробуйте ещё раз.</string>
-
-    <!-- Account: Email -->
-    <string name="account_email_title">Почта</string>
-    <string name="account_email_current">Текущая почта: %1$s</string>
-    <string name="account_email_not_set">Почта не задана</string>
-    <string name="account_email_add">Добавить почту</string>
-    <string name="account_email_remove">Удалить почту</string>
-    <string name="account_email_change">Изменить почту</string>
-    <string name="account_email_refresh">Обновить</string>
-    <string name="account_email_send_code">Отправить код</string>
-    <string name="account_email_confirm">Подтвердить</string>
-    <string name="account_email_method_email">По коду из письма</string>
-    <string name="account_email_method_recovery">По резервному коду</string>
-    <string name="account_email_recovery_code">Резервный код</string>
-    <string name="account_email_remove_warning">После удаления почты вы потеряете возможность восстановления через email. Восстановление по одноразовым резервным кодам останется доступным.</string>
-    <string name="account_email_change_step_old">Шаг 1/2: подтвердите удаление старой почты</string>
-    <string name="account_email_change_step_new">Шаг 2/2: добавьте и подтвердите новую почту</string>
-
-    <!-- Post-register email -->
-    <string name="postreg_email_title">Добавить почту</string>
-    <string name="postreg_email_subtitle">Почта необязательна, но она позволит восстановить пароль через email.</string>
-    <string name="postreg_email_label">Почта</string>
-    <string name="postreg_email_skip">Продолжить без почты</string>
-    <string name="postreg_email_add">Добавить почту</string>
-
-    <string name="postreg_email_code_title">Подтверждение почты</string>
-    <string name="postreg_email_code_hint">Мы отправили код на: %1$s</string>
-    <string name="postreg_email_code_label">Код</string>
-    <string name="postreg_email_resend">Отправить код ещё раз</string>
-    <string name="postreg_email_change">Изменить почту</string>
-    <string name="postreg_email_confirm">Подтвердить</string>
-
-    <!-- Recovery codes file text -->
-    <string name="recovery_codes_file_username">Логин: %1$s</string>
-    <string name="recovery_codes_file_codes_title">Резервные коды (одноразовые):</string>
-
-    <!-- Password visibility -->
-    <string name="auth_password_show">Показать пароль</string>
-    <string name="auth_password_hide">Скрыть пароль</string>
-
-    <!-- Password rules -->
-    <string name="password_rules_title">Пароль должен содержать:</string>
-    <string name="password_rule_len">Не менее 8 символов</string>
-    <string name="password_rule_upper">Хотя бы одну заглавную букву</string>
-    <string name="password_rule_lower">Хотя бы одну строчную букву</string>
-    <string name="password_rule_digit">Хотя бы одну цифру</string>
-    <string name="password_rule_special">Хотя бы один спецсимвол</string>
-
-    <!-- Errors -->
-    <string name="err_email_in_use">Эта почта уже привязана к другому аккаунту</string>
-    <string name="err_email_mismatch">Почта не совпадает с почтой аккаунта</string>
-    <string name="err_email_not_set">Почта не задана</string>
-    <string name="err_wrong_code">Неверный код</string>
-    <string name="err_code_expired">Код истёк</string>
-    <string name="err_no_pending_code">Нет активного кода. Запросите код ещё раз.</string>
-    <string name="err_too_many_requests">Слишком много попыток. Попробуйте позже.</string>
-    <string name="err_network">Нет подключения к серверу</string>
-
-    <!-- Password reset privacy -->
-    <string name="password_reset_email_available">Восстановление по почте доступно</string>
-    <string name="password_reset_email_masked_hint">Почта в аккаунте: %1$s</string>
-    <string name="err_password_rules_invalid">Пароль должен соответствовать правилам</string>
-
-    <!-- Settings -->
-    <string name="settings_account">Настройки аккаунта</string>
-    <string name="settings_password_change">Сменить пароль</string>
-
-    <!-- Flex calibration wizard -->
     <string name="flex_calibrate">Калибровка</string>
     <string name="flex_calib_title">Калибровка флекса</string>
     <string name="flex_calib_intro">Мы измерим сопротивление флекса в двух положениях:\n\n1) Разогнут (плоско)\n2) Согнут\n\nУбедитесь, что телеметрия работает. Текущее сопротивление показано ниже.</string>
@@ -383,12 +262,28 @@
     <string name="flex_calib_apply">Применить</string>
     <string name="flex_calib_live">Текущее сопротивление: %1$s</string>
     <string name="flex_calib_wait_telemetry">Ожидаем телеметрию…</string>
-
     <string name="flex_tolerance_pct">Погрешность, %</string>
     <string name="flex_tolerance_hint">1–50%. Больше - меньше дрожания, но медленнее реакция.</string>
     <string name="live_control">Live control</string>
     <string name="live_control_disable_to_close">Выключите live control, чтобы закрыть окно.</string>
 
+    <!-- Prosthesis Cloud -->
+    <string name="prosthesis_settings">Настройки протеза</string>
+    <string name="prosthesis_settings_descr">Настройки вашего протеза</string>
+    <string name="prosthesis_settings_dialog_hint">Синхронизация настроек протеза</string>
+    <string name="prosthesis_pull">Загрузить настройки</string>
+    <string name="prosthesis_push">Отправить настройки</string>
+    <string name="prosthesis_no_devices">Нет зарегистрированных протезов</string>
+    <string name="prosthesis_not_connected_title">Протез не подключен</string>
+    <string name="prosthesis_not_connected_message">Подключите протез, чтобы получить настройки.</string>
+    <string name="prosthesis_no_settings_on_server">Для этого протеза ещё нет сохранённых настроек на сервере.</string>
+    <string name="prosthesis_connected">Подключен</string>
+    <string name="prosthesis_settings_for_device">Настройки протеза: %1$s</string>
+    <string name="prosthesis_connect_hint">Подключите протез, чтобы можно было получить настройки с сервера.</string>
+    <string name="device">Устройство</string>
+    <string name="alias">Имя</string>
+    <string name="no_active">Нет активного устройства</string>
+    <string name="alias_not_set">Имя устройства не задано</string>
     <string name="prosthesis_preview">Просмотр настроек</string>
     <string name="prosthesis_target_device">Целевой протез</string>
     <string name="prosthesis_select_target">Выберите протез</string>
@@ -401,23 +296,84 @@
     <string name="prosthesis_version">Версия</string>
     <string name="prosthesis_updated_at">Обновлено</string>
 
-    <string name="settings_theme">Тема</string>
-    <string name="settings_theme_system">Как в системе</string>
-    <string name="settings_theme_light">Светлая</string>
-    <string name="settings_theme_dark">Тёмная</string>
+    <!-- Post-Registration Email -->
+    <string name="postreg_email_title">Добавить почту</string>
+    <string name="postreg_email_subtitle">Почта необязательна, но она позволит восстановить пароль через email.</string>
+    <string name="postreg_email_label">Почта</string>
+    <string name="postreg_email_skip">Продолжить без почты</string>
+    <string name="postreg_email_add">Добавить почту</string>
+    <string name="postreg_email_continue_verification">Продолжить подтверждение</string>
+    <string name="postreg_email_code_title">Подтверждение почты</string>
+    <string name="postreg_email_code_hint">Мы отправили код на: %1$s</string>
+    <string name="postreg_email_code_label">Код</string>
+    <string name="postreg_email_resend">Отправить код ещё раз</string>
+    <string name="postreg_email_change">Изменить почту</string>
+    <string name="postreg_email_confirm">Подтвердить</string>
 
-    <!-- Connection traffic light -->
-    <string name="connection_indicator_ready">Подключено и готово</string>
-    <string name="connection_indicator_waiting">Подключение или подготовка устройства…</string>
-    <string name="connection_indicator_disconnected">Целевой протез не подключен</string>
-    <string name="connection_indicator_no_target">Целевой протез не выбран</string>
-    <string name="connection_indicator_other_connected">Подключено другое устройство</string>
-    <string name="connection_indicator_status">Статус BLE: %1$s</string>
+    <!-- Recovery Codes -->
+    <string name="recovery_codes_title">Резервные коды</string>
+    <string name="recovery_codes_subtitle">Сохраните эти 10 одноразовых кодов. Посмотреть их повторно будет нельзя.</string>
+    <string name="recovery_codes_warning">Если потеряете пароль И эти коды - восстановление аккаунта невозможно.</string>
+    <string name="recovery_codes_copy">Скопировать</string>
+    <string name="recovery_codes_download">Скачать .txt</string>
+    <string name="recovery_codes_saved_checkbox">Я сохранил(а) коды</string>
+    <string name="recovery_codes_continue">Продолжить</string>
+    <string name="recovery_codes_copied">Скопировано в буфер</string>
+    <string name="recovery_codes_saved_file_ok">Файл сохранён</string>
+    <string name="recovery_codes_saved_file_fail">Не удалось сохранить файл</string>
+    <string name="recovery_codes_file_username">Логин: %1$s</string>
+    <string name="recovery_codes_file_codes_title">Резервные коды (одноразовые):</string>
 
+    <!-- Password Reset -->
+    <string name="password_reset_title">Восстановление пароля</string>
+    <string name="password_reset_next">Далее</string>
+    <string name="password_reset_enter_username">Введите логин</string>
+    <string name="password_reset_choose_method">Выберите способ восстановления</string>
+    <string name="password_reset_by_recovery">По резервному коду</string>
+    <string name="password_reset_by_email">По почте</string>
+    <string name="password_reset_email_hint">Почта аккаунта: %1$s</string>
+    <string name="password_reset_email_not_available">Восстановление по почте недоступно для этого аккаунта</string>
+    <string name="password_reset_enter_recovery">Введите резервный код</string>
+    <string name="password_reset_recovery_code">Резервный код</string>
+    <string name="password_reset_recovery_code_hint">Введите один резервный код в исходном формате.</string>
+    <string name="password_reset_enter_email">Введите почту</string>
+    <string name="password_reset_email">Почта</string>
+    <string name="password_reset_enter_email_code">Введите код из письма</string>
+    <string name="password_reset_code">Код</string>
+    <string name="password_reset_resend">Отправить код ещё раз</string>
+    <string name="code_resend_wait">Повтор через %1$d с</string>
+    <string name="password_reset_new_password">Установите новый пароль</string>
+    <string name="password_reset_password1">Новый пароль</string>
+    <string name="password_reset_password2">Повторите пароль</string>
+    <string name="password_reset_passwords_mismatch">Пароли не совпадают</string>
+    <string name="password_reset_done">Пароль обновлён. Теперь можно войти.</string>
+    <string name="password_reset_no_reset_session">Не найдена сессия сброса. Попробуйте ещё раз.</string>
+    <string name="password_rules_title">Пароль должен содержать:</string>
+    <string name="password_rule_len">Не менее 8 символов</string>
+    <string name="password_rule_upper">Хотя бы одну заглавную букву</string>
+    <string name="password_rule_lower">Хотя бы одну строчную букву</string>
+    <string name="password_rule_digit">Хотя бы одну цифру</string>
+    <string name="password_rule_special">Хотя бы один спецсимвол</string>
+    <string name="password_reset_email_available">Восстановление по почте доступно</string>
+    <string name="password_reset_email_masked_hint">Почта в аккаунте: %1$s</string>
 
-    <!-- Live control errors -->
-    <string name="live_control_connect_required">Подключите протез, чтобы использовать live control.</string>
-    <string name="live_control_unlock_required">Разблокируйте управление, чтобы использовать live control.</string>
+    <!-- Errors -->
+    <string name="err_username_taken">Имя пользователя уже занято</string>
+    <string name="err_wrong_password">Неверный пароль</string>
+    <string name="err_user_not_found">Пользователь не найден</string>
+    <string name="err_unknown">Произошла ошибка</string>
+    <string name="err_failed_load_devices">Не удалось загрузить устройства</string>
+    <string name="err_failed_pull_settings">Не удалось получить настройки</string>
+    <string name="err_failed_push_settings">Не удалось отправить настройки</string>
+    <string name="err_email_in_use">Эта почта уже привязана к другому аккаунту</string>
+    <string name="err_email_mismatch">Почта не совпадает с почтой аккаунта</string>
+    <string name="err_email_not_set">Почта не задана</string>
+    <string name="err_wrong_code">Неверный код</string>
+    <string name="err_code_expired">Код истёк</string>
+    <string name="err_no_pending_code">Нет активного кода. Запросите код ещё раз.</string>
+    <string name="err_too_many_requests">Слишком много попыток. Попробуйте позже.</string>
+    <string name="err_network">Нет подключения к серверу</string>
+    <string name="err_password_rules_invalid">Пароль должен соответствовать правилам</string>
     <string name="err_live_control_active">Live control активен. Сначала отключите его.</string>
     <string name="err_live_telemetry_disable_failed">Не удалось отключить телеметрию для live control.</string>
     <string name="err_live_telemetry_restore_failed">Не удалось восстановить телеметрию после live control.</string>
@@ -425,5 +381,9 @@
     <string name="err_live_stop_failed">Не удалось остановить live control.</string>
     <string name="err_telemetry_enable_failed">Не удалось включить телеметрию.</string>
     <string name="err_telemetry_disable_failed">Не удалось отключить телеметрию.</string>
+
+    <!-- Miscellaneous -->
+    <string name="live_control_connect_required">Подключите протез, чтобы использовать live control.</string>
+    <string name="live_control_unlock_required">Разблокируйте управление, чтобы использовать live control.</string>
 
 </resources>
