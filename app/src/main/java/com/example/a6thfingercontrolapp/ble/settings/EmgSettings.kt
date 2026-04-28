@@ -4,60 +4,48 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * EMG configuration for one pair.
- *
- * Channels determines EMG sensor channels (independent connected devices).
+ * EMG configuration for one pair using the single-channel binary classifier.
  */
 data class EmgSettings(
-    val channels: Int = 1,
-    val pin0: Int = PIN_PLACEHOLDER,
-    val pin1: Int = PIN_PLACEHOLDER,
-    val pin2: Int = PIN_PLACEHOLDER,
-    val mode: Int = EMG_MODE_BEND_OTHER,
-    val bendFullMoves: Int = 1,
-    val unfoldFullMoves: Int = 1,
-    val minSwitchDelaySec: Int = 1,
+    val pin: Int = PIN_PLACEHOLDER,
+    val bendSnapshotsToBend: Int = 1,
+    val bendSnapshotsToUnfold: Int = 1,
+    val snapshotTimeoutSec: Int = 2,
+    val snapshotSize: Int = 8,
+    val minUnfoldDelaySec: Int = 2,
     val reverseDirection: Boolean = false
 ) {
     fun toJson(): JSONObject {
         return JSONObject().apply {
-            put("channels", channels.coerceIn(1, 3))
-            put("pins", JSONArray().apply {
-                put(pin0)
-                put(pin1)
-                put(pin2)
-            })
-            put("mode", mode.coerceIn(EMG_MODE_BEND_OTHER, EMG_MODE_DIRECTIONAL))
-            put("bendFullMoves", bendFullMoves.coerceIn(1, 5))
-            put("unfoldFullMoves", unfoldFullMoves.coerceIn(1, 5))
-            put("minSwitchDelaySec", minSwitchDelaySec.coerceIn(1, 60))
+            put("pins", JSONArray().apply { put(pin) })
+            put("bendSnapshotsToBend", bendSnapshotsToBend.coerceIn(1, 5))
+            put("bendSnapshotsToUnfold", bendSnapshotsToUnfold.coerceIn(1, 8))
+            put("snapshotTimeoutSec", snapshotTimeoutSec.coerceIn(1, 15))
+            put("snapshotSize", snapshotSize.coerceIn(1, 32))
+            put("minUnfoldDelaySec", minUnfoldDelaySec.coerceIn(0, 30))
             put("reverseDirection", reverseDirection)
         }
     }
 
-    /** Returns only pins that are relevant for the selected channel. */
-    fun activePins(): List<Int> = listOf(pin0, pin1, pin2).take(channels.coerceIn(1, 3))
+    /** Returns the single firmware-supported EMG input pin. */
+    fun activePins(): List<Int> = listOf(pin)
+
+    /** Validates the active EMG pin using the same rules as the firmware. */
+    fun activePinsValid(): Boolean = pin != PIN_PLACEHOLDER && pin != 0
 
     companion object {
         fun fromJson(json: JSONObject): EmgSettings {
             val pinsArr = json.optJSONArray("pins")
-            val p0 = pinsArr?.optInt(0, json.optInt("pin0", PIN_PLACEHOLDER))
-                ?: json.optInt("pin0", PIN_PLACEHOLDER)
-            val p1 = pinsArr?.optInt(1, json.optInt("pin1", PIN_PLACEHOLDER))
-                ?: json.optInt("pin1", PIN_PLACEHOLDER)
-            val p2 = pinsArr?.optInt(2, json.optInt("pin2", PIN_PLACEHOLDER))
-                ?: json.optInt("pin2", PIN_PLACEHOLDER)
+            val parsedPin = pinsArr?.optInt(0, json.optInt("pin", PIN_PLACEHOLDER))
+                ?: json.optInt("pin", PIN_PLACEHOLDER)
 
             return EmgSettings(
-                channels = json.optInt("channels", 1).coerceIn(1, 3),
-                pin0 = p0,
-                pin1 = p1,
-                pin2 = p2,
-                mode = json.optInt("mode", EMG_MODE_BEND_OTHER)
-                    .coerceIn(EMG_MODE_BEND_OTHER, EMG_MODE_DIRECTIONAL),
-                bendFullMoves = json.optInt("bendFullMoves", 1).coerceIn(1, 5),
-                unfoldFullMoves = json.optInt("unfoldFullMoves", 1).coerceIn(1, 5),
-                minSwitchDelaySec = json.optInt("minSwitchDelaySec", 1).coerceIn(1, 60),
+                pin = parsedPin,
+                bendSnapshotsToBend = json.optInt("bendSnapshotsToBend", 1).coerceIn(1, 5),
+                bendSnapshotsToUnfold = json.optInt("bendSnapshotsToUnfold", 1).coerceIn(1, 8),
+                snapshotTimeoutSec = json.optInt("snapshotTimeoutSec", 2).coerceIn(1, 15),
+                snapshotSize = json.optInt("snapshotSize", 8).coerceIn(1, 32),
+                minUnfoldDelaySec = json.optInt("minUnfoldDelaySec", 2).coerceIn(0, 30),
                 reverseDirection = json.optBoolean("reverseDirection", false)
             )
         }

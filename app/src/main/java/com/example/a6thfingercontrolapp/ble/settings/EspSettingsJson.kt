@@ -115,7 +115,7 @@ internal object EspSettingsJson {
         noinline defaultArray: () -> Array<T>
     ): Array<T> {
         json.optJSONArray(key)?.let { array ->
-            return Array(4) { idx ->
+            return Array(ESP_PAIR_COUNT) { idx ->
                 val obj = array.optJSONObject(idx)
                 if (obj != null) parseItem(obj) else defaultForIndex(idx)
             }
@@ -125,7 +125,7 @@ internal object EspSettingsJson {
         if (raw != null) {
             try {
                 val array = JSONArray(raw)
-                return Array(4) { idx ->
+                return Array(ESP_PAIR_COUNT) { idx ->
                     val obj = array.optJSONObject(idx)
                     if (obj != null) parseItem(obj) else defaultForIndex(idx)
                 }

@@ -1,6 +1,7 @@
 package com.example.a6thfingercontrolapp.ui.control
 
 import com.example.a6thfingercontrolapp.ble.Telemetry
+import com.example.a6thfingercontrolapp.ble.settings.ESP_PAIR_COUNT
 import com.example.a6thfingercontrolapp.ble.settings.EspSettings
 import com.example.a6thfingercontrolapp.ble.settings.INPUT_SOURCE_EMG
 import com.example.a6thfingercontrolapp.ble.settings.INPUT_SOURCE_FLEX
@@ -21,12 +22,12 @@ internal fun visiblePairIndices(
     pairsCount: Int
 ): List<Int> {
     val maxVisibleIndex = maxOf(pairsCount - 1, highestConfiguredPairIndex(s))
-    return (0..maxVisibleIndex.coerceIn(0, 3)).toList()
+    return (0..maxVisibleIndex.coerceIn(0, ESP_PAIR_COUNT - 1)).toList()
 }
 
 private fun highestConfiguredPairIndex(s: EspSettings): Int {
     var result = 0
-    for (i in 0 until 4) {
+    for (i in 0 until ESP_PAIR_COUNT) {
         if (hasAnyPairData(s, i)) {
             result = i
         }
@@ -35,7 +36,7 @@ private fun highestConfiguredPairIndex(s: EspSettings): Int {
 }
 
 internal fun calculateVisiblePairsCount(s: EspSettings): Int {
-    return (highestConfiguredPairIndex(s) + 1).coerceIn(1, 4)
+    return (highestConfiguredPairIndex(s) + 1).coerceIn(1, ESP_PAIR_COUNT)
 }
 
 private fun hasAnyPairData(s: EspSettings, pairIdx: Int): Boolean {
@@ -58,8 +59,7 @@ private fun isServoConfigured(s: EspSettings, pairIdx: Int): Boolean {
 
 private fun isEmgConfigured(s: EspSettings, pairIdx: Int): Boolean {
     val emg = s.emgSettings.getOrNull(pairIdx) ?: return false
-    val activePins = emg.activePins()
-    return activePins.isNotEmpty() && activePins.all { it != PIN_PLACEHOLDER }
+    return emg.activePinsValid()
 }
 
 internal fun findIncompletePairsIssuesVisibleOnly(
@@ -76,7 +76,7 @@ internal fun findIncompletePairsIssuesVisibleOnly(
         return i in visiblePairIndices(s, pairsCount)
     }
 
-    for (i in 0 until 4) {
+    for (i in 0 until ESP_PAIR_COUNT) {
         if (!isVisible(i)) continue
 
         val source = s.pairInputSettings.getOrNull(i)?.inputSource ?: INPUT_SOURCE_FLEX
@@ -117,11 +117,8 @@ internal fun hasTelemetryData(t: Telemetry): Boolean {
     if (t.flexOhm.any { it.isFinite() }) return true
     if (t.servoDeg.any { it.isFinite() }) return true
     if (t.emgCh0.any { it.isFinite() }) return true
-    if (t.emgCh1.any { it.isFinite() }) return true
-    if (t.emgCh2.any { it.isFinite() }) return true
     if (t.emgEvent.any { it >= 0 }) return true
     if (t.emgAction.any { it >= 0 }) return true
-    if (t.emgMode.any { it >= 0 }) return true
     if (t.emgCooldownMs.any { it >= 0 }) return true
     if (t.emgBendProgress.any { it >= 0 }) return true
     if (t.emgUnfoldProgress.any { it >= 0 }) return true

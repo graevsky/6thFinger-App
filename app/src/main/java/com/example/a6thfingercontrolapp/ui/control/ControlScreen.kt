@@ -37,6 +37,7 @@ import com.example.a6thfingercontrolapp.R
 import com.example.a6thfingercontrolapp.auth.AuthViewModel
 import com.example.a6thfingercontrolapp.ble.BleViewModel
 import com.example.a6thfingercontrolapp.ble.classifyBleStatus
+import com.example.a6thfingercontrolapp.ble.settings.ESP_PAIR_COUNT
 import com.example.a6thfingercontrolapp.ble.settings.EspSettings
 import com.example.a6thfingercontrolapp.ble.settings.INPUT_SOURCE_EMG
 import com.example.a6thfingercontrolapp.ble.settings.INPUT_SOURCE_FLEX
@@ -249,12 +250,12 @@ fun ControlScreen(vm: BleViewModel, authVm: AuthViewModel) {
 
                 Button(
                     onClick = {
-                        if (pairsCount < 4) {
+                        if (pairsCount < ESP_PAIR_COUNT) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             pairsCount++
                         }
                     },
-                    enabled = pairsCount < 4 && !busy
+                    enabled = pairsCount < ESP_PAIR_COUNT && !busy
                 ) {
                     Text(stringResource(R.string.add_pair))
                 }

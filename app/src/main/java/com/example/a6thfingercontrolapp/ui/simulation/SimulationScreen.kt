@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.example.a6thfingercontrolapp.ble.BleViewModel
 import com.example.a6thfingercontrolapp.ble.classifyBleStatus
+import com.example.a6thfingercontrolapp.ble.settings.ESP_PAIR_COUNT
 import com.example.a6thfingercontrolapp.ble.settings.INPUT_SOURCE_FLEX
 import com.example.a6thfingercontrolapp.ui.common.bleStatusUiText
 import com.example.a6thfingercontrolapp.ui.control.liveControlErrorUiText
@@ -35,7 +36,8 @@ fun SimulationScreen(vm: BleViewModel) {
     val liveControlErrorText = liveControlErrorUiText(liveControlErrorKey)
 
     val availablePairs: List<Int> = remember(telemetry, settings) {
-        (0 until 4).filter { idx -> pairShouldBeVisibleInSimulation(settings, telemetry, idx) }
+        (0 until ESP_PAIR_COUNT)
+            .filter { idx -> pairShouldBeVisibleInSimulation(settings, telemetry, idx) }
             .ifEmpty { listOf(0) }
     }
 

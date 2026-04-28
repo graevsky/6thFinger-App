@@ -26,6 +26,7 @@ import com.example.a6thfingercontrolapp.ble.comms.handleIncomingJson
 import com.example.a6thfingercontrolapp.ble.comms.resolveBleGattChannels
 import com.example.a6thfingercontrolapp.ble.comms.writeBleJsonChunked
 import com.example.a6thfingercontrolapp.ble.comms.writeBleLiveCommand
+import com.example.a6thfingercontrolapp.ble.settings.ESP_PAIR_COUNT
 import com.example.a6thfingercontrolapp.ble.settings.EspSettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -428,7 +429,7 @@ class BleClient(private val context: Context) {
     @SuppressLint("MissingPermission")
     fun sendServoLive(pairIdx: Int, deg: Int): Boolean =
         synchronized(writeMutex) {
-            val idx = pairIdx.coerceIn(0, 3)
+            val idx = pairIdx.coerceIn(0, ESP_PAIR_COUNT - 1)
             val angle = deg.coerceIn(0, 180)
             writeBleLiveCommand(
                 gatt = gatt,
@@ -448,7 +449,7 @@ class BleClient(private val context: Context) {
     @SuppressLint("MissingPermission")
     fun stopServoLive(pairIdx: Int): Boolean =
         synchronized(writeMutex) {
-            val idx = pairIdx.coerceIn(0, 3)
+            val idx = pairIdx.coerceIn(0, ESP_PAIR_COUNT - 1)
             writeBleLiveCommand(
                 gatt = gatt,
                 characteristic = chServoLive,

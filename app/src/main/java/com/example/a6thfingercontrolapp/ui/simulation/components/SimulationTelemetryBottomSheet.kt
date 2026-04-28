@@ -34,12 +34,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrolapp.R
 import com.example.a6thfingercontrolapp.ble.Telemetry
-import com.example.a6thfingercontrolapp.ble.settings.EMG_MODE_BEND_OTHER
 import com.example.a6thfingercontrolapp.ble.settings.EmgSettings
 import com.example.a6thfingercontrolapp.ble.settings.INPUT_SOURCE_EMG
 import com.example.a6thfingercontrolapp.ui.control.emgActionLabel
 import com.example.a6thfingercontrolapp.ui.control.emgEventLabel
-import com.example.a6thfingercontrolapp.ui.control.emgModeLabel
+import com.example.a6thfingercontrolapp.ui.control.emgModelLabel
 import com.example.a6thfingercontrolapp.ui.control.inputSourceLabel
 import com.example.a6thfingercontrolapp.ui.simulation.prettySimulationIntValue
 import com.example.a6thfingercontrolapp.ui.simulation.prettySimulationValue
@@ -156,14 +155,7 @@ fun TelemetryBottomSheet(
                 )
 
                 if (source == INPUT_SOURCE_EMG) {
-                    val channelCount = emgCfg.channels.coerceIn(1, 3)
-                    val modeText = if (telemetry.emgMode[selectedPairIndex] >= 0) {
-                        emgModeLabel(telemetry.emgMode[selectedPairIndex])
-                    } else {
-                        emgModeLabel(emgCfg.mode)
-                    }
-
-                    Text("${stringResource(R.string.emg_mode)}: $modeText")
+                    Text("${stringResource(R.string.emg_model)}: ${emgModelLabel()}")
                     Text(
                         "${stringResource(R.string.emg_current_event)}: ${
                             emgEventLabel(telemetry.emgEvent[selectedPairIndex])
@@ -179,32 +171,23 @@ fun TelemetryBottomSheet(
                             prettySimulationIntValue(telemetry.emgCooldownMs[selectedPairIndex])
                         }"
                     )
-
-                    if (emgCfg.mode == EMG_MODE_BEND_OTHER) {
-                        Text(
-                            "${stringResource(R.string.emg_bend_progress)}: ${
-                                prettySimulationIntValue(telemetry.emgBendProgress[selectedPairIndex])
-                            }"
-                        )
-                        Text(
-                            "${stringResource(R.string.emg_unfold_progress)}: ${
-                                prettySimulationIntValue(telemetry.emgUnfoldProgress[selectedPairIndex])
-                            }"
-                        )
-                    }
-
-                    repeat(channelCount) { channel ->
-                        Text(
-                            "${stringResource(R.string.emg_channel_value, channel + 1)}: ${
-                                prettySimulationValue(
-                                    telemetry.emgChannelValue(
-                                        selectedPairIndex,
-                                        channel
-                                    )
-                                )
-                            }"
-                        )
-                    }
+                    Text(
+                        "${stringResource(R.string.emg_bend_progress)}: ${
+                            prettySimulationIntValue(telemetry.emgBendProgress[selectedPairIndex])
+                        }"
+                    )
+                    Text(
+                        "${stringResource(R.string.emg_unfold_progress)}: ${
+                            prettySimulationIntValue(telemetry.emgUnfoldProgress[selectedPairIndex])
+                        }"
+                    )
+                    Text(
+                        "${stringResource(R.string.emg_channel_value, 1)}: ${
+                            prettySimulationValue(
+                                telemetry.emgChannelValue(selectedPairIndex, 0)
+                            )
+                        }"
+                    )
                 } else {
                     Text(stringResource(R.string.sim_flex, prettySimulationValue(flexOhm)))
                 }

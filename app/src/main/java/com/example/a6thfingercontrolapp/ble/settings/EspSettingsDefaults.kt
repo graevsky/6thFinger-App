@@ -41,25 +41,23 @@ internal fun espDefaultPairInputForIndex(idx: Int): PairInputSettings =
 /** Default ESP EMG setting builder. */
 internal fun espDefaultEmgForIndex(idx: Int): EmgSettings =
     EmgSettings(
-        channels = 1,
-        pin0 = PIN_PLACEHOLDER,
-        pin1 = PIN_PLACEHOLDER,
-        pin2 = PIN_PLACEHOLDER,
-        mode = EMG_MODE_BEND_OTHER,
-        bendFullMoves = 1,
-        unfoldFullMoves = 1,
-        minSwitchDelaySec = 1,
+        pin = PIN_PLACEHOLDER,
+        bendSnapshotsToBend = 1,
+        bendSnapshotsToUnfold = 1,
+        snapshotTimeoutSec = 2,
+        snapshotSize = 8,
+        minUnfoldDelaySec = 2,
         reverseDirection = false
     )
 
 internal fun espDefaultFlexSettings(): Array<FlexSettings> =
-    Array(4) { idx -> espDefaultFlexForIndex(idx) }
+    Array(ESP_PAIR_COUNT) { idx -> espDefaultFlexForIndex(idx) }
 
 internal fun espDefaultServoSettings(): Array<ServoSettings> =
-    Array(4) { idx -> espDefaultServoForIndex(idx) }
+    Array(ESP_PAIR_COUNT) { idx -> espDefaultServoForIndex(idx) }
 
 internal fun espDefaultPairInputSettings(): Array<PairInputSettings> =
-    Array(4) { idx -> espDefaultPairInputForIndex(idx) }
+    Array(ESP_PAIR_COUNT) { idx -> espDefaultPairInputForIndex(idx) }
 
 internal fun espDefaultEmgSettings(): Array<EmgSettings> =
-    Array(4) { idx -> espDefaultEmgForIndex(idx) }
+    Array(ESP_PAIR_COUNT) { idx -> espDefaultEmgForIndex(idx) }

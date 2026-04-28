@@ -71,12 +71,12 @@ internal object AuthCloudMapper {
     )
 
     private fun emgToMap(settings: EmgSettings): Map<String, Any?> = mapOf(
-        "channels" to settings.channels,
-        "pins" to listOf(settings.pin0, settings.pin1, settings.pin2),
-        "mode" to settings.mode,
-        "bendFullMoves" to settings.bendFullMoves,
-        "unfoldFullMoves" to settings.unfoldFullMoves,
-        "minSwitchDelaySec" to settings.minSwitchDelaySec,
+        "pins" to listOf(settings.pin),
+        "bendSnapshotsToBend" to settings.bendSnapshotsToBend,
+        "bendSnapshotsToUnfold" to settings.bendSnapshotsToUnfold,
+        "snapshotTimeoutSec" to settings.snapshotTimeoutSec,
+        "snapshotSize" to settings.snapshotSize,
+        "minUnfoldDelaySec" to settings.minUnfoldDelaySec,
         "reverseDirection" to settings.reverseDirection
     )
 }

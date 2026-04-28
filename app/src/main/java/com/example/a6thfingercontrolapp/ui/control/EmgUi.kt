@@ -7,12 +7,8 @@ import com.example.a6thfingercontrolapp.ble.settings.EMG_ACTION_BEND
 import com.example.a6thfingercontrolapp.ble.settings.EMG_ACTION_COOLDOWN_IGNORED
 import com.example.a6thfingercontrolapp.ble.settings.EMG_ACTION_NONE
 import com.example.a6thfingercontrolapp.ble.settings.EMG_ACTION_UNFOLD
-import com.example.a6thfingercontrolapp.ble.settings.EMG_EVENT_BEND
 import com.example.a6thfingercontrolapp.ble.settings.EMG_EVENT_NONE
-import com.example.a6thfingercontrolapp.ble.settings.EMG_EVENT_OTHER
-import com.example.a6thfingercontrolapp.ble.settings.EMG_EVENT_UNFOLD
-import com.example.a6thfingercontrolapp.ble.settings.EMG_MODE_BEND_OTHER
-import com.example.a6thfingercontrolapp.ble.settings.EMG_MODE_DIRECTIONAL
+import com.example.a6thfingercontrolapp.ble.settings.EMG_EVENT_SNAPSHOT
 import com.example.a6thfingercontrolapp.ble.settings.INPUT_SOURCE_EMG
 import com.example.a6thfingercontrolapp.ble.settings.INPUT_SOURCE_FLEX
 
@@ -29,16 +25,10 @@ fun inputSourceLabel(source: Int): String {
 }
 
 /**
- * Maps EMG operating mode constants to labels shown in settings and diagnostics.
+ * Returns the single EMG model label supported by the firmware.
  */
 @Composable
-fun emgModeLabel(mode: Int): String {
-    return when (mode) {
-        EMG_MODE_BEND_OTHER -> stringResource(R.string.emg_mode_bend_other)
-        EMG_MODE_DIRECTIONAL -> stringResource(R.string.emg_mode_directional)
-        else -> stringResource(R.string.telemetry_placeholder)
-    }
-}
+fun emgModelLabel(): String = stringResource(R.string.emg_model_1ch_binary)
 
 /**
  * Maps the latest EMG event code from telemetry to localized text.
@@ -47,9 +37,7 @@ fun emgModeLabel(mode: Int): String {
 fun emgEventLabel(event: Int): String {
     return when (event) {
         EMG_EVENT_NONE -> stringResource(R.string.emg_event_none)
-        EMG_EVENT_OTHER -> stringResource(R.string.emg_event_other)
-        EMG_EVENT_BEND -> stringResource(R.string.emg_event_bend)
-        EMG_EVENT_UNFOLD -> stringResource(R.string.emg_event_unfold)
+        EMG_EVENT_SNAPSHOT -> stringResource(R.string.emg_event_snapshot)
         else -> stringResource(R.string.telemetry_placeholder)
     }
 }

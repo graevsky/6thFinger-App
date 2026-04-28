@@ -2,6 +2,7 @@ package com.example.a6thfingercontrolapp.ble.comms
 
 import android.os.SystemClock
 import com.example.a6thfingercontrolapp.ble.BleClient
+import com.example.a6thfingercontrolapp.ble.settings.ESP_PAIR_COUNT
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,11 +28,11 @@ internal class BleLiveControlCoordinator(
     val liveControlError: StateFlow<String?> = _liveControlError
 
     private val liveOpMutex = Mutex()
-    private val liveReady = BooleanArray(4) { false }
-    private val pendingAngle = IntArray(4) { -1 }
+    private val liveReady = BooleanArray(ESP_PAIR_COUNT) { false }
+    private val pendingAngle = IntArray(ESP_PAIR_COUNT) { -1 }
     private var teleBeforeAnyLive: Boolean = true
-    private val lastLiveSendMs = LongArray(4) { 0L }
-    private val lastLiveAngle = IntArray(4) { -1 }
+    private val lastLiveSendMs = LongArray(ESP_PAIR_COUNT) { 0L }
+    private val lastLiveAngle = IntArray(ESP_PAIR_COUNT) { -1 }
 
     init {
         scope.launch {
@@ -59,7 +60,7 @@ internal class BleLiveControlCoordinator(
         val hadLiveSession = _liveServoPairs.value.isNotEmpty()
 
         _liveServoPairs.value = emptySet()
-        for (i in 0..3) {
+        for (i in 0 until ESP_PAIR_COUNT) {
             liveReady[i] = false
             pendingAngle[i] = -1
             lastLiveSendMs[i] = 0L
@@ -95,7 +96,7 @@ internal class BleLiveControlCoordinator(
         val pairs = _liveServoPairs.value
         _liveServoPairs.value = emptySet()
         _liveControlError.value = null
-        for (i in 0..3) {
+        for (i in 0 until ESP_PAIR_COUNT) {
             liveReady[i] = false
             pendingAngle[i] = -1
         }
@@ -107,7 +108,7 @@ internal class BleLiveControlCoordinator(
     }
 
     fun setServoLiveEnabled(pairIdx: Int, enabled: Boolean) {
-        val idx = pairIdx.coerceIn(0, 3)
+        val idx = pairIdx.coerceIn(0, ESP_PAIR_COUNT - 1)
 
         if (enabled) {
             if (!isLiveControlAvailable()) {
@@ -188,7 +189,7 @@ internal class BleLiveControlCoordinator(
     }
 
     fun sendServoLiveAngle(pairIdx: Int, angleDeg: Int) {
-        val idx = pairIdx.coerceIn(0, 3)
+        val idx = pairIdx.coerceIn(0, ESP_PAIR_COUNT - 1)
         val angle = angleDeg.coerceIn(0, 180)
 
         pendingAngle[idx] = angle

@@ -8,23 +8,14 @@ const val INPUT_SOURCE_FLEX = 0
 /** Input source for a pair: EMG sensor mode. */
 const val INPUT_SOURCE_EMG = 1
 
-/** EMG mode without directions. */
-const val EMG_MODE_BEND_OTHER = 0
-
-/** EMG mode with finger movement direction detection. */
-const val EMG_MODE_DIRECTIONAL = 1
+/** Number of logical sensor/servo pairs supported by the current firmware. */
+const val ESP_PAIR_COUNT = 5
 
 /** No EMG event detected. */
 const val EMG_EVENT_NONE = 0
 
-/** Generic EMG event. E.g. hand movement. */
-const val EMG_EVENT_OTHER = 1
-
-/** EMG event for finger bending action. */
-const val EMG_EVENT_BEND = 2
-
-/** EMG event for finger unfolding action. */
-const val EMG_EVENT_UNFOLD = 3
+/** Snapshot event produced by the 1-channel binary EMG classifier. */
+const val EMG_EVENT_SNAPSHOT = 1
 
 /** No EMG action currently executed. */
 const val EMG_ACTION_NONE = 0
@@ -66,7 +57,7 @@ data class EspSettings(
     val authRequired: Boolean = false,
 
     /** Configuration schema version. */
-    val settingsVersion: Int = 2
+    val settingsVersion: Int = 6
 ) {
     /**
      * Serializes settings into JSON sent to the board.

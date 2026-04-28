@@ -25,7 +25,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrolapp.R
 import com.example.a6thfingercontrolapp.ble.Telemetry
-import com.example.a6thfingercontrolapp.ble.settings.EMG_MODE_BEND_OTHER
 import com.example.a6thfingercontrolapp.ble.settings.EmgSettings
 import com.example.a6thfingercontrolapp.ble.settings.EspSettings
 import com.example.a6thfingercontrolapp.ble.settings.INPUT_SOURCE_EMG
@@ -51,8 +50,7 @@ internal fun PairControlSection(
 ) {
     val source = settings.pairInputSettings.getOrNull(pairIdx)?.inputSource ?: INPUT_SOURCE_FLEX
     val useEmg = source == INPUT_SOURCE_EMG
-    val emgSettings = settings.emgSettings.getOrNull(pairIdx) ?: EmgSettings()
-    val channelCount = emgSettings.channels.coerceIn(1, 3)
+    settings.emgSettings.getOrNull(pairIdx) ?: EmgSettings()
 
     Text(
         text = "${stringResource(R.string.pair_no)} ${pairIdx + 1}",
@@ -73,7 +71,7 @@ internal fun PairControlSection(
     if (useEmg) {
         SettingItem(
             title = stringResource(R.string.emg_settings),
-            subtitle = emgModeLabel(emgSettings.mode)
+            subtitle = emgModelLabel()
         ) { onEmgClick() }
     } else {
         SettingItem(
@@ -100,13 +98,6 @@ internal fun PairControlSection(
     )
 
     if (useEmg) {
-        val modeText =
-            if (showTelePlaceholder || telemetry.emgMode[pairIdx] < 0) {
-                emgModeLabel(emgSettings.mode)
-            } else {
-                emgModeLabel(telemetry.emgMode[pairIdx])
-            }
-
         val eventText =
             if (showTelePlaceholder) stringResource(R.string.telemetry_placeholder)
             else emgEventLabel(telemetry.emgEvent[pairIdx])
@@ -115,7 +106,7 @@ internal fun PairControlSection(
             if (showTelePlaceholder) stringResource(R.string.telemetry_placeholder)
             else emgActionLabel(telemetry.emgAction[pairIdx])
 
-        DiagnosticRow(stringResource(R.string.emg_mode), modeText)
+        DiagnosticRow(stringResource(R.string.emg_model), emgModelLabel())
         DiagnosticRow(stringResource(R.string.emg_current_event), eventText)
         DiagnosticRow(stringResource(R.string.emg_current_action), actionText)
         DiagnosticRow(
@@ -123,23 +114,18 @@ internal fun PairControlSection(
             teleInt(telemetry.emgCooldownMs[pairIdx])
         )
 
-        if (emgSettings.mode == EMG_MODE_BEND_OTHER) {
-            DiagnosticRow(
-                stringResource(R.string.emg_bend_progress),
-                teleInt(telemetry.emgBendProgress[pairIdx])
-            )
-            DiagnosticRow(
-                stringResource(R.string.emg_unfold_progress),
-                teleInt(telemetry.emgUnfoldProgress[pairIdx])
-            )
-        }
-
-        repeat(channelCount) { ch ->
-            DiagnosticRow(
-                stringResource(R.string.emg_channel_value, ch + 1),
-                telePretty(telemetry.emgChannelValue(pairIdx, ch))
-            )
-        }
+        DiagnosticRow(
+            stringResource(R.string.emg_bend_progress),
+            teleInt(telemetry.emgBendProgress[pairIdx])
+        )
+        DiagnosticRow(
+            stringResource(R.string.emg_unfold_progress),
+            teleInt(telemetry.emgUnfoldProgress[pairIdx])
+        )
+        DiagnosticRow(
+            stringResource(R.string.emg_channel_value, 1),
+            telePretty(telemetry.emgChannelValue(pairIdx, 0))
+        )
     } else {
         DiagnosticRow(
             stringResource(R.string.control_diag_flex_ohm),

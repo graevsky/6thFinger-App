@@ -189,6 +189,9 @@
     <string name="input_source_emg">EMG</string>
     <string name="emg_settings">Настройки EMG</string>
     <string name="emg_use_instead_of_flex">Использовать EMG вместо Flex</string>
+    <string name="emg_model">Модель EMG</string>
+    <string name="emg_model_1ch_binary">1-канальная бинарная</string>
+    <string name="emg_pin">Пин EMG</string>
     <string name="emg_channels">Каналы</string>
     <string name="emg_pin_1">EMG пин 1</string>
     <string name="emg_pin_2">EMG пин 2</string>
@@ -196,9 +199,11 @@
     <string name="emg_mode">Режим EMG</string>
     <string name="emg_mode_bend_other">Bend/Other</string>
     <string name="emg_mode_directional">Directional</string>
-    <string name="emg_bend_full_moves">Движений до полного сгиба</string>
-    <string name="emg_unfold_full_moves">Движений до полного разгиба</string>
-    <string name="emg_min_delay_sec">Мин. задержка переключения, с</string>
+    <string name="emg_bend_full_moves">Снэпшотов до сгиба</string>
+    <string name="emg_unfold_full_moves">Снэпшотов до разгиба</string>
+    <string name="emg_snapshot_timeout_sec">Таймаут снэпшота, с</string>
+    <string name="emg_snapshot_size">Размер снэпшота</string>
+    <string name="emg_min_delay_sec">Мин. задержка до разгиба, с</string>
     <string name="emg_reverse_direction">Инвертировать направление</string>
     <string name="emg_current_event">Событие EMG</string>
     <string name="emg_current_action">Действие EMG</string>
@@ -208,6 +213,7 @@
     <string name="emg_unfold_progress">Прогресс разгиба</string>
     <string name="emg_not_set">EMG не настроен</string>
     <string name="emg_event_none">Нет</string>
+    <string name="emg_event_snapshot">Снэпшот</string>
     <string name="emg_event_other">Other</string>
     <string name="emg_event_bend">Bend</string>
     <string name="emg_event_unfold">Unfold</string>

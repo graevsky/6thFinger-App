@@ -189,6 +189,9 @@
     <string name="input_source_emg">EMG</string>
     <string name="emg_settings">EMG Settings</string>
     <string name="emg_use_instead_of_flex">Use EMG instead of Flex</string>
+    <string name="emg_model">EMG model</string>
+    <string name="emg_model_1ch_binary">1-channel binary</string>
+    <string name="emg_pin">EMG pin</string>
     <string name="emg_channels">Channels</string>
     <string name="emg_pin_1">EMG pin 1</string>
     <string name="emg_pin_2">EMG pin 2</string>
@@ -196,9 +199,11 @@
     <string name="emg_mode">EMG mode</string>
     <string name="emg_mode_bend_other">Bend/Other</string>
     <string name="emg_mode_directional">Directional</string>
-    <string name="emg_bend_full_moves">Bend full moves</string>
-    <string name="emg_unfold_full_moves">Unfold full moves</string>
-    <string name="emg_min_delay_sec">Min switch delay, s</string>
+    <string name="emg_bend_full_moves">Snapshots to bend</string>
+    <string name="emg_unfold_full_moves">Snapshots to unfold</string>
+    <string name="emg_snapshot_timeout_sec">Snapshot timeout, s</string>
+    <string name="emg_snapshot_size">Snapshot size</string>
+    <string name="emg_min_delay_sec">Min unfold delay, s</string>
     <string name="emg_reverse_direction">Reverse direction</string>
     <string name="emg_current_event">EMG event</string>
     <string name="emg_current_action">EMG action</string>
@@ -208,6 +213,7 @@
     <string name="emg_unfold_progress">Unfold progress</string>
     <string name="emg_not_set">EMG is not set</string>
     <string name="emg_event_none">None</string>
+    <string name="emg_event_snapshot">Snapshot</string>
     <string name="emg_event_other">Other</string>
     <string name="emg_event_bend">Bend</string>
     <string name="emg_event_unfold">Unfold</string>

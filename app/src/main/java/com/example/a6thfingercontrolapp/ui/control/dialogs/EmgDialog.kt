@@ -1,24 +1,16 @@
 package com.example.a6thfingercontrolapp.ui.control.dialogs
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedback
@@ -26,8 +18,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrolapp.R
-import com.example.a6thfingercontrolapp.ble.settings.EMG_MODE_BEND_OTHER
-import com.example.a6thfingercontrolapp.ble.settings.EMG_MODE_DIRECTIONAL
 import com.example.a6thfingercontrolapp.ble.settings.EmgSettings
 import com.example.a6thfingercontrolapp.ble.settings.EspSettings
 import com.example.a6thfingercontrolapp.ble.settings.PIN_PLACEHOLDER
@@ -45,63 +35,50 @@ fun EmgDialog(
 ) {
     val emgSetting = s.emgSettings.getOrNull(index) ?: return
 
-    var channels by remember(index, emgSetting.channels) { mutableIntStateOf(emgSetting.channels) }
-    var pin0 by remember(index, emgSetting.pin0) {
-        mutableStateOf(if (emgSetting.pin0 == PIN_PLACEHOLDER) "" else emgSetting.pin0.toString())
+    val pin = remember(index, emgSetting.pin) {
+        mutableStateOf(if (emgSetting.pin == PIN_PLACEHOLDER) "" else emgSetting.pin.toString())
     }
-    var pin1 by remember(index, emgSetting.pin1) {
-        mutableStateOf(if (emgSetting.pin1 == PIN_PLACEHOLDER) "" else emgSetting.pin1.toString())
+    val bendSnapshotsToBend = remember(index, emgSetting.bendSnapshotsToBend) {
+        mutableStateOf(emgSetting.bendSnapshotsToBend.toString())
     }
-    var pin2 by remember(index, emgSetting.pin2) {
-        mutableStateOf(if (emgSetting.pin2 == PIN_PLACEHOLDER) "" else emgSetting.pin2.toString())
+    val bendSnapshotsToUnfold = remember(index, emgSetting.bendSnapshotsToUnfold) {
+        mutableStateOf(emgSetting.bendSnapshotsToUnfold.toString())
     }
-    var mode by remember(index, emgSetting.mode) { mutableIntStateOf(emgSetting.mode) }
-    var bendFullMoves by remember(index, emgSetting.bendFullMoves) {
-        mutableStateOf(emgSetting.bendFullMoves.toString())
+    val snapshotTimeoutSec = remember(index, emgSetting.snapshotTimeoutSec) {
+        mutableStateOf(emgSetting.snapshotTimeoutSec.toString())
     }
-    var unfoldFullMoves by remember(index, emgSetting.unfoldFullMoves) {
-        mutableStateOf(emgSetting.unfoldFullMoves.toString())
+    val snapshotSize = remember(index, emgSetting.snapshotSize) {
+        mutableStateOf(emgSetting.snapshotSize.toString())
     }
-    var minSwitchDelaySec by remember(index, emgSetting.minSwitchDelaySec) {
-        mutableStateOf(emgSetting.minSwitchDelaySec.toString())
+    val minUnfoldDelaySec = remember(index, emgSetting.minUnfoldDelaySec) {
+        mutableStateOf(emgSetting.minUnfoldDelaySec.toString())
     }
-    var reverseDirection by remember(index, emgSetting.reverseDirection) {
+    val reverseDirection = remember(index, emgSetting.reverseDirection) {
         mutableStateOf(emgSetting.reverseDirection)
     }
 
     /** Builds a safe EMG settings object from the editable UI state. */
     fun buildUpdatedEmg(): EmgSettings {
-        val normalizedChannels = channels.coerceIn(1, 3)
-        val parsedPins = listOf(pin0, pin1, pin2).mapIndexed { idx, raw ->
-            if (idx < normalizedChannels) {
-                raw.toIntOrNull() ?: PIN_PLACEHOLDER
-            } else {
-                PIN_PLACEHOLDER
-            }
-        }
-
         return emgSetting.copy(
-            channels = normalizedChannels,
-            pin0 = parsedPins[0],
-            pin1 = parsedPins[1],
-            pin2 = parsedPins[2],
-            mode = mode.coerceIn(EMG_MODE_BEND_OTHER, EMG_MODE_DIRECTIONAL),
-            bendFullMoves = (bendFullMoves.toIntOrNull() ?: emgSetting.bendFullMoves).coerceIn(
-                1,
-                5
-            ),
-            unfoldFullMoves = (unfoldFullMoves.toIntOrNull()
-                ?: emgSetting.unfoldFullMoves).coerceIn(1, 5),
-            minSwitchDelaySec = (minSwitchDelaySec.toIntOrNull()
-                ?: emgSetting.minSwitchDelaySec).coerceIn(1, 60),
-            reverseDirection = reverseDirection
+            pin = pin.value.toIntOrNull() ?: PIN_PLACEHOLDER,
+            bendSnapshotsToBend = (
+                    bendSnapshotsToBend.value.toIntOrNull() ?: emgSetting.bendSnapshotsToBend
+                    ).coerceIn(1, 5),
+            bendSnapshotsToUnfold = (
+                    bendSnapshotsToUnfold.value.toIntOrNull() ?: emgSetting.bendSnapshotsToUnfold
+                    ).coerceIn(1, 8),
+            snapshotTimeoutSec = (
+                    snapshotTimeoutSec.value.toIntOrNull() ?: emgSetting.snapshotTimeoutSec
+                    ).coerceIn(1, 15),
+            snapshotSize = (
+                    snapshotSize.value.toIntOrNull() ?: emgSetting.snapshotSize
+                    ).coerceIn(1, 32),
+            minUnfoldDelaySec = (
+                    minUnfoldDelaySec.value.toIntOrNull() ?: emgSetting.minUnfoldDelaySec
+                    ).coerceIn(0, 30),
+            reverseDirection = reverseDirection.value
         )
     }
-
-    val modeOptions = listOf(
-        EMG_MODE_BEND_OTHER to stringResource(R.string.emg_mode_bend_other),
-        EMG_MODE_DIRECTIONAL to stringResource(R.string.emg_mode_directional)
-    )
 
     BaseDialog(
         title = stringResource(R.string.emg_settings),
@@ -109,43 +86,23 @@ fun EmgDialog(
         haptic = haptic
     ) {
         Text(text = "${stringResource(R.string.pair_no)}: ${index + 1}")
+        Text(text = "${stringResource(R.string.emg_model)}: ${stringResource(R.string.emg_model_1ch_binary)}")
 
-        SelectionDropdownField(
-            label = stringResource(R.string.emg_channels),
-            selectedText = channels.coerceIn(1, 3).toString(),
-            options = listOf("1", "2", "3"),
-            onSelected = { selectedIndex -> channels = selectedIndex + 1 }
-        )
-
-        NumberField(stringResource(R.string.emg_pin_1), pin0) { pin0 = it }
-        if (channels >= 2) {
-            NumberField(stringResource(R.string.emg_pin_2), pin1) { pin1 = it }
+        NumberField(stringResource(R.string.emg_pin), pin.value) { pin.value = it }
+        NumberField(stringResource(R.string.emg_bend_full_moves), bendSnapshotsToBend.value) {
+            bendSnapshotsToBend.value = it
         }
-        if (channels >= 3) {
-            NumberField(stringResource(R.string.emg_pin_3), pin2) { pin2 = it }
+        NumberField(stringResource(R.string.emg_unfold_full_moves), bendSnapshotsToUnfold.value) {
+            bendSnapshotsToUnfold.value = it
         }
-
-        SelectionDropdownField(
-            label = stringResource(R.string.emg_mode),
-            selectedText = modeOptions.firstOrNull { it.first == mode }?.second
-                ?: stringResource(R.string.emg_mode_bend_other),
-            options = modeOptions.map { it.second },
-            onSelected = { selectedIndex ->
-                mode = modeOptions.getOrNull(selectedIndex)?.first ?: EMG_MODE_BEND_OTHER
-            }
-        )
-
-        if (mode == EMG_MODE_BEND_OTHER) {
-            NumberField(stringResource(R.string.emg_bend_full_moves), bendFullMoves) {
-                bendFullMoves = it
-            }
-            NumberField(stringResource(R.string.emg_unfold_full_moves), unfoldFullMoves) {
-                unfoldFullMoves = it
-            }
+        NumberField(stringResource(R.string.emg_snapshot_timeout_sec), snapshotTimeoutSec.value) {
+            snapshotTimeoutSec.value = it
         }
-
-        NumberField(stringResource(R.string.emg_min_delay_sec), minSwitchDelaySec) {
-            minSwitchDelaySec = it
+        NumberField(stringResource(R.string.emg_snapshot_size), snapshotSize.value) {
+            snapshotSize.value = it
+        }
+        NumberField(stringResource(R.string.emg_min_delay_sec), minUnfoldDelaySec.value) {
+            minUnfoldDelaySec.value = it
         }
 
         Row(
@@ -155,10 +112,10 @@ fun EmgDialog(
         ) {
             Text(stringResource(R.string.emg_reverse_direction))
             Switch(
-                checked = reverseDirection,
+                checked = reverseDirection.value,
                 onCheckedChange = {
                     haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                    reverseDirection = it
+                    reverseDirection.value = it
                 }
             )
         }
@@ -181,47 +138,6 @@ fun EmgDialog(
                 }
             ) {
                 Text(stringResource(R.string.generic_ok))
-            }
-        }
-    }
-}
-
-/**
- * Reusable dropdown field used by EMG settings for channel count and mode.
- */
-@Composable
-private fun SelectionDropdownField(
-    label: String,
-    selectedText: String,
-    options: List<String>,
-    onSelected: (Int) -> Unit
-) {
-    var expanded by remember(label, selectedText, options) { mutableStateOf(false) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label)
-
-        Box(modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { expanded = true }
-            ) {
-                Text(selectedText)
-            }
-
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                options.forEachIndexed { index, option ->
-                    DropdownMenuItem(
-                        text = { Text(option) },
-                        onClick = {
-                            expanded = false
-                            onSelected(index)
-                        }
-                    )
-                }
             }
         }
     }

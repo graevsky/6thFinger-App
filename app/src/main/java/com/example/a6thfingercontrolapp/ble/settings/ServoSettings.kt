@@ -6,7 +6,7 @@ import org.json.JSONObject
  * Servo configuration for one pair.
  */
 data class ServoSettings(
-    val servoPin: Int = 18,
+    val servoPin: Int = 21,
     val servoMinDeg: Int = 40,
     val servoMaxDeg: Int = 180,
     val servoManual: Int = 0,
@@ -27,7 +27,7 @@ data class ServoSettings(
     companion object {
         fun fromJson(json: JSONObject): ServoSettings {
             return ServoSettings(
-                servoPin = json.optInt("servoPin", 18),
+                servoPin = json.optInt("servoPin", 21),
                 servoMinDeg = json.optInt("servoMinDeg", 40),
                 servoMaxDeg = json.optInt("servoMaxDeg", 180),
                 servoManual = json.optInt("servoManual", 0),
