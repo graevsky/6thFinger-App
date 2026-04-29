@@ -18,6 +18,7 @@ fun uiErrorText(raw: String?): String? {
         k == "user_not_found" || k == "not_found" -> stringResource(R.string.err_user_not_found)
 
         k == "email_in_use" -> stringResource(R.string.err_email_in_use)
+        k == "email_disabled" -> stringResource(R.string.err_email_disabled)
         k == "email_mismatch" -> stringResource(R.string.err_email_mismatch)
         k == "email_not_set" -> stringResource(R.string.err_email_not_set)
 

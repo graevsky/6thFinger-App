@@ -47,8 +47,7 @@ internal fun AccountProfileSection(
     onPickAvatar: () -> Unit,
     onRemoveAvatar: () -> Unit,
     onLoginClick: () -> Unit,
-    onRegisterClick: () -> Unit,
-    onLogoutClick: () -> Unit
+    onRegisterClick: () -> Unit
 ) {
     val avatarSize = 180.dp
 
@@ -143,11 +142,6 @@ internal fun AccountProfileSection(
                     onClick = onRegisterClick
                 ) { Text(stringResource(R.string.auth_register)) }
             }
-        } else {
-            Button(
-                onClick = onLogoutClick,
-                modifier = Modifier.padding(top = 8.dp)
-            ) { Text(stringResource(R.string.auth_logout)) }
         }
     }
 }

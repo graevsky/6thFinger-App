@@ -29,7 +29,7 @@
     <string name="auth_sign_in">Войти</string>
     <string name="auth_register">Регистрация</string>
     <string name="auth_login">Вход</string>
-    <string name="auth_logout">Выйти</string>
+    <string name="auth_logout">Выйти из аккаунта</string>
     <string name="auth_continue_guest">Продолжить как гость</string>
     <string name="auth_guest">Гость</string>
     <string name="auth_guest_hint">Вы используете приложение как гость. Войдите, чтобы синхронизировать настройки.</string>
@@ -392,4 +392,5 @@
     <string name="live_control_connect_required">Подключите протез, чтобы использовать live control.</string>
     <string name="live_control_unlock_required">Разблокируйте управление, чтобы использовать live control.</string>
 
+    <string name="err_email_disabled">Почтовые функции отключены в этой сборке</string>
 </resources>

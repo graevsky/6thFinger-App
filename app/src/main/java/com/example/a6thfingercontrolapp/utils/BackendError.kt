@@ -65,6 +65,12 @@ fun parseBackendError(e: Throwable): String {
             return "not_found"
         }
 
+        if (code == 503) {
+            if ("email disabled" in lc || "email sending disabled" in lc) {
+                return "email_disabled"
+            }
+        }
+
         return "http_$code"
     }
 
@@ -103,6 +109,7 @@ private fun toErrorKey(err: String): String =
         "USER_NOT_FOUND" -> "user_not_found"
 
         "EMAIL_IN_USE", "EMAIL_ALREADY_IN_USE" -> "email_in_use"
+        "EMAIL_DISABLED" -> "email_disabled"
         "TOO_MANY_REQUESTS" -> "too_many_requests"
         "CODE_EXPIRED" -> "code_expired"
         "WRONG_CODE" -> "wrong_code"

@@ -1,9 +1,7 @@
 package com.example.a6thfingercontrolapp.ui.account
 
-import android.app.Activity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import com.example.a6thfingercontrolapp.BuildConfig
@@ -12,6 +10,7 @@ import com.example.a6thfingercontrolapp.account.AccountViewModel
 import com.example.a6thfingercontrolapp.preferences.AppPreferencesViewModel
 import com.example.a6thfingercontrolapp.ui.common.SettingsDialog
 import com.example.a6thfingercontrolapp.ui.common.SettingsLink
+import com.example.a6thfingercontrolapp.utils.FeatureFlags
 import com.example.a6thfingercontrolapp.utils.uiErrorText
 
 /**
@@ -27,30 +26,35 @@ internal fun AccountSettingsHost(
     accountVm: AccountViewModel,
     emailState: AccountEmailUiState,
     onVisibleChange: (Boolean) -> Unit,
+    onLogout: () -> Unit,
     onChangePassword: (String) -> Unit
 ) {
     if (!visible) return
 
     val haptic = LocalHapticFeedback.current
-    val activity = LocalContext.current as? Activity
+    val isEmailEnabled = FeatureFlags.isEmailEnabled
 
-    val emailErrText = uiErrorText(emailState.emailErrorKey)
+    val emailErrText = if (isEmailEnabled) uiErrorText(emailState.emailErrorKey) else null
     val emailLine =
-        when {
-            emailState.emailLoading -> stringResource(R.string.loading)
-            !emailErrText.isNullOrBlank() && !emailState.emailShown.isNullOrBlank() -> {
-                stringResource(R.string.account_email_current, emailState.emailShown!!)
-            }
+        if (!isEmailEnabled) {
+            null
+        } else {
+            when {
+                emailState.emailLoading -> stringResource(R.string.loading)
+                !emailErrText.isNullOrBlank() && !emailState.emailShown.isNullOrBlank() -> {
+                    stringResource(R.string.account_email_current, emailState.emailShown!!)
+                }
 
-            !emailErrText.isNullOrBlank() && emailState.emailShown.isNullOrBlank() -> {
-                stringResource(R.string.account_email_not_set)
-            }
+                !emailErrText.isNullOrBlank() && emailState.emailShown.isNullOrBlank() -> {
+                    stringResource(R.string.account_email_not_set)
+                }
 
-            emailState.hasEmail && !emailState.emailShown.isNullOrBlank() -> {
-                stringResource(R.string.account_email_current, emailState.emailShown!!)
-            }
+                emailState.hasEmail && !emailState.emailShown.isNullOrBlank() -> {
+                    stringResource(R.string.account_email_current, emailState.emailShown!!)
+                }
 
-            else -> stringResource(R.string.account_email_not_set)
+                else -> stringResource(R.string.account_email_not_set)
+            }
         }
 
     val links = listOf(
@@ -85,30 +89,51 @@ internal fun AccountSettingsHost(
                     accountVm.updateLanguageRemote(newLang)
                 }
                 onVisibleChange(false)
-                activity?.recreate()
             }
         },
         currentTheme = theme,
         onThemeSelect = { appPreferencesVm.setAppTheme(it) },
         isLoggedIn = username != null,
+        showEmailManagement = isEmailEnabled,
         emailLine = emailLine,
         emailErrorLine = emailErrText,
-        hasEmail = emailState.hasEmail,
-        onAddEmail = {
-            onVisibleChange(false)
-            emailState.openAddEmail()
+        hasEmail = isEmailEnabled && emailState.hasEmail,
+        onAddEmail = if (isEmailEnabled) {
+            {
+                onVisibleChange(false)
+                emailState.openAddEmail()
+            }
+        } else {
+            null
         },
-        onChangeEmail = {
-            onVisibleChange(false)
-            emailState.openChangeEmail()
+        onChangeEmail = if (isEmailEnabled) {
+            {
+                onVisibleChange(false)
+                emailState.openChangeEmail()
+            }
+        } else {
+            null
         },
-        onRemoveEmail = {
-            onVisibleChange(false)
-            emailState.openRemoveEmail()
+        onRemoveEmail = if (isEmailEnabled) {
+            {
+                onVisibleChange(false)
+                emailState.openRemoveEmail()
+            }
+        } else {
+            null
         },
         onChangePassword = {
             onVisibleChange(false)
             username?.let { onChangePassword(it) }
+        },
+        onLogout = if (username != null) {
+            {
+                onVisibleChange(false)
+                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                onLogout()
+            }
+        } else {
+            null
         },
         links = links
     )

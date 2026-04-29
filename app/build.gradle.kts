@@ -55,6 +55,13 @@ val appClientToken = readConfig(
     default = ""
 )
 
+val emailOff = readConfig(
+    "email_off",
+    "EMAIL_OFF",
+    "app.emailOff",
+    default = "false"
+).equals("true", ignoreCase = true)
+
 val appGuideUrl = readConfig(
     "APP_GUIDE_URL",
     "app.guideUrl",
@@ -100,6 +107,7 @@ android {
             appClientHeaderName.asBuildConfigString()
         )
         buildConfigField("String", "APP_CLIENT_TOKEN", appClientToken.asBuildConfigString())
+        buildConfigField("boolean", "EMAIL_OFF", emailOff.toString())
 
         buildConfigField("String", "APP_GUIDE_URL", appGuideUrl.asBuildConfigString())
         buildConfigField("String", "APP_REPOSITORY_URL", appRepositoryUrl.asBuildConfigString())

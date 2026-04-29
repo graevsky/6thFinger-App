@@ -6,6 +6,7 @@ import com.example.a6thfingercontrolapp.network.BackendApi
 import com.example.a6thfingercontrolapp.network.EmailConfirmIn
 import com.example.a6thfingercontrolapp.network.EmailRemoveConfirmIn
 import com.example.a6thfingercontrolapp.network.EmailStartAddIn
+import com.example.a6thfingercontrolapp.utils.FeatureFlags
 import com.example.a6thfingercontrolapp.utils.wrapAuthErrors
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -20,6 +21,12 @@ internal class AuthAccountService(
     private val sessionGateway: AuthSessionGateway,
     private val appContext: Context
 ) {
+    private fun requireEmailEnabled() {
+        if (!FeatureFlags.isEmailEnabled) {
+            throw Exception("email_disabled")
+        }
+    }
+
     suspend fun uploadAvatar(localPath: String) = wrapAuthErrors {
         val avatar = File(localPath)
         if (!avatar.exists()) throw Exception("Avatar file not found")
@@ -60,24 +67,28 @@ internal class AuthAccountService(
     }
 
     suspend fun emailStartAdd(email: String) = wrapAuthErrors {
+        requireEmailEnabled()
         sessionGateway.withAuthorizedRequest { auth ->
             api.emailStartAdd(auth, EmailStartAddIn(email.trim()))
         }
     }
 
     suspend fun emailConfirmAdd(email: String, code: String) = wrapAuthErrors {
+        requireEmailEnabled()
         sessionGateway.withAuthorizedRequest { auth ->
             api.emailConfirmAdd(auth, EmailConfirmIn(email.trim(), code.trim()))
         }
     }
 
     suspend fun emailStartRemove() = wrapAuthErrors {
+        requireEmailEnabled()
         sessionGateway.withAuthorizedRequest { auth ->
             api.emailStartRemove(auth)
         }
     }
 
     suspend fun emailConfirmRemove(code: String?, recoveryCode: String?) = wrapAuthErrors {
+        requireEmailEnabled()
         sessionGateway.withAuthorizedRequest { auth ->
             api.emailConfirmRemove(
                 auth,

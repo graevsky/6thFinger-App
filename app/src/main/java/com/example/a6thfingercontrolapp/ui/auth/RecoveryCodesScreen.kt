@@ -42,6 +42,7 @@ import com.example.a6thfingercontrolapp.R
 fun RecoveryCodesScreen(
     username: String,
     codes: List<String>,
+    loading: Boolean = false,
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
@@ -162,11 +163,13 @@ fun RecoveryCodesScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                TextButton(onClick = onBack) { Text(stringResource(R.string.auth_back)) }
+                TextButton(enabled = !loading, onClick = onBack) {
+                    Text(stringResource(R.string.auth_back))
+                }
 
                 Button(
                     onClick = onContinue,
-                    enabled = savedChecked
+                    enabled = savedChecked && !loading
                 ) { Text(stringResource(R.string.recovery_codes_continue)) }
             }
         }
