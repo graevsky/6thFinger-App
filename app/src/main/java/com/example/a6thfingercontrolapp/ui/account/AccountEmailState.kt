@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.example.a6thfingercontrolapp.auth.AuthViewModel
 import com.example.a6thfingercontrolapp.data.AppSettingsStore
 import com.example.a6thfingercontrolapp.network.PasswordResetStartOut
+import com.example.a6thfingercontrolapp.utils.FeatureFlags
 import com.example.a6thfingercontrolapp.utils.isNetworkErrorKey
 import kotlinx.coroutines.delay
 
@@ -57,10 +58,12 @@ internal class AccountEmailUiState {
         get() = refreshTick
 
     fun refreshEmailInfo() {
+        if (!FeatureFlags.isEmailEnabled) return
         refreshTick++
     }
 
     fun openAddEmail() {
+        if (!FeatureFlags.isEmailEnabled) return
         emailDialogMode = EmailDialogMode.Add
         addStep = AddStep.EnterEmail
         addEmail = ""
@@ -70,6 +73,7 @@ internal class AccountEmailUiState {
     }
 
     fun openRemoveEmail() {
+        if (!FeatureFlags.isEmailEnabled) return
         emailDialogMode = EmailDialogMode.Remove
         removeStep = RemoveStep.ChooseMethod
         removeCode = ""
@@ -79,6 +83,7 @@ internal class AccountEmailUiState {
     }
 
     fun openChangeEmail() {
+        if (!FeatureFlags.isEmailEnabled) return
         emailDialogMode = EmailDialogMode.Change
         changeStep = ChangeStep.ChooseOldMethod
         changeOldCode = ""
@@ -99,10 +104,12 @@ internal fun rememberAccountEmailState(
     val state = remember { AccountEmailUiState() }
     state.cachedEmail = settingsStore.getCachedEmail().collectAsState(initial = null).value
 
-    LaunchedEffect(username, state.refreshKey) {
-        if (username.isNullOrBlank()) {
+    LaunchedEffect(username, state.refreshKey, FeatureFlags.isEmailEnabled) {
+        if (username.isNullOrBlank() || !FeatureFlags.isEmailEnabled) {
             state.emailInfo = null
+            state.emailLoading = false
             state.emailErrorKey = null
+            state.emailDialogMode = EmailDialogMode.None
             settingsStore.setCachedEmail(null)
             return@LaunchedEffect
         }
@@ -124,7 +131,8 @@ internal fun rememberAccountEmailState(
         }
     }
 
-    LaunchedEffect(state.emailErrorKey, username) {
+    LaunchedEffect(state.emailErrorKey, username, FeatureFlags.isEmailEnabled) {
+        if (!FeatureFlags.isEmailEnabled) return@LaunchedEffect
         if (!isNetworkErrorKey(state.emailErrorKey)) return@LaunchedEffect
         while (isNetworkErrorKey(state.emailErrorKey) && username != null) {
             delay(30_000L)

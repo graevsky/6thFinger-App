@@ -12,6 +12,7 @@ import com.example.a6thfingercontrolapp.account.AccountViewModel
 import com.example.a6thfingercontrolapp.preferences.AppPreferencesViewModel
 import com.example.a6thfingercontrolapp.ui.common.SettingsDialog
 import com.example.a6thfingercontrolapp.ui.common.SettingsLink
+import com.example.a6thfingercontrolapp.utils.FeatureFlags
 import com.example.a6thfingercontrolapp.utils.uiErrorText
 
 /**
@@ -33,24 +34,29 @@ internal fun AccountSettingsHost(
 
     val haptic = LocalHapticFeedback.current
     val activity = LocalContext.current as? Activity
+    val isEmailEnabled = FeatureFlags.isEmailEnabled
 
-    val emailErrText = uiErrorText(emailState.emailErrorKey)
+    val emailErrText = if (isEmailEnabled) uiErrorText(emailState.emailErrorKey) else null
     val emailLine =
-        when {
-            emailState.emailLoading -> stringResource(R.string.loading)
-            !emailErrText.isNullOrBlank() && !emailState.emailShown.isNullOrBlank() -> {
-                stringResource(R.string.account_email_current, emailState.emailShown!!)
-            }
+        if (!isEmailEnabled) {
+            null
+        } else {
+            when {
+                emailState.emailLoading -> stringResource(R.string.loading)
+                !emailErrText.isNullOrBlank() && !emailState.emailShown.isNullOrBlank() -> {
+                    stringResource(R.string.account_email_current, emailState.emailShown!!)
+                }
 
-            !emailErrText.isNullOrBlank() && emailState.emailShown.isNullOrBlank() -> {
-                stringResource(R.string.account_email_not_set)
-            }
+                !emailErrText.isNullOrBlank() && emailState.emailShown.isNullOrBlank() -> {
+                    stringResource(R.string.account_email_not_set)
+                }
 
-            emailState.hasEmail && !emailState.emailShown.isNullOrBlank() -> {
-                stringResource(R.string.account_email_current, emailState.emailShown!!)
-            }
+                emailState.hasEmail && !emailState.emailShown.isNullOrBlank() -> {
+                    stringResource(R.string.account_email_current, emailState.emailShown!!)
+                }
 
-            else -> stringResource(R.string.account_email_not_set)
+                else -> stringResource(R.string.account_email_not_set)
+            }
         }
 
     val links = listOf(
@@ -91,9 +97,10 @@ internal fun AccountSettingsHost(
         currentTheme = theme,
         onThemeSelect = { appPreferencesVm.setAppTheme(it) },
         isLoggedIn = username != null,
+        showEmailManagement = isEmailEnabled,
         emailLine = emailLine,
         emailErrorLine = emailErrText,
-        hasEmail = emailState.hasEmail,
+        hasEmail = isEmailEnabled && emailState.hasEmail,
         onAddEmail = {
             onVisibleChange(false)
             emailState.openAddEmail()

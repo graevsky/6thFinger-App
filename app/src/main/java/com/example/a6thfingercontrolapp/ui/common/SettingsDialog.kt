@@ -59,6 +59,7 @@ fun SettingsDialog(
     onThemeSelect: ((String) -> Unit)? = null,
 
     isLoggedIn: Boolean = false,
+    showEmailManagement: Boolean = true,
     emailLine: String? = null,
     emailErrorLine: String? = null,
     hasEmail: Boolean = false,
@@ -188,32 +189,34 @@ fun SettingsDialog(
                         style = MaterialTheme.typography.titleSmall
                     )
 
-                    if (!emailLine.isNullOrBlank()) {
-                        Text(emailLine, style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (!emailErrorLine.isNullOrBlank()) {
-                        Text(
-                            emailErrorLine,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
+                    if (showEmailManagement) {
+                        if (!emailLine.isNullOrBlank()) {
+                            Text(emailLine, style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (!emailErrorLine.isNullOrBlank()) {
+                            Text(
+                                emailErrorLine,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
 
-                    if (!hasEmail) {
-                        TextButton(
-                            onClick = { onAddEmail?.invoke() },
-                            enabled = onAddEmail != null
-                        ) { Text(stringResource(R.string.account_email_add)) }
-                    } else {
-                        TextButton(
-                            onClick = { onChangeEmail?.invoke() },
-                            enabled = onChangeEmail != null
-                        ) { Text(stringResource(R.string.account_email_change)) }
+                        if (!hasEmail) {
+                            TextButton(
+                                onClick = { onAddEmail?.invoke() },
+                                enabled = onAddEmail != null
+                            ) { Text(stringResource(R.string.account_email_add)) }
+                        } else {
+                            TextButton(
+                                onClick = { onChangeEmail?.invoke() },
+                                enabled = onChangeEmail != null
+                            ) { Text(stringResource(R.string.account_email_change)) }
 
-                        TextButton(
-                            onClick = { onRemoveEmail?.invoke() },
-                            enabled = onRemoveEmail != null
-                        ) { Text(stringResource(R.string.account_email_remove)) }
+                            TextButton(
+                                onClick = { onRemoveEmail?.invoke() },
+                                enabled = onRemoveEmail != null
+                            ) { Text(stringResource(R.string.account_email_remove)) }
+                        }
                     }
 
                     TextButton(

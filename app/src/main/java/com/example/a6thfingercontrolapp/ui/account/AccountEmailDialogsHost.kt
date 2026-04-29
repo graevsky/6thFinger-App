@@ -6,6 +6,7 @@ import com.example.a6thfingercontrolapp.auth.AuthViewModel
 import com.example.a6thfingercontrolapp.ui.account.dialogs.EmailAddDialog
 import com.example.a6thfingercontrolapp.ui.account.dialogs.EmailChangeDialog
 import com.example.a6thfingercontrolapp.ui.account.dialogs.EmailRemoveDialog
+import com.example.a6thfingercontrolapp.utils.FeatureFlags
 import kotlinx.coroutines.launch
 
 /**
@@ -16,6 +17,8 @@ internal fun AccountEmailDialogsHost(
     state: AccountEmailUiState,
     authVm: AuthViewModel
 ) {
+    if (!FeatureFlags.isEmailEnabled) return
+
     val scope = rememberCoroutineScope()
 
     if (state.emailDialogMode == EmailDialogMode.Add) {
