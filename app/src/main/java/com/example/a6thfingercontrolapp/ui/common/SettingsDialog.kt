@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.AlertDialog
@@ -76,6 +78,15 @@ fun SettingsDialog(
     val settingsStore = remember { AppSettingsStore(context.applicationContext) }
     val storedTheme by settingsStore.getThemeMode().collectAsState(initial = APP_THEME_SYSTEM)
     val selectedTheme = currentTheme ?: storedTheme
+    val canManageEmail = showEmailManagement &&
+            (
+                    onAddEmail != null ||
+                            onChangeEmail != null ||
+                            onRemoveEmail != null ||
+                            !emailLine.isNullOrBlank() ||
+                            !emailErrorLine.isNullOrBlank() ||
+                            hasEmail
+                    )
 
     /** Opens project links in an external app. */
     fun openUrl(url: String) {
@@ -106,7 +117,9 @@ fun SettingsDialog(
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
             ) {
                 Text("${stringResource(R.string.settings_language)}:")
 
@@ -149,39 +162,6 @@ fun SettingsDialog(
                     onClick = { selectTheme(APP_THEME_DARK) }
                 )
 
-                if (links.isNotEmpty()) {
-                    Divider(modifier = Modifier.padding(top = 4.dp))
-                    Text(
-                        stringResource(R.string.settings_links),
-                        style = MaterialTheme.typography.titleSmall
-                    )
-
-                    links.forEach { link ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
-                                    openUrl(link.url)
-                                }
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = link.title,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Icon(
-                                imageVector = Icons.Default.OpenInNew,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-
                 if (isLoggedIn) {
                     Divider(modifier = Modifier.padding(top = 4.dp))
                     Text(
@@ -189,7 +169,7 @@ fun SettingsDialog(
                         style = MaterialTheme.typography.titleSmall
                     )
 
-                    if (showEmailManagement) {
+                    if (canManageEmail) {
                         if (!emailLine.isNullOrBlank()) {
                             Text(emailLine, style = MaterialTheme.typography.bodySmall)
                         }
@@ -223,6 +203,39 @@ fun SettingsDialog(
                         onClick = { onChangePassword?.invoke() },
                         enabled = onChangePassword != null
                     ) { Text(stringResource(R.string.settings_password_change)) }
+                }
+
+                if (links.isNotEmpty()) {
+                    Divider(modifier = Modifier.padding(top = 4.dp))
+                    Text(
+                        stringResource(R.string.settings_links),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+
+                    links.forEach { link ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                                    openUrl(link.url)
+                                }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = link.title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.OpenInNew,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
         },

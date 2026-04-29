@@ -101,17 +101,29 @@ internal fun AccountSettingsHost(
         emailLine = emailLine,
         emailErrorLine = emailErrText,
         hasEmail = isEmailEnabled && emailState.hasEmail,
-        onAddEmail = {
-            onVisibleChange(false)
-            emailState.openAddEmail()
+        onAddEmail = if (isEmailEnabled) {
+            {
+                onVisibleChange(false)
+                emailState.openAddEmail()
+            }
+        } else {
+            null
         },
-        onChangeEmail = {
-            onVisibleChange(false)
-            emailState.openChangeEmail()
+        onChangeEmail = if (isEmailEnabled) {
+            {
+                onVisibleChange(false)
+                emailState.openChangeEmail()
+            }
+        } else {
+            null
         },
-        onRemoveEmail = {
-            onVisibleChange(false)
-            emailState.openRemoveEmail()
+        onRemoveEmail = if (isEmailEnabled) {
+            {
+                onVisibleChange(false)
+                emailState.openRemoveEmail()
+            }
+        } else {
+            null
         },
         onChangePassword = {
             onVisibleChange(false)
