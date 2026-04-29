@@ -32,6 +32,7 @@ import com.example.a6thfingercontrolapp.ui.common.nextCooldownDeadline
 import com.example.a6thfingercontrolapp.ui.common.rememberCooldownRemainingSeconds
 import com.example.a6thfingercontrolapp.ui.passwordreset.PasswordResetScreen
 import com.example.a6thfingercontrolapp.ui.theme._6thFingerControllAppTheme
+import com.example.a6thfingercontrolapp.utils.FeatureFlags
 import kotlinx.coroutines.launch
 
 /** Auth flow screens. */
@@ -55,6 +56,7 @@ fun AppRootContent(
     appPreferencesVm: AppPreferencesViewModel
 ) {
     val appTheme by appPreferencesVm.appTheme.collectAsState()
+    val isEmailEnabled = FeatureFlags.isEmailEnabled
 
     _6thFingerControllAppTheme(themeMode = appTheme) {
         val scope = rememberCoroutineScope()
@@ -86,13 +88,21 @@ fun AppRootContent(
         var postLoading by remember { mutableStateOf(false) }
         var postErrKey by rememberSaveable { mutableStateOf<String?>(null) }
 
-        LaunchedEffect(authFlowScreen, pendingRecovery) {
+        LaunchedEffect(authFlowScreen, pendingRecovery, isEmailEnabled) {
             if ((authFlowScreen == AuthFlowScreen.RecoveryCodes ||
                         authFlowScreen == AuthFlowScreen.PostRegisterEmail ||
                         authFlowScreen == AuthFlowScreen.PostRegisterEmailCode) &&
                 pendingRecovery == null
             ) {
                 authFlowScreen = AuthFlowScreen.Login
+                return@LaunchedEffect
+            }
+
+            if (!isEmailEnabled &&
+                (authFlowScreen == AuthFlowScreen.PostRegisterEmail ||
+                        authFlowScreen == AuthFlowScreen.PostRegisterEmailCode)
+            ) {
+                authFlowScreen = AuthFlowScreen.RecoveryCodes
             }
         }
 
@@ -255,12 +265,28 @@ private fun AuthOverlayContent(
             RecoveryCodesScreen(
                 username = data.username,
                 codes = data.codes,
+                loading = postLoading,
                 onBack = { onAuthFlowScreenChange(AuthFlowScreen.Register) },
                 onContinue = {
                     onPrefillUsernameChange(data.username)
                     onPostErrKeyChange(null)
-                    onPostLoadingChange(false)
-                    onAuthFlowScreenChange(AuthFlowScreen.PostRegisterEmail)
+                    if (!FeatureFlags.isEmailEnabled) {
+                        onPostLoadingChange(true)
+                        scopeLaunch {
+                            try {
+                                authVm.postRegisterFinishWithoutEmail()
+                                onResetPostRegisterFields()
+                                onAuthFlowScreenChange(AuthFlowScreen.Start)
+                            } catch (e: Exception) {
+                                onPostErrKeyChange(e.message)
+                            } finally {
+                                onPostLoadingChange(false)
+                            }
+                        }
+                    } else {
+                        onPostLoadingChange(false)
+                        onAuthFlowScreenChange(AuthFlowScreen.PostRegisterEmail)
+                    }
                 }
             )
         }
