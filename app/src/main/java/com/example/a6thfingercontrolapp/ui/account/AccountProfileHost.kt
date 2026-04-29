@@ -47,8 +47,7 @@ internal fun AccountProfileHost(
     accountVm: AccountViewModel,
     settingsStore: AppSettingsStore,
     onLoginClick: () -> Unit,
-    onRegisterClick: () -> Unit,
-    onLogoutClick: () -> Unit
+    onRegisterClick: () -> Unit
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -169,10 +168,6 @@ internal fun AccountProfileHost(
         onRegisterClick = {
             haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
             onRegisterClick()
-        },
-        onLogoutClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-            onLogoutClick()
         }
     )
 

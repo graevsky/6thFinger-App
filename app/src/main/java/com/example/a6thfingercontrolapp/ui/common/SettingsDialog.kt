@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -69,6 +70,7 @@ fun SettingsDialog(
     onChangeEmail: (() -> Unit)? = null,
     onRemoveEmail: (() -> Unit)? = null,
     onChangePassword: (() -> Unit)? = null,
+    onLogout: (() -> Unit)? = null,
 
     links: List<SettingsLink> = emptyList()
 ) {
@@ -234,6 +236,24 @@ fun SettingsDialog(
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )
+                        }
+                    }
+                }
+
+                if (onLogout != null) {
+                    Divider(modifier = Modifier.padding(top = 4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Button(
+                            onClick = onLogout,
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            )
+                        ) {
+                            Text(stringResource(R.string.auth_logout))
                         }
                     }
                 }

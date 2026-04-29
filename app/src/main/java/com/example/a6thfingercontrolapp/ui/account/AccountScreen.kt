@@ -142,8 +142,7 @@ fun AccountScreen(
                 accountVm = accountVm,
                 settingsStore = settingsStore,
                 onLoginClick = onLoginClick,
-                onRegisterClick = onRegisterClick,
-                onLogoutClick = { authVm.logout() }
+                onRegisterClick = onRegisterClick
             )
 
             AccountDevicesCard(
@@ -179,6 +178,7 @@ fun AccountScreen(
         accountVm = accountVm,
         emailState = emailState,
         onVisibleChange = { showSettings = it },
+        onLogout = { authVm.logout() },
         onChangePassword = onChangePassword
     )
 

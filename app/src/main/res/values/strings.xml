@@ -29,7 +29,7 @@
     <string name="auth_sign_in">Sign In</string>
     <string name="auth_register">Register</string>
     <string name="auth_login">Log In</string>
-    <string name="auth_logout">Log Out</string>
+    <string name="auth_logout">Log out from app </string>
     <string name="auth_continue_guest">Continue as Guest</string>
     <string name="auth_guest">Guest</string>
     <string name="auth_guest_hint">You are using the app as a guest. Sign in to sync settings.</string>

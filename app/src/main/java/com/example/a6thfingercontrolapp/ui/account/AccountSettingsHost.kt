@@ -26,6 +26,7 @@ internal fun AccountSettingsHost(
     accountVm: AccountViewModel,
     emailState: AccountEmailUiState,
     onVisibleChange: (Boolean) -> Unit,
+    onLogout: () -> Unit,
     onChangePassword: (String) -> Unit
 ) {
     if (!visible) return
@@ -124,6 +125,15 @@ internal fun AccountSettingsHost(
         onChangePassword = {
             onVisibleChange(false)
             username?.let { onChangePassword(it) }
+        },
+        onLogout = if (username != null) {
+            {
+                onVisibleChange(false)
+                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                onLogout()
+            }
+        } else {
+            null
         },
         links = links
     )
