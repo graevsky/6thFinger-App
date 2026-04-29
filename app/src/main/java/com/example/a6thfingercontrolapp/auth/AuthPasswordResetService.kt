@@ -8,6 +8,7 @@ import com.example.a6thfingercontrolapp.network.PasswordResetRecoveryVerifyIn
 import com.example.a6thfingercontrolapp.network.PasswordResetStartIn
 import com.example.a6thfingercontrolapp.network.PasswordResetStartOut
 import com.example.a6thfingercontrolapp.security.srp.SrpRegister
+import com.example.a6thfingercontrolapp.utils.FeatureFlags
 import com.example.a6thfingercontrolapp.utils.wrapAuthErrors
 
 /**
@@ -16,11 +17,18 @@ import com.example.a6thfingercontrolapp.utils.wrapAuthErrors
 internal class AuthPasswordResetService(
     private val api: BackendApi
 ) {
+    private fun requireEmailEnabled() {
+        if (!FeatureFlags.isEmailEnabled) {
+            throw Exception("email_disabled")
+        }
+    }
+
     suspend fun passwordResetStart(username: String): PasswordResetStartOut = wrapAuthErrors {
         api.passwordResetStart(PasswordResetStartIn(username.trim().lowercase()))
     }
 
     suspend fun passwordResetEmailSend(username: String, email: String) = wrapAuthErrors {
+        requireEmailEnabled()
         api.passwordResetEmailSend(
             PasswordResetEmailSendIn(
                 username = username.trim().lowercase(),
@@ -31,6 +39,7 @@ internal class AuthPasswordResetService(
 
     suspend fun passwordResetEmailVerify(username: String, email: String, code: String): String =
         wrapAuthErrors {
+            requireEmailEnabled()
             val result = api.passwordResetEmailVerify(
                 PasswordResetEmailVerifyIn(
                     username = username.trim().lowercase(),

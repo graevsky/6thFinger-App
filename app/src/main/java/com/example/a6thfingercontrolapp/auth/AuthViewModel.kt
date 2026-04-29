@@ -3,10 +3,11 @@ package com.example.a6thfingercontrolapp.auth
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.a6thfingercontrolapp.data.AuthState
 import com.example.a6thfingercontrolapp.data.repositories.AccountSyncRepository
 import com.example.a6thfingercontrolapp.data.repositories.AuthRepository
-import com.example.a6thfingercontrolapp.data.AuthState
 import com.example.a6thfingercontrolapp.network.PasswordResetStartOut
+import com.example.a6thfingercontrolapp.utils.FeatureFlags
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -126,6 +127,12 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private fun requireEmailEnabled() {
+        if (!FeatureFlags.isEmailEnabled) {
+            throw Exception("email_disabled")
+        }
+    }
+
     /**
      * Starts the dedicated account sync controller after a successful login.
      */
@@ -209,6 +216,8 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
      * Logs in during registration if needed and starts email verification.
      */
     suspend fun postRegisterEmailStart(email: String) {
+        requireEmailEnabled()
+
         val u = pendingRegisterUsername ?: throw Exception("Registration state expired")
         val p = pendingRegisterPassword ?: throw Exception("Registration state expired")
 
@@ -226,6 +235,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
      * Confirms post-registration email and clears temporary registration state.
      */
     suspend fun postRegisterEmailConfirm(email: String, code: String) {
+        requireEmailEnabled()
         runProtected { repo.emailConfirmAdd(email, code) }
         clearPostRegisterState()
     }
@@ -233,11 +243,15 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun passwordResetStart(username: String): PasswordResetStartOut =
         repo.passwordResetStart(username)
 
-    suspend fun passwordResetEmailSend(username: String, email: String) =
+    suspend fun passwordResetEmailSend(username: String, email: String) {
+        requireEmailEnabled()
         repo.passwordResetEmailSend(username, email)
+    }
 
-    suspend fun passwordResetEmailVerify(username: String, email: String, code: String): String =
-        repo.passwordResetEmailVerify(username, email, code)
+    suspend fun passwordResetEmailVerify(username: String, email: String, code: String): String {
+        requireEmailEnabled()
+        return repo.passwordResetEmailVerify(username, email, code)
+    }
 
     suspend fun passwordResetRecoveryVerify(username: String, recoveryCode: String): String =
         repo.passwordResetRecoveryVerify(username, recoveryCode)
@@ -245,13 +259,23 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun passwordResetFinish(resetSessionId: String, username: String, newPassword: String) =
         repo.passwordResetFinish(resetSessionId, username, newPassword)
 
-    suspend fun emailStartAdd(email: String) = runProtected { repo.emailStartAdd(email) }
+    suspend fun emailStartAdd(email: String) {
+        requireEmailEnabled()
+        runProtected { repo.emailStartAdd(email) }
+    }
 
-    suspend fun emailConfirmAdd(email: String, code: String) =
+    suspend fun emailConfirmAdd(email: String, code: String) {
+        requireEmailEnabled()
         runProtected { repo.emailConfirmAdd(email, code) }
+    }
 
-    suspend fun emailStartRemove() = runProtected { repo.emailStartRemove() }
+    suspend fun emailStartRemove() {
+        requireEmailEnabled()
+        runProtected { repo.emailStartRemove() }
+    }
 
-    suspend fun emailConfirmRemove(code: String?, recoveryCode: String?) =
+    suspend fun emailConfirmRemove(code: String?, recoveryCode: String?) {
+        requireEmailEnabled()
         runProtected { repo.emailConfirmRemove(code, recoveryCode) }
+    }
 }
