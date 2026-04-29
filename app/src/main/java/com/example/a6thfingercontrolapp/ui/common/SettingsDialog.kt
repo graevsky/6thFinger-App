@@ -5,29 +5,33 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -80,6 +84,8 @@ fun SettingsDialog(
     val settingsStore = remember { AppSettingsStore(context.applicationContext) }
     val storedTheme by settingsStore.getThemeMode().collectAsState(initial = APP_THEME_SYSTEM)
     val selectedTheme = currentTheme ?: storedTheme
+    var languageMenuExpanded by remember { mutableStateOf(false) }
+    var themeMenuExpanded by remember { mutableStateOf(false) }
     val canManageEmail = showEmailManagement &&
             (
                     onAddEmail != null ||
@@ -89,6 +95,23 @@ fun SettingsDialog(
                             !emailErrorLine.isNullOrBlank() ||
                             hasEmail
                     )
+    val languageOptions = listOf(
+        SettingsDropdownOption("ru", stringResource(R.string.settings_russian)),
+        SettingsDropdownOption("en", stringResource(R.string.settings_english))
+    )
+    val selectedLanguageLabel = languageOptions
+        .firstOrNull { it.value == currentLang }
+        ?.label
+        ?: currentLang.uppercase()
+    val themeOptions = listOf(
+        SettingsDropdownOption(APP_THEME_SYSTEM, stringResource(R.string.settings_theme_system)),
+        SettingsDropdownOption(APP_THEME_LIGHT, stringResource(R.string.settings_theme_light)),
+        SettingsDropdownOption(APP_THEME_DARK, stringResource(R.string.settings_theme_dark))
+    )
+    val selectedThemeLabel = themeOptions
+        .firstOrNull { it.value == selectedTheme }
+        ?.label
+        ?: themeOptions.first().label
 
     /** Opens project links in an external app. */
     fun openUrl(url: String) {
@@ -123,45 +146,30 @@ fun SettingsDialog(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
-                Text("${stringResource(R.string.settings_language)}:")
-
-                SettingsOptionRow(
-                    title = stringResource(R.string.settings_russian),
-                    selected = currentLang == "ru",
-                    onClick = {
+                SettingsDropdownSelector(
+                    title = stringResource(R.string.settings_language),
+                    selectedLabel = selectedLanguageLabel,
+                    expanded = languageMenuExpanded,
+                    onExpandedChange = { languageMenuExpanded = it },
+                    options = languageOptions,
+                    onSelect = { language ->
+                        languageMenuExpanded = false
                         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
-                        onSelect("ru")
-                    }
-                )
-
-                SettingsOptionRow(
-                    title = stringResource(R.string.settings_english),
-                    selected = currentLang == "en",
-                    onClick = {
-                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
-                        onSelect("en")
+                        onSelect(language)
                     }
                 )
 
                 Divider(modifier = Modifier.padding(top = 4.dp))
-                Text("${stringResource(R.string.settings_theme)}:")
-
-                SettingsOptionRow(
-                    title = stringResource(R.string.settings_theme_system),
-                    selected = selectedTheme == APP_THEME_SYSTEM,
-                    onClick = { selectTheme(APP_THEME_SYSTEM) }
-                )
-
-                SettingsOptionRow(
-                    title = stringResource(R.string.settings_theme_light),
-                    selected = selectedTheme == APP_THEME_LIGHT,
-                    onClick = { selectTheme(APP_THEME_LIGHT) }
-                )
-
-                SettingsOptionRow(
-                    title = stringResource(R.string.settings_theme_dark),
-                    selected = selectedTheme == APP_THEME_DARK,
-                    onClick = { selectTheme(APP_THEME_DARK) }
+                SettingsDropdownSelector(
+                    title = stringResource(R.string.settings_theme),
+                    selectedLabel = selectedThemeLabel,
+                    expanded = themeMenuExpanded,
+                    onExpandedChange = { themeMenuExpanded = it },
+                    options = themeOptions,
+                    onSelect = { theme ->
+                        themeMenuExpanded = false
+                        selectTheme(theme)
+                    }
                 )
 
                 if (isLoggedIn) {
@@ -270,22 +278,56 @@ fun SettingsDialog(
     )
 }
 
-/** Radio row used to choose a setting option. */
+private data class SettingsDropdownOption(
+    val value: String,
+    val label: String
+)
+
+/** Compact dropdown selector used by settings dialog. */
 @Composable
-private fun SettingsOptionRow(
+private fun SettingsDropdownSelector(
     title: String,
-    selected: Boolean,
-    onClick: () -> Unit
+    selectedLabel: String,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    options: List<SettingsDropdownOption>,
+    onSelect: (String) -> Unit
 ) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(selected = selected, onClick = onClick)
-        Spacer(Modifier.width(8.dp))
-        Text(title, style = MaterialTheme.typography.bodyLarge)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("${title}:", style = MaterialTheme.typography.bodyMedium)
+
+        Box(modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { onExpandedChange(true) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = selectedLabel,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = null
+                    )
+                }
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { onExpandedChange(false) }
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.label) },
+                        onClick = { onSelect(option.value) }
+                    )
+                }
+            }
+        }
     }
 }
