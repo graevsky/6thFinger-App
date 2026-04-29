@@ -196,7 +196,6 @@ internal fun PermissionsOnboardingContent(
             onSelect = { newLang ->
                 appPreferencesVm.setAppLanguage(newLang) {
                     showLanguageDialog = false
-                    activity?.recreate()
                 }
             },
             currentTheme = theme,

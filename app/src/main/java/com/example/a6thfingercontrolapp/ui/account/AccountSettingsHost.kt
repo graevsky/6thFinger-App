@@ -1,9 +1,7 @@
 package com.example.a6thfingercontrolapp.ui.account
 
-import android.app.Activity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import com.example.a6thfingercontrolapp.BuildConfig
@@ -33,7 +31,6 @@ internal fun AccountSettingsHost(
     if (!visible) return
 
     val haptic = LocalHapticFeedback.current
-    val activity = LocalContext.current as? Activity
     val isEmailEnabled = FeatureFlags.isEmailEnabled
 
     val emailErrText = if (isEmailEnabled) uiErrorText(emailState.emailErrorKey) else null
@@ -91,7 +88,6 @@ internal fun AccountSettingsHost(
                     accountVm.updateLanguageRemote(newLang)
                 }
                 onVisibleChange(false)
-                activity?.recreate()
             }
         },
         currentTheme = theme,

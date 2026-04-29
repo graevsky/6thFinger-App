@@ -1,6 +1,5 @@
 package com.example.a6thfingercontrolapp.ui.auth
 
-import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -180,14 +179,12 @@ fun StartScreen(
     }
 
     if (showLangDialog) {
-        val activity = LocalContext.current as? Activity
         SettingsDialog(
             currentLang = lang,
             onDismiss = { showLangDialog = false },
             onSelect = { newLang ->
                 appPreferencesVm.setAppLanguage(newLang) {
                     showLangDialog = false
-                    activity?.recreate()
                 }
             },
             currentTheme = theme,
