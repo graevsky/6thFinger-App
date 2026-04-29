@@ -30,6 +30,7 @@ import com.example.a6thfingercontrolapp.network.PasswordResetStartOut
 import com.example.a6thfingercontrolapp.ui.common.DEFAULT_CODE_RESEND_COOLDOWN_SECONDS
 import com.example.a6thfingercontrolapp.ui.common.nextCooldownDeadline
 import com.example.a6thfingercontrolapp.ui.common.rememberCooldownRemainingSeconds
+import com.example.a6thfingercontrolapp.utils.FeatureFlags
 import com.example.a6thfingercontrolapp.utils.PasswordPolicy
 import com.example.a6thfingercontrolapp.utils.uiErrorText
 import kotlinx.coroutines.launch
@@ -49,6 +50,7 @@ fun PasswordResetScreen(
     skipUsername: Boolean = false
 ) {
     val scope = rememberCoroutineScope()
+    val isEmailEnabled = FeatureFlags.isEmailEnabled
 
     var step by rememberSaveable {
         mutableStateOf(if (skipUsername) ResetStep.ChooseMethod else ResetStep.EnterUsername)
@@ -98,6 +100,14 @@ fun PasswordResetScreen(
         }
     }
 
+    LaunchedEffect(step, isEmailEnabled) {
+        if (!isEmailEnabled &&
+            (step == ResetStep.EnterEmail || step == ResetStep.EnterEmailCode)
+        ) {
+            step = ResetStep.ChooseMethod
+        }
+    }
+
     Scaffold { inner ->
         Column(
             modifier = Modifier
@@ -119,11 +129,13 @@ fun PasswordResetScreen(
                 PasswordResetStepContent(
                     step = step,
                     loading = loading,
+                    emailEnabled = isEmailEnabled,
                     username = username,
                     onUsernameChange = { username = it },
                     startInfo = startInfo,
                     onChooseRecoveryMethod = { step = ResetStep.EnterRecoveryCode },
                     onChooseEmailMethod = {
+                        if (!isEmailEnabled) return@PasswordResetStepContent
                         selectedEmail = ""
                         step = ResetStep.EnterEmail
                     },
@@ -134,6 +146,7 @@ fun PasswordResetScreen(
                     emailCode = emailCode,
                     onEmailCodeChange = { emailCode = it },
                     onResendEmailCode = {
+                        if (!isEmailEnabled) return@PasswordResetStepContent
                         errorKey = null
                         loading = true
                         scope.launch {
@@ -178,7 +191,10 @@ fun PasswordResetScreen(
 
                             ResetStep.EnterRecoveryCode -> step = ResetStep.ChooseMethod
                             ResetStep.EnterEmail -> step = ResetStep.ChooseMethod
-                            ResetStep.EnterEmailCode -> step = ResetStep.EnterEmail
+                            ResetStep.EnterEmailCode ->
+                                step =
+                                    if (isEmailEnabled) ResetStep.EnterEmail else ResetStep.ChooseMethod
+
                             ResetStep.NewPassword -> step = ResetStep.ChooseMethod
                             ResetStep.Done -> onFinishedGoToLogin(username.trim().lowercase())
                         }
@@ -235,6 +251,10 @@ fun PasswordResetScreen(
                                 }
 
                                 ResetStep.EnterEmail -> {
+                                    if (!isEmailEnabled) {
+                                        step = ResetStep.ChooseMethod
+                                        return@Button
+                                    }
                                     loading = true
                                     scope.launch {
                                         try {
@@ -254,6 +274,10 @@ fun PasswordResetScreen(
                                 }
 
                                 ResetStep.EnterEmailCode -> {
+                                    if (!isEmailEnabled) {
+                                        step = ResetStep.ChooseMethod
+                                        return@Button
+                                    }
                                     loading = true
                                     scope.launch {
                                         try {

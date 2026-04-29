@@ -26,6 +26,7 @@ import com.example.a6thfingercontrolapp.utils.maskEmail
 fun PasswordResetStepContent(
     step: ResetStep,
     loading: Boolean,
+    emailEnabled: Boolean,
     username: String,
     onUsernameChange: (String) -> Unit,
     startInfo: PasswordResetStartOut?,
@@ -57,6 +58,7 @@ fun PasswordResetStepContent(
 
         ResetStep.ChooseMethod -> ChooseMethodStep(
             loading = loading,
+            emailEnabled = emailEnabled,
             startInfo = startInfo,
             onChooseRecoveryMethod = onChooseRecoveryMethod,
             onChooseEmailMethod = onChooseEmailMethod
@@ -115,6 +117,7 @@ private fun EnterUsernameStep(
 @Composable
 private fun ChooseMethodStep(
     loading: Boolean,
+    emailEnabled: Boolean,
     startInfo: PasswordResetStartOut?,
     onChooseRecoveryMethod: () -> Unit,
     onChooseEmailMethod: () -> Unit
@@ -129,7 +132,9 @@ private fun ChooseMethodStep(
         Text(stringResource(R.string.password_reset_by_recovery))
     }
 
-    val emailAvailable = startInfo?.has_email == true && !startInfo.email.isNullOrBlank()
+    val emailAvailable = emailEnabled &&
+            startInfo?.has_email == true &&
+            !startInfo.email.isNullOrBlank()
     if (emailAvailable) {
         OutlinedButton(
             modifier = Modifier.fillMaxWidth(),
@@ -143,7 +148,7 @@ private fun ChooseMethodStep(
             text = stringResource(R.string.password_reset_email_available),
             style = MaterialTheme.typography.bodySmall
         )
-    } else {
+    } else if (emailEnabled) {
         Text(
             text = stringResource(R.string.password_reset_email_not_available),
             style = MaterialTheme.typography.bodySmall
