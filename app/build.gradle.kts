@@ -7,8 +7,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-val localProps = Properties().apply {
-    val file = rootProject.file("local.properties")
+val secretsProps = Properties().apply {
+    val file = rootProject.file("secrets.properties")
     if (file.exists()) {
         file.inputStream().use { load(it) }
     }
@@ -22,8 +22,8 @@ fun readConfig(vararg keys: String, default: String = ""): String {
         val fromEnv = System.getenv(key)
         if (!fromEnv.isNullOrBlank()) return fromEnv
 
-        val fromLocal = localProps.getProperty(key)
-        if (!fromLocal.isNullOrBlank()) return fromLocal
+        val fromSecrets = secretsProps.getProperty(key)
+        if (!fromSecrets.isNullOrBlank()) return fromSecrets
     }
     return default
 }
