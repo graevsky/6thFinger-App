@@ -1,6 +1,7 @@
 package com.example.a6thfingercontrolapp.data.repositories
 
 import android.content.Context
+import com.example.a6thfingercontrolapp.BuildConfig
 import com.example.a6thfingercontrolapp.auth.AuthAccountService
 import com.example.a6thfingercontrolapp.auth.AuthCloudService
 import com.example.a6thfingercontrolapp.auth.AuthCredentialsService
@@ -13,6 +14,7 @@ import com.example.a6thfingercontrolapp.data.DeviceSettingsRecord
 import com.example.a6thfingercontrolapp.network.BackendApi
 import com.example.a6thfingercontrolapp.network.DeviceOut
 import com.example.a6thfingercontrolapp.network.PasswordResetStartOut
+import com.example.a6thfingercontrolapp.security.ClientAttestationManager
 import kotlinx.coroutines.sync.Mutex
 
 /**
@@ -30,21 +32,36 @@ class AuthRepository private constructor(context: Context) {
         }
     }
 
-    private val api = BackendApi.create()
+    private val api = BackendApi.create(context.applicationContext)
     private val store = AuthStore(context.applicationContext)
     private val appContext = context.applicationContext
+    private val clientAttestationManager = ClientAttestationManager(appContext)
     private val tokenRefreshMutex = Mutex()
 
     val stored = store.authState
+
+    private suspend fun ensureClientSessionIfRequired() {
+        if (BuildConfig.CLIENT_ATTESTATION_REQUIRED) {
+            clientAttestationManager.ensureClientSession()
+        }
+    }
 
     private val sessionGateway = AuthSessionGateway(
         api = api,
         store = store,
         stored = stored,
-        tokenRefreshMutex = tokenRefreshMutex
+        tokenRefreshMutex = tokenRefreshMutex,
+        ensureClientSession = ::ensureClientSessionIfRequired
     )
-    private val credentialsService = AuthCredentialsService(api, sessionGateway)
-    private val passwordResetService = AuthPasswordResetService(api)
+    private val credentialsService = AuthCredentialsService(
+        api = api,
+        sessionGateway = sessionGateway,
+        ensureClientSession = ::ensureClientSessionIfRequired
+    )
+    private val passwordResetService = AuthPasswordResetService(
+        api = api,
+        ensureClientSession = ::ensureClientSessionIfRequired
+    )
     private val cloudService = AuthCloudService(api, sessionGateway)
     private val accountService = AuthAccountService(api, sessionGateway, appContext)
 

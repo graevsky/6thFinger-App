@@ -1,175 +1,95 @@
-# Prothesis controll android app
+# 6th Finger App
 
-[English](#english) | [Русский](#русский)
+[English](#english) | [Русский](#russian)
 
----
+Landing page: [prothesis.ru](https://prothesis.ru)
 
 ## English
 
 ### Overview
 
-`6thFinger-App` is an Android mobile application for a prosthesis control system.
+`6thFinger-App` is an Android application for the 6th Finger prosthesis ecosystem.
 
-Landing page: [prothesis.ru](https://prothesis.ru)
+### Main Features
 
-The application combines:
-
-- local BLE interaction with the controller board
-- cloud account features
-- device settings synchronization
-- avatar and app settings synchronization
-- authentication and password recovery flows
-
----
-
-### Main features
-
+- Bluetooth Low Energy connection with the controller
+- guest mode
 - SRP-based registration and login
-- guest mode without creating a cloud session
-- recovery codes and optional email-based recovery flows
-- BLE device discovery and connection
-- controller authentication and live telemetry
-- live control of servo pairs
-- local device settings editing and board apply/save flow
-- cloud synchronization of app settings and registered devices
-- account avatar upload, download, and deletion
-- language and theme preferences with local and remote sync
-
----
+- recovery codes and optional email recovery
+- local and cloud prosthesis settings
+- avatar sync
+- app language and theme sync
 
 ### Technologies
 
 - Kotlin
 - Jetpack Compose
 - Material 3
-- AndroidX ViewModel
-- Navigation Compose
 - Retrofit
 - OkHttp
 - Moshi
 - Android DataStore
 - Android Keystore
-- Bluetooth Low Energy API
+- Bluetooth Low Energy APIs
+
+### Documentation
+
+- Commands and build instructions: [commands.md](./commands.md)
+- Product guide: [Open guide](https://google.com)
+
+### Architecture
+
+- `ui/` - Compose screens, dialogs and navigation
+- `auth/` - SRP auth, sessions, password reset and account email flows
+- `account/` - post-login sync, avatar sync and remote app settings sync
+- `ble/` - BLE transport, telemetry, live control and device configuration
+- `data/` - repositories, DataStore stores and offline cache
+- `network/` - Retrofit APIs and DTOs
+- `preferences/` - app language and theme preferences
+- `security/` - Android Keystore, client attestation and request signing
+
+### Build Flavors
+
+- `official` - production build for the official backend, attestation enabled
+- `community` - self-hosted build, attestation disabled
+- `local` - local backend build, attestation disabled
+- `officialLocal` - local end-to-end build with attestation enabled
+
+**NB**:
+
+If you have self-hosted server and want to protect it with key (so that other builds can't use your server), you will need to sign app with your key and place public key to server. See below and checkout guides.  
+
+### Configuration Files
+
+- `local.properties` - Android SDK path for local Gradle setup
+- `app-config.properties` - tracked build-time app config
+- `keystore.properties` - local signing config for `official` and `officialLocal`
+
+Use [commands.md](./commands.md) for exact build, install and signing commands.
 
 ---
 
-### Guide
-
-Project guide:
-
-[Open guide](https://google.com)
-
----
-
-### Architecture and project structure
-
-The app is split into several layers and feature packages:
-
-- `ui/` - Compose screens, dialogs, navigation, common UI components, themes
-- `auth/` - authentication flows, session handling, cloud sync helpers, password reset and email account services
-- `account/` - post-login account synchronization, avatar sync, remote settings coordination
-- `ble/` - BLE client, telemetry, live control, board communication, device settings
-- `data/` - DataStore-based local stores, repositories, offline cache models
-- `network/` - Retrofit API interface and DTOs for backend communication
-- `preferences/` - app-wide language and theme controllers
-- `security/` - SRP helpers and Keystore-based token encryption
-- `utils/` - feature flags, error mapping, helper utilities
-- `App.kt` - application entrypoint that applies saved locale before the first activity
-- `MainActivity.kt` - root Android activity that mounts the Compose app and reacts to preference changes
-
-Short flow:
-
-1. `MainActivity` starts the root Compose application.
-2. UI screens talk to ViewModels.
-3. ViewModels delegate to repositories and services.
-4. Repositories work with `BackendApi`, BLE coordinators, and local DataStore stores.
-5. `AccountSyncCoordinator` keeps account-related local and remote state in sync after login.
-
----
-
-### `secrets.properties`
-
-Application build configuration is loaded from `secrets.properties` in the project root. This is temporary solution and will be changed later.
-
-Minimal example:
-
-```properties
-BACKEND_BASE_URL=url
-APP_CLIENT_TOKEN_ENABLED=true
-APP_CLIENT_HEADER_NAME=X-App-Token
-APP_CLIENT_TOKEN=change_me
-
-APP_GUIDE_URL=url
-APP_REPOSITORY_URL=url
-ESP32_FIRMWARE_URL=url
-BACKEND_REPOSITORY_URL=url
-
-EMAIL_OFF=false
-```
-
-Variable description:
-
-- `BACKEND_BASE_URL` - backend base URL used by Retrofit
-- `APP_CLIENT_TOKEN_ENABLED` - enables or disables the app-level header for backend requests
-- `APP_CLIENT_HEADER_NAME` - header name used for the app-level client token
-- `APP_CLIENT_TOKEN` - token value attached to requests when the feature is enabled
-- `APP_GUIDE_URL` - guide link shown in the app settings
-- `APP_REPOSITORY_URL` - app repository link shown in the app settings
-- `ESP32_FIRMWARE_URL` - firmware repository link shown in the app settings
-- `BACKEND_REPOSITORY_URL` - backend repository link shown in the app settings
-- `EMAIL_OFF` - build-time flag that disables all email-related UI and email flows in the app
-
----
-
-### Running the project
-
-1. Make sure `local.properties` contains a valid Android SDK path.
-2. Create `secrets.properties` in the project root.
-3. Open the project in Android Studio.
-4. Build and run the `app` module on a device with BLE support.
-
----
-
-## Русский
+## Russian
 
 ### Обзор
 
-`6thFinger-App` - это Android-приложение для системы управления протезом.
-
-Лендинг проекта: [prothesis.ru](https://prothesis.ru)
-
-Приложение объединяет:
-
-- локальное BLE-взаимодействие с платой контроллера
-- cloud-функции аккаунта
-- синхронизацию настроек устройств
-- синхронизацию аватара и настроек приложения
-- сценарии аутентификации и восстановления доступа
-
----
+`6thFinger-App` — Android-приложение для экосистемы протеза 6th Finger.
 
 ### Основные возможности
 
-- регистрация и логин через SRP
-- гостевой режим без cloud-сессии
-- recovery codes и опциональные email-сценарии восстановления
-- поиск BLE-устройств и подключение к ним
-- аутентификация контроллера и live telemetry
-- live-управление парами сервоприводов
-- локальное редактирование настроек устройства и применение их на плату
-- облачная синхронизация app settings и списка устройств
-- загрузка, скачивание и удаление аватара аккаунта
-- выбор языка и темы с локальной и удаленной синхронизацией
-
----
+- подключение к контроллеру по Bluetooth Low Energy
+- гостевой режим
+- регистрация и вход через SRP
+- recovery codes и опциональное восстановление через email
+- локальные и облачные настройки протеза
+- синхронизация аватара
+- синхронизация языка и темы приложения
 
 ### Технологии
 
 - Kotlin
 - Jetpack Compose
 - Material 3
-- AndroidX ViewModel
-- Navigation Compose
 - Retrofit
 - OkHttp
 - Moshi
@@ -177,79 +97,37 @@ Variable description:
 - Android Keystore
 - Bluetooth Low Energy API
 
----
+### Документация
 
-### Гайд
+- Команды и инструкции по сборке: [commands.md](./commands.md)
+- Пользовательский гайд: [Открыть гайд](https://google.com)
 
-Гайд по проекту:
+### Архитектура
 
-[Открыть гайд](https://google.com)
+- `ui/` — Compose-экраны, диалоги и навигация
+- `auth/` — SRP-аутентификация, сессии, password reset и email-сценарии аккаунта
+- `account/` — постлогинная синхронизация, синхронизация аватара и удалённых настроек приложения
+- `ble/` — BLE-транспорт, телеметрия, live control и конфигурация устройства
+- `data/` — репозитории, DataStore-хранилища и offline cache
+- `network/` — Retrofit API и DTO
+- `preferences/` — настройки языка и темы
+- `security/` — Android Keystore, client attestation и подпись запросов
 
----
+### Flavor-сборки
 
-### Архитектура и структура проекта
+- `official` — production-сборка для официального backend, attestation включён
+- `community` — self-hosted сборка, attestation выключен
+- `local` — сборка для локального backend, attestation выключен
+- `officialLocal` — локальная end-to-end сборка с включённым attestation
 
-Приложение разделено на несколько слоев и feature-пакетов:
+**NB**:
 
-- `ui/` - Compose-экраны, диалоги, навигация, общие UI-компоненты, темы
-- `auth/` - аутентификация, работа с сессией, cloud sync helper'ы, password reset и email account services
-- `account/` - post-login синхронизация аккаунта, sync аватара, координация remote settings
-- `ble/` - BLE-клиент, telemetry, live control, обмен с платой, настройки устройства
-- `data/` - локальные DataStore-хранилища, репозитории, модели offline cache
-- `network/` - Retrofit API и DTO для общения с backend
-- `preferences/` - контроллеры языка и темы приложения
-- `security/` - SRP helper'ы и шифрование токенов через Android Keystore
-- `utils/` - feature flags, маппинг ошибок и вспомогательные утилиты
-- `App.kt` - точка входа приложения, где до старта первой Activity применяется сохраненная локаль
-- `MainActivity.kt` - корневая Activity, которая монтирует Compose-приложение и реагирует на изменение настроек
+Если вы используете self-hosted сервер и хотите защитить доступ приложений к нему используя ключ (чтобы билды других пользователей не могли использовать ваш сервер), вам необходимо подписать приложение вашим ключем и поместить публичную его часть на сервер. См. ниже и гайды.
 
-Короткий flow:
+### Файлы конфигурации
 
-1. `MainActivity` поднимает корневое Compose-приложение.
-2. UI-экраны работают через ViewModel.
-3. ViewModel делегируют действия в репозитории и сервисы.
-4. Репозитории работают с `BackendApi`, BLE-координаторами и локальными DataStore-хранилищами.
-5. `AccountSyncCoordinator` после логина синхронизирует локальное и удаленное состояние аккаунта.
+- `local.properties` — путь к Android SDK для локальной настройки Gradle
+- `app-config.properties` — build-time конфиг приложения, который лежит в репозитории
+- `keystore.properties` — локальная конфигурация подписи для `official` и `officialLocal`
 
----
-
-### Секреты
-
-Build-конфигурация приложения читается из файла `secrets.properties` в корне проекта. Это временное решение и в будущем будет исправлено.
-
-Минимальный пример:
-
-```properties
-BACKEND_BASE_URL=url
-APP_CLIENT_TOKEN_ENABLED=true
-APP_CLIENT_HEADER_NAME=X-App-Token
-APP_CLIENT_TOKEN=change_me
-
-APP_GUIDE_URL=url
-APP_REPOSITORY_URL=url
-ESP32_FIRMWARE_URL=url
-BACKEND_REPOSITORY_URL=url
-
-EMAIL_OFF=false
-```
-
-Описание переменных:
-
-- `BACKEND_BASE_URL` - базовый URL backend API для Retrofit
-- `APP_CLIENT_TOKEN_ENABLED` - включает или выключает app-level header для backend-запросов
-- `APP_CLIENT_HEADER_NAME` - имя заголовка, в котором отправляется app-level token
-- `APP_CLIENT_TOKEN` - значение токена, которое прикладывается к запросам при включенной проверке
-- `APP_GUIDE_URL` - ссылка на гайд, показываемая в настройках приложения
-- `APP_REPOSITORY_URL` - ссылка на репозиторий приложения, показываемая в настройках
-- `ESP32_FIRMWARE_URL` - ссылка на репозиторий прошивки контроллера
-- `BACKEND_REPOSITORY_URL` - ссылка на репозиторий backend
-- `EMAIL_OFF` - build-time флаг, который отключает весь email-related UI и email-сценарии
-
----
-
-### Запуск проекта
-
-1. Убедитесь, что в `local.properties` прописан корректный путь к Android SDK.
-2. Создайте `secrets.properties` в корне проекта.
-3. Откройте проект в Android Studio.
-4. Соберите и запустите модуль `app` на устройстве с поддержкой BLE.
+Для точных команд сборки, установки и проверки подписи см. [commands.md](./commands.md).

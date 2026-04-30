@@ -1,13 +1,19 @@
 package com.example.a6thfingercontrolapp.network
 
+import android.content.Context
+import android.util.Base64
 import com.example.a6thfingercontrolapp.BuildConfig
+import com.example.a6thfingercontrolapp.data.ClientIdentityStore
+import com.example.a6thfingercontrolapp.security.ClientRequestSigner
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
+import okio.Buffer
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
@@ -20,6 +26,9 @@ import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.Path
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.time.Instant
 
 /**
  * Retrofit interface for the backend API.
@@ -235,39 +244,101 @@ interface BackendApi {
     ): GenericOk
 
     companion object {
+        private val nonceRandom = SecureRandom()
+
         /**
-         * App level client token to every backend request.
-         *
-         * The header is controlled by BuildConfig so it can be disabled for builds
-         * that do not require extra client authentication.
+         * Canonical request signing for official builds that already hold a client session.
          */
-        private fun clientTokenInterceptor(): Interceptor {
+        private fun clientSigningInterceptor(context: Context): Interceptor {
+            val store = ClientIdentityStore(context.applicationContext)
+            val signer = ClientRequestSigner()
+
             return Interceptor { chain ->
                 val original = chain.request()
 
-                if (!BuildConfig.APP_CLIENT_TOKEN_ENABLED) {
+                if (!BuildConfig.CLIENT_ATTESTATION_REQUIRED) {
                     return@Interceptor chain.proceed(original)
                 }
 
-                val headerName = BuildConfig.APP_CLIENT_HEADER_NAME.trim()
-                val token = BuildConfig.APP_CLIENT_TOKEN.trim()
+                val session = runBlocking { store.getClientSession() }
+                    ?: return@Interceptor chain.proceed(original)
 
-                if (headerName.isBlank() || token.isBlank()) {
+                if (session.isExpiringSoon(leewaySeconds = 0)) {
                     return@Interceptor chain.proceed(original)
                 }
 
-                val requestWithClientToken = original.newBuilder()
-                    .header(headerName, token)
+                val bodyBytes = original.body?.let { body ->
+                    val buffer = Buffer()
+                    body.writeTo(buffer)
+                    buffer.readByteArray()
+                } ?: ByteArray(0)
+
+                val bodyHash = sha256Base64Url(bodyBytes)
+                val timestamp = Instant.now().toString()
+                val nonce = randomBase64Url(16)
+                val pathWithQuery = buildPathWithQuery(original)
+
+                val canonical = listOf(
+                    original.method,
+                    pathWithQuery,
+                    bodyHash,
+                    timestamp,
+                    nonce,
+                    session.clientSessionToken
+                ).joinToString("\n")
+
+                val requestWithClientSignature = original.newBuilder()
+                    .header("X-Client-Key-Id", session.clientKeyId)
+                    .header("X-Client-Session", session.clientSessionToken)
+                    .header("X-Client-Timestamp", timestamp)
+                    .header("X-Client-Nonce", nonce)
+                    .header("X-Client-Body-SHA256", bodyHash)
+                    .header("X-Client-Signature", signer.signBase64Url(canonical))
                     .build()
 
-                chain.proceed(requestWithClientToken)
+                chain.proceed(requestWithClientSignature)
             }
+        }
+
+        /**
+         * Produces the exact path and query component used by backend request verification.
+         */
+        private fun buildPathWithQuery(request: okhttp3.Request): String {
+            val query = request.url.encodedQuery
+            return if (query.isNullOrBlank()) {
+                request.url.encodedPath
+            } else {
+                request.url.encodedPath + "?" + query
+            }
+        }
+
+        /**
+         * Returns a base64url-encoded SHA-256 body hash compatible with the backend verifier.
+         */
+        private fun sha256Base64Url(bytes: ByteArray): String {
+            val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+            return Base64.encodeToString(
+                digest,
+                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+            )
+        }
+
+        /**
+         * Generates a URL-safe random nonce for replay protection.
+         */
+        private fun randomBase64Url(lengthBytes: Int): String {
+            val bytes = ByteArray(lengthBytes)
+            nonceRandom.nextBytes(bytes)
+            return Base64.encodeToString(
+                bytes,
+                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+            )
         }
 
         /**
          * Builds a Retrofit API instance with Moshi serialization and OkHttp.
          */
-        fun create(): BackendApi {
+        fun create(context: Context): BackendApi {
             val logging = HttpLoggingInterceptor().apply {
                 level = if (BuildConfig.DEBUG) {
                     HttpLoggingInterceptor.Level.BASIC
@@ -277,7 +348,7 @@ interface BackendApi {
             }
 
             val client = OkHttpClient.Builder()
-                .addInterceptor(clientTokenInterceptor())
+                .addInterceptor(clientSigningInterceptor(context))
                 .addInterceptor(logging)
                 .build()
 

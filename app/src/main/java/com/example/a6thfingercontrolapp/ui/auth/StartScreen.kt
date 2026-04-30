@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +43,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrolapp.BuildConfig
 import com.example.a6thfingercontrolapp.R
+import com.example.a6thfingercontrolapp.data.APP_THEME_DARK
+import com.example.a6thfingercontrolapp.data.APP_THEME_LIGHT
+import com.example.a6thfingercontrolapp.data.normalizeAppThemeMode
 import com.example.a6thfingercontrolapp.preferences.AppPreferencesViewModel
 import com.example.a6thfingercontrolapp.ui.common.SettingsDialog
 
@@ -60,6 +64,17 @@ fun StartScreen(
     var showLangDialog by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    val systemDark = isSystemInDarkTheme()
+    val darkTheme = when (normalizeAppThemeMode(theme)) {
+        APP_THEME_LIGHT -> false
+        APP_THEME_DARK -> true
+        else -> systemDark
+    }
+    val logoRes = if (darkTheme) {
+        R.drawable.logo_for_black_theme
+    } else {
+        R.drawable.logo_for_white_theme
+    }
 
     fun openUrl(url: String) {
         try {
@@ -88,9 +103,9 @@ fun StartScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.ic_logo),
+                    painter = painterResource(id = logoRes),
                     contentDescription = stringResource(R.string.app_name),
-                    modifier = Modifier.size(160.dp)
+                    modifier = Modifier.size(220.dp)
                 )
 
                 Text(

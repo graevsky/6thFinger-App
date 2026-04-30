@@ -14,9 +14,11 @@ import com.example.a6thfingercontrolapp.utils.wrapAuthErrors
  */
 internal class AuthCredentialsService(
     private val api: BackendApi,
-    private val sessionGateway: AuthSessionGateway
+    private val sessionGateway: AuthSessionGateway,
+    private val ensureClientSession: suspend () -> Unit = {}
 ) {
     suspend fun register(username: String, password: String): List<String> = wrapAuthErrors {
+        ensureClientSession()
         val normalized = username.trim().lowercase()
 
         val params = api.getSrpParams()
@@ -42,6 +44,7 @@ internal class AuthCredentialsService(
     }
 
     suspend fun login(username: String, password: String): AuthState = wrapAuthErrors {
+        ensureClientSession()
         val normalized = username.trim().lowercase()
         val start = api.loginStart(LoginStartIn(normalized))
 

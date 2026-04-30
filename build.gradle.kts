@@ -4,3 +4,25 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
 }
+
+tasks.register("assembleAllReleaseApks") {
+    group = "build"
+    description = "Builds all four release APK variants."
+    dependsOn(
+        ":app:assembleCommunityRelease",
+        ":app:assembleLocalRelease",
+        ":app:assembleOfficialRelease",
+        ":app:assembleOfficialLocalRelease"
+    )
+}
+
+tasks.register("assembleAllDebugApks") {
+    group = "build"
+    description = "Builds all four debug APK variants."
+    dependsOn(
+        ":app:assembleCommunityDebug",
+        ":app:assembleLocalDebug",
+        ":app:assembleOfficialDebug",
+        ":app:assembleOfficialLocalDebug"
+    )
+}
