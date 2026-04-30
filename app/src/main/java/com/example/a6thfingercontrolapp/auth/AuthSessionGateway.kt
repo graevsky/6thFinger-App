@@ -1,8 +1,8 @@
 package com.example.a6thfingercontrolapp.auth
 
+import com.example.a6thfingercontrolapp.data.AuthState
 import com.example.a6thfingercontrolapp.data.AuthStateStored
 import com.example.a6thfingercontrolapp.data.AuthStore
-import com.example.a6thfingercontrolapp.data.AuthState
 import com.example.a6thfingercontrolapp.network.BackendApi
 import com.example.a6thfingercontrolapp.network.MeOut
 import com.example.a6thfingercontrolapp.network.RefreshTokenIn
@@ -25,7 +25,8 @@ internal class AuthSessionGateway(
     private val api: BackendApi,
     private val store: AuthStore,
     private val stored: Flow<AuthStateStored>,
-    private val tokenRefreshMutex: Mutex
+    private val tokenRefreshMutex: Mutex,
+    private val ensureClientSession: suspend () -> Unit = {}
 ) {
     suspend fun resolveInitialState(): AuthState {
         val state = stored.first()
@@ -62,6 +63,7 @@ internal class AuthSessionGateway(
     suspend fun <T> withAuthorizedRequest(
         block: suspend (authHeader: String) -> T
     ): T {
+        ensureClientSession()
         val currentState = stored.first()
         val accessToken = currentState.accessToken ?: throw SessionExpiredException()
 
@@ -88,6 +90,7 @@ internal class AuthSessionGateway(
     suspend fun <T> withAuthorizedResponse(
         block: suspend (authHeader: String) -> Response<T>
     ): Response<T> {
+        ensureClientSession()
         val currentState = stored.first()
         val accessToken = currentState.accessToken ?: throw SessionExpiredException()
 
@@ -120,6 +123,7 @@ internal class AuthSessionGateway(
     }
 
     private suspend fun getMeWithRefreshFallback(): MeOut {
+        ensureClientSession()
         val state = stored.first()
         val accessToken = state.accessToken ?: throw SessionExpiredException()
 
@@ -137,6 +141,7 @@ internal class AuthSessionGateway(
 
     private suspend fun refreshAccessToken(failedAccessToken: String? = null): String =
         tokenRefreshMutex.withLock {
+            ensureClientSession()
             val currentState = stored.first()
             val username = currentState.username ?: throw SessionExpiredException()
             val refreshToken = currentState.refreshToken ?: throw SessionExpiredException()

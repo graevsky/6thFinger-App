@@ -12,10 +12,10 @@ import javax.crypto.spec.GCMParameterSpec
 /**
  * Small Android Keystore based cipher for locally stored auth tokens.
  */
-class SecureToken {
-
-    /** Keystore alias dedicated only to auth token encryption. */
-    private val keyAlias = "sixth_finger_auth_tokens_v1"
+class SecureToken(
+    /** Keystore alias dedicated to encrypted local token blobs. */
+    private val keyAlias: String = "sixth_finger_auth_tokens_v1"
+) {
 
     /** Android Keystore provider name. */
     private val keyStoreName = "AndroidKeyStore"

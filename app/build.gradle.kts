@@ -7,8 +7,15 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-val secretsProps = Properties().apply {
-    val file = rootProject.file("secrets.properties")
+val appConfigProps = Properties().apply {
+    val file = rootProject.file("app-config.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
+val signingProps = Properties().apply {
+    val file = rootProject.file("keystore.properties")
     if (file.exists()) {
         file.inputStream().use { load(it) }
     }
@@ -22,8 +29,8 @@ fun readConfig(vararg keys: String, default: String = ""): String {
         val fromEnv = System.getenv(key)
         if (!fromEnv.isNullOrBlank()) return fromEnv
 
-        val fromSecrets = secretsProps.getProperty(key)
-        if (!fromSecrets.isNullOrBlank()) return fromSecrets
+        val fromAppConfig = appConfigProps.getProperty(key)
+        if (!fromAppConfig.isNullOrBlank()) return fromAppConfig
     }
     return default
 }
@@ -31,28 +38,32 @@ fun readConfig(vararg keys: String, default: String = ""): String {
 fun String.asBuildConfigString(): String =
     "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
-val backendBaseUrl = readConfig(
-    "BACKEND_BASE_URL",
-    "backend.baseUrl",
-    default = "https://prothesis.ru/"
-).let { if (it.endsWith("/")) it else "$it/" }
+fun normalizeBaseUrl(raw: String): String =
+    if (raw.endsWith("/")) raw else "$raw/"
 
-val appClientTokenEnabled = readConfig(
-    "APP_CLIENT_TOKEN_ENABLED",
-    "app.clientTokenEnabled",
-    default = "false"
-).equals("true", ignoreCase = true)
-
-val appClientHeaderName = readConfig(
-    "APP_CLIENT_HEADER_NAME",
-    "app.clientHeaderName",
-    default = "X-App-Token"
+val officialBackendBaseUrl = normalizeBaseUrl(
+    readConfig(
+        "OFFICIAL_BACKEND_BASE_URL",
+        "BACKEND_BASE_URL",
+        "official.backendBaseUrl",
+        default = "https://api.prothesis.ru/"
+    )
 )
 
-val appClientToken = readConfig(
-    "APP_CLIENT_TOKEN",
-    "app.clientToken",
-    default = ""
+val localBackendBaseUrl = normalizeBaseUrl(
+    readConfig(
+        "LOCAL_BACKEND_BASE_URL",
+        "local.backendBaseUrl",
+        default = "http://10.0.2.2:8000/"
+    )
+)
+
+val communityBackendBaseUrl = normalizeBaseUrl(
+    readConfig(
+        "COMMUNITY_BACKEND_BASE_URL",
+        "community.backendBaseUrl",
+        default = "https://community.invalid/"
+    )
 )
 
 val emailOff = readConfig(
@@ -86,12 +97,26 @@ val backendRepositoryUrl = readConfig(
     default = "https://github.com/graevsky/6thFinger-Backend"
 )
 
+val officialStoreFile = signingProps.getProperty("OFFICIAL_STORE_FILE")?.trim().orEmpty()
+val hasOfficialSigning = officialStoreFile.isNotBlank()
+
 android {
     namespace = "com.example.a6thfingercontrolapp"
     compileSdk = 36
 
+    signingConfigs {
+        create("officialRelease") {
+            if (hasOfficialSigning) {
+                storeFile = file(officialStoreFile)
+                storePassword = signingProps.getProperty("OFFICIAL_STORE_PASSWORD")
+                keyAlias = signingProps.getProperty("OFFICIAL_KEY_ALIAS")
+                keyPassword = signingProps.getProperty("OFFICIAL_KEY_PASSWORD")
+            }
+        }
+    }
+
     defaultConfig {
-        applicationId = "com.example.a6thfingercontrollapp"
+        applicationId = "com.example.a6thfingercontrolapp"
         minSdk = 29
         targetSdk = 36
         versionCode = 1
@@ -99,14 +124,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "BACKEND_BASE_URL", backendBaseUrl.asBuildConfigString())
-        buildConfigField("boolean", "APP_CLIENT_TOKEN_ENABLED", appClientTokenEnabled.toString())
-        buildConfigField(
-            "String",
-            "APP_CLIENT_HEADER_NAME",
-            appClientHeaderName.asBuildConfigString()
-        )
-        buildConfigField("String", "APP_CLIENT_TOKEN", appClientToken.asBuildConfigString())
         buildConfigField("boolean", "EMAIL_OFF", emailOff.toString())
 
         buildConfigField("String", "APP_GUIDE_URL", appGuideUrl.asBuildConfigString())
@@ -117,6 +134,64 @@ android {
             "BACKEND_REPOSITORY_URL",
             backendRepositoryUrl.asBuildConfigString()
         )
+    }
+
+    flavorDimensions += "channel"
+
+    productFlavors {
+        create("official") {
+            dimension = "channel"
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
+            if (hasOfficialSigning) {
+                signingConfig = signingConfigs.getByName("officialRelease")
+            }
+            buildConfigField(
+                "String",
+                "BACKEND_BASE_URL",
+                officialBackendBaseUrl.asBuildConfigString()
+            )
+            buildConfigField("boolean", "CLIENT_ATTESTATION_REQUIRED", "true")
+        }
+
+        create("community") {
+            dimension = "channel"
+            applicationIdSuffix = ".community"
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+            signingConfig = signingConfigs.getByName("debug")
+            buildConfigField(
+                "String",
+                "BACKEND_BASE_URL",
+                communityBackendBaseUrl.asBuildConfigString()
+            )
+            buildConfigField("boolean", "CLIENT_ATTESTATION_REQUIRED", "false")
+        }
+
+        create("local") {
+            dimension = "channel"
+            applicationIdSuffix = ".local"
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+            signingConfig = signingConfigs.getByName("debug")
+            buildConfigField(
+                "String",
+                "BACKEND_BASE_URL",
+                localBackendBaseUrl.asBuildConfigString()
+            )
+            buildConfigField("boolean", "CLIENT_ATTESTATION_REQUIRED", "false")
+        }
+
+        create("officialLocal") {
+            dimension = "channel"
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+            if (hasOfficialSigning) {
+                signingConfig = signingConfigs.getByName("officialRelease")
+            }
+            buildConfigField(
+                "String",
+                "BACKEND_BASE_URL",
+                localBackendBaseUrl.asBuildConfigString()
+            )
+            buildConfigField("boolean", "CLIENT_ATTESTATION_REQUIRED", "true")
+        }
     }
 
     buildTypes {

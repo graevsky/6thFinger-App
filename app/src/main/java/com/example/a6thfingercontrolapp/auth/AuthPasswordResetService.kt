@@ -15,7 +15,8 @@ import com.example.a6thfingercontrolapp.utils.wrapAuthErrors
  * Password reset and recovery controller.
  */
 internal class AuthPasswordResetService(
-    private val api: BackendApi
+    private val api: BackendApi,
+    private val ensureClientSession: suspend () -> Unit = {}
 ) {
     private fun requireEmailEnabled() {
         if (!FeatureFlags.isEmailEnabled) {
@@ -24,10 +25,12 @@ internal class AuthPasswordResetService(
     }
 
     suspend fun passwordResetStart(username: String): PasswordResetStartOut = wrapAuthErrors {
+        ensureClientSession()
         api.passwordResetStart(PasswordResetStartIn(username.trim().lowercase()))
     }
 
     suspend fun passwordResetEmailSend(username: String, email: String) = wrapAuthErrors {
+        ensureClientSession()
         requireEmailEnabled()
         api.passwordResetEmailSend(
             PasswordResetEmailSendIn(
@@ -39,6 +42,7 @@ internal class AuthPasswordResetService(
 
     suspend fun passwordResetEmailVerify(username: String, email: String, code: String): String =
         wrapAuthErrors {
+            ensureClientSession()
             requireEmailEnabled()
             val result = api.passwordResetEmailVerify(
                 PasswordResetEmailVerifyIn(
@@ -52,6 +56,7 @@ internal class AuthPasswordResetService(
 
     suspend fun passwordResetRecoveryVerify(username: String, recoveryCode: String): String =
         wrapAuthErrors {
+            ensureClientSession()
             val result = api.passwordResetRecoveryVerify(
                 PasswordResetRecoveryVerifyIn(
                     username = username.trim().lowercase(),
@@ -66,6 +71,7 @@ internal class AuthPasswordResetService(
         username: String,
         newPassword: String
     ) = wrapAuthErrors {
+        ensureClientSession()
         val params = api.getSrpParams()
         val primeHex = params.N.replace("\\s+".toRegex(), "")
         val generatorHex = params.g.trim()
