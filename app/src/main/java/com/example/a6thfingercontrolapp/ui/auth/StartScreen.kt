@@ -85,8 +85,8 @@ fun StartScreen(
         }
     }
 
-    val guideTitle = stringResource(R.string.start_guide_title)
-    val guideSubtitle = stringResource(R.string.start_guide_subtitle)
+    val landingTitle = stringResource(R.string.start_guide_title)
+    val landingSubtitle = stringResource(R.string.start_guide_subtitle)
 
     Scaffold { inner ->
         Box(
@@ -149,7 +149,7 @@ fun StartScreen(
                             .fillMaxWidth()
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                                openUrl(BuildConfig.APP_GUIDE_URL)
+                                openUrl(BuildConfig.PROJECT_LANDING_URL)
                             }
                     ) {
                         Row(
@@ -160,11 +160,11 @@ fun StartScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = guideTitle,
+                                    text = landingTitle,
                                     style = MaterialTheme.typography.titleMedium
                                 )
                                 Text(
-                                    text = guideSubtitle,
+                                    text = landingSubtitle,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

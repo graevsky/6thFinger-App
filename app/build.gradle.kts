@@ -76,7 +76,25 @@ val emailOff = readConfig(
 val appGuideUrl = readConfig(
     "APP_GUIDE_URL",
     "app.guideUrl",
-    default = "https://docs.google.com/document/d/1MEejkdQEGTkvxDuX7fgXnzfzSTgcVONKTlj-WCBkAp0/edit?usp=sharing"
+    default = "https://drive.google.com/file/d/1A2usxykovqEe099k2ItJ9acGboUhyZ13/view?usp=sharing"
+)
+
+val projectLandingUrl = readConfig(
+    "PROJECT_LANDING_URL",
+    "project.landingUrl",
+    default = "https://prothesis.ru/"
+)
+
+val prosthesisGuideUrl = readConfig(
+    "PROSTHESIS_GUIDE_URL",
+    "prosthesis.guideUrl",
+    default = "https://drive.google.com/file/d/1TqZTdqmVpPDhjSL2WnfT9wohUkeKcAlp/view?usp=sharing"
+)
+
+val backendGuideUrl = readConfig(
+    "BACKEND_GUIDE_URL",
+    "backend.guideUrl",
+    default = "https://drive.google.com/file/d/1RrIl7wzfEjwOqdwEEhMq3LTtUpla6rIw/view?usp=sharing"
 )
 
 val appRepositoryUrl = readConfig(
@@ -127,6 +145,9 @@ android {
         buildConfigField("boolean", "EMAIL_OFF", emailOff.toString())
 
         buildConfigField("String", "APP_GUIDE_URL", appGuideUrl.asBuildConfigString())
+        buildConfigField("String", "PROJECT_LANDING_URL", projectLandingUrl.asBuildConfigString())
+        buildConfigField("String", "PROSTHESIS_GUIDE_URL", prosthesisGuideUrl.asBuildConfigString())
+        buildConfigField("String", "BACKEND_GUIDE_URL", backendGuideUrl.asBuildConfigString())
         buildConfigField("String", "APP_REPOSITORY_URL", appRepositoryUrl.asBuildConfigString())
         buildConfigField("String", "ESP32_FIRMWARE_URL", esp32FirmwareUrl.asBuildConfigString())
         buildConfigField(

@@ -37,6 +37,15 @@ internal class AuthCloudService(
         }
     }
 
+    suspend fun createDevice(address: String, alias: String?): DeviceOut = wrapAuthErrors {
+        sessionGateway.withAuthorizedRequest { auth ->
+            api.createDevice(
+                auth = auth,
+                body = DeviceCreate(address = address, alias = alias)
+            )
+        }
+    }
+
     suspend fun pushDeviceSettings(
         deviceId: String,
         settings: EspSettings
@@ -74,6 +83,12 @@ internal class AuthCloudService(
             version = body.version,
             updatedAt = body.updated_at
         )
+    }
+
+    suspend fun deleteDevice(deviceId: String) = wrapAuthErrors {
+        sessionGateway.withAuthorizedRequest { auth ->
+            api.deleteDevice(auth = auth, deviceId = deviceId)
+        }
     }
 
     suspend fun ensureDevice(address: String, alias: String?): DeviceOut = wrapAuthErrors {

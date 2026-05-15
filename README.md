@@ -35,7 +35,10 @@ Landing page: [prothesis.ru](https://prothesis.ru)
 ### Documentation
 
 - Commands and build instructions: [commands.md](./commands.md)
-- Product guide: [Open guide](https://google.com)
+- Landing page: [prothesis.ru](https://prothesis.ru)
+- Android app guide: [Open application guide](https://drive.google.com/file/d/1A2usxykovqEe099k2ItJ9acGboUhyZ13/view?usp=sharing)
+- Backend guide: [Open backend guide](https://drive.google.com/file/d/1RrIl7wzfEjwOqdwEEhMq3LTtUpla6rIw/view?usp=sharing)
+- Prosthesis guide: [Open controller and assembly guide](https://drive.google.com/file/d/1TqZTdqmVpPDhjSL2WnfT9wohUkeKcAlp/view?usp=sharing)
 
 ### Architecture
 
@@ -57,7 +60,7 @@ Landing page: [prothesis.ru](https://prothesis.ru)
 
 **NB**:
 
-If you have self-hosted server and want to protect it with key (so that other builds can't use your server), you will need to sign app with your key and place public key to server. See below and checkout guides.  
+If you have self-hosted server and want to protect it with key (so that other builds can't use your server), you will need to sign app with your key and place public key to server. For the full flow, use the [Android app guide](https://drive.google.com/file/d/1A2usxykovqEe099k2ItJ9acGboUhyZ13/view?usp=sharing) together with the [backend guide](https://drive.google.com/file/d/1RrIl7wzfEjwOqdwEEhMq3LTtUpla6rIw/view?usp=sharing).  
 
 ### Configuration Files
 
@@ -100,7 +103,10 @@ Use [commands.md](./commands.md) for exact build, install and signing commands.
 ### Документация
 
 - Команды и инструкции по сборке: [commands.md](./commands.md)
-- Пользовательский гайд: [Открыть гайд](https://google.com)
+- Лендинг: [prothesis.ru](https://prothesis.ru)
+- Гайд по приложению: [Открыть гайд](https://drive.google.com/file/d/1A2usxykovqEe099k2ItJ9acGboUhyZ13/view?usp=sharing)
+- Гайд по backend: [Открыть гайд](https://drive.google.com/file/d/1RrIl7wzfEjwOqdwEEhMq3LTtUpla6rIw/view?usp=sharing)
+- Гайд по протезу: [Открыть гайд](https://drive.google.com/file/d/1TqZTdqmVpPDhjSL2WnfT9wohUkeKcAlp/view?usp=sharing)
 
 ### Архитектура
 
@@ -122,7 +128,7 @@ Use [commands.md](./commands.md) for exact build, install and signing commands.
 
 **NB**:
 
-Если вы используете self-hosted сервер и хотите защитить доступ приложений к нему используя ключ (чтобы билды других пользователей не могли использовать ваш сервер), вам необходимо подписать приложение вашим ключем и поместить публичную его часть на сервер. См. ниже и гайды.
+Если вы используете self-hosted сервер и хотите защитить доступ приложений к нему используя ключ (чтобы билды других пользователей не могли использовать ваш сервер), вам необходимо подписать приложение вашим ключем и поместить публичную его часть на сервер. Для полного сценария используйте [гайд по приложению](https://drive.google.com/file/d/1A2usxykovqEe099k2ItJ9acGboUhyZ13/view?usp=sharing) вместе с [гайдом по backend](https://drive.google.com/file/d/1RrIl7wzfEjwOqdwEEhMq3LTtUpla6rIw/view?usp=sharing).
 
 ### Файлы конфигурации
 

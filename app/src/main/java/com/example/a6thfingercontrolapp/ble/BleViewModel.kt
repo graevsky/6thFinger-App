@@ -55,6 +55,7 @@ class BleViewModel(app: Application) : AndroidViewModel(app) {
 
     val activeSettings: StateFlow<EspSettings> = deviceState.activeSettings
     val lastAppliedSettings: StateFlow<EspSettings> = deviceState.lastAppliedSettings
+    val activeSettingsUpdatedAtMillis: StateFlow<Long?> = deviceState.activeSettingsUpdatedAtMillis
     val pendingBoardApply: StateFlow<Boolean> = deviceState.pendingBoardApply
 
     private val liveControl = BleLiveControlCoordinator(

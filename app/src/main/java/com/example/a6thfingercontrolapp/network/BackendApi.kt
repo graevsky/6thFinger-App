@@ -124,6 +124,15 @@ interface BackendApi {
     ): DeviceOut
 
     /**
+     * Deletes a device and all server-side settings linked to it.
+     */
+    @DELETE("/device/{id}")
+    suspend fun deleteDevice(
+        @Header("Authorization") auth: String,
+        @Path("id") deviceId: String
+    ): GenericOk
+
+    /**
      * Loads device settings as a raw Retrofit response.
      */
     @GET("/device/{id}/settings")

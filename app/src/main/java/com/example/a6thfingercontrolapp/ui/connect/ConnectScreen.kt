@@ -166,10 +166,6 @@ fun ConnectScreen(vm: BleViewModel, permissionsGranted: Boolean) {
                     )
                 }
             }
-
-            if (devices.isEmpty()) {
-                Text(stringResource(R.string.ble_press_to_scan))
-            }
         }
     }
 

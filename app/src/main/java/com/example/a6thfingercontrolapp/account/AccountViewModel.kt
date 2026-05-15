@@ -24,6 +24,9 @@ class AccountViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun fetchDevices(): List<DeviceOut> =
         accountSync.fetchDevices()
 
+    suspend fun createDevice(address: String, alias: String?): DeviceOut =
+        accountSync.createDevice(address, alias)
+
     suspend fun fetchDeviceSettingsRecord(deviceId: String): DeviceSettingsRecord? =
         accountSync.fetchDeviceSettingsRecord(deviceId)
 
@@ -31,6 +34,10 @@ class AccountViewModel(app: Application) : AndroidViewModel(app) {
         deviceId: String,
         settings: EspSettings
     ): DeviceSettingsRecord = accountSync.pushDeviceSettings(deviceId, settings)
+
+    suspend fun deleteDevice(deviceId: String) {
+        accountSync.deleteDevice(deviceId)
+    }
 
     suspend fun ensureDevice(address: String, alias: String?): DeviceOut =
         accountSync.ensureDevice(address, alias)
