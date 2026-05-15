@@ -62,7 +62,9 @@ fun AccountScreen(
     val theme by appPreferencesVm.appTheme.collectAsState()
     val authState by authVm.auth.collectAsState()
     val bleState by vm.state.collectAsState()
+    val lastDevice by vm.lastDevice.collectAsState()
     val currentSettings by vm.activeSettings.collectAsState()
+    val currentSettingsUpdatedAtMillis by vm.activeSettingsUpdatedAtMillis.collectAsState()
     val activeAddress by vm.activeAddress.collectAsState()
     val activeAlias by vm.activeAlias.collectAsState()
 
@@ -79,29 +81,79 @@ fun AccountScreen(
         accountVm = accountVm,
         settingsStore = settingsStore
     )
-    val selectableChoices = rememberSelectableCloudChoices(
-        devices = deviceState.devices,
-        connected = connected,
-        activeAddress = activeAddress,
-        activeAlias = activeAlias
-    )
+    val connectedCloudAlias =
+        normalizeDeviceAlias(activeAlias)
+            ?: normalizeDeviceAlias(lastDevice?.name)
+    val connectedDisplayName = connectedCloudAlias ?: activeAddress
+    val matchedServerState =
+        deviceState.cloudStateForDeviceId(
+            if (connected && activeAddress.isNotBlank()) {
+                findExactServerDevice(
+                    devices = deviceState.devices,
+                    address = activeAddress,
+                    alias = connectedCloudAlias
+                )?.id
+            } else {
+                null
+            }
+        )
+    val matchedServerDevice =
+        if (connected && activeAddress.isNotBlank()) {
+            findExactServerDevice(
+                devices = deviceState.devices,
+                address = activeAddress,
+                alias = connectedCloudAlias
+            )
+        } else {
+            null
+        }
+    val connectedDeviceSummary =
+        if (connected && activeAddress.isNotBlank()) {
+            ConnectedDeviceSummary(
+                displayName = connectedDisplayName,
+                cloudAlias = connectedCloudAlias,
+                address = activeAddress,
+                updatedAtMillis = currentSettingsUpdatedAtMillis,
+                serverSettingsVersion = matchedServerState?.record?.version,
+                serverSettingsInSync = matchedServerState?.record?.let {
+                    areSettingsEquivalent(currentSettings, it.settings)
+                } == true,
+                matchedServerDevice = matchedServerDevice,
+                matchedServerState = matchedServerState
+            )
+        } else {
+            null
+        }
 
     LaunchedEffect(
         deviceState.showDeviceSettingsDialog,
-        selectableChoices.map { it.key }.joinToString("|")
+        deviceState.dialogSelectedKey,
+        deviceState.devices.map { it.id }.joinToString("|"),
+        currentSettings
     ) {
         if (!deviceState.showDeviceSettingsDialog) return@LaunchedEffect
-        if (selectableChoices.isEmpty()) {
-            deviceState.showDeviceSettingsDialog = false
-            return@LaunchedEffect
-        }
-        if (
-            deviceState.dialogSelectedKey == null ||
-            selectableChoices.none { it.key == deviceState.dialogSelectedKey }
-        ) {
-            deviceState.dialogSelectedKey = selectableChoices.first().key
-            val firstRecord = deviceState.cloudStateForChoice(selectableChoices.first())?.record
-            deviceState.dialogJson = firstRecord?.let { settingsToPrettyJson(it.settings) } ?: "{}"
+        when (deviceState.dialogSelectedKey) {
+            null -> deviceState.closeDialog()
+            CURRENT_DEVICE_DIALOG_KEY -> {
+                if (connectedDeviceSummary == null) {
+                    deviceState.closeDialog()
+                } else {
+                    deviceState.dialogJson = settingsToPrettyJson(currentSettings)
+                }
+            }
+
+            else -> {
+                val selectedDevice = deviceState.devices.firstOrNull {
+                    it.id == deviceState.dialogSelectedKey
+                }
+                if (selectedDevice == null) {
+                    deviceState.closeDialog()
+                } else {
+                    val record = deviceState.cloudStateForDeviceId(selectedDevice.id)?.record
+                    deviceState.dialogJson =
+                        record?.let { settingsToPrettyJson(it.settings) } ?: "{}"
+                }
+            }
         }
     }
 
@@ -149,15 +201,17 @@ fun AccountScreen(
                 devicesLoading = deviceState.devicesLoading,
                 devicesErrorText = uiErrorTextOrRaw(deviceState.devicesErrorKey),
                 devices = deviceState.devices,
-                selectableChoices = selectableChoices,
                 cloudSettingsByDeviceId = deviceState.cloudSettingsByDeviceId,
                 cloudProbeLoading = deviceState.cloudProbeLoading,
                 isLoggedIn = username != null,
-                connected = connected,
-                activeAddress = activeAddress,
-                onOpenDevice = { key ->
+                connectedDevice = connectedDeviceSummary,
+                onOpenCurrentDevice = {
                     haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
-                    deviceState.openCloudDialog(key, selectableChoices)
+                    deviceState.openCurrentDeviceDialog(settingsToPrettyJson(currentSettings))
+                },
+                onOpenServerDevice = { deviceId ->
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                    deviceState.openServerDeviceDialog(deviceId)
                 },
                 onRefreshDevices = {
                     haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
@@ -189,8 +243,9 @@ fun AccountScreen(
 
     AccountDeviceSettingsHost(
         state = deviceState,
-        selectableChoices = selectableChoices,
-        connected = connected,
+        devices = deviceState.devices,
+        connectedDevice = connectedDeviceSummary,
+        isLoggedIn = username != null,
         currentSettings = currentSettings,
         accountVm = accountVm,
         settingsStore = settingsStore,

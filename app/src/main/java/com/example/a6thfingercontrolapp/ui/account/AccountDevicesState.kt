@@ -42,25 +42,31 @@ internal class AccountDevicesUiState {
         refreshTick++
     }
 
-    fun cloudStateForChoice(choice: CloudDeviceChoice?): CloudSettingsState? {
-        if (choice == null) return null
-        val device = choice.device ?: return CloudSettingsState(
-            checked = true,
-            record = null,
-            errorKey = null
-        )
-        return cloudSettingsByDeviceId[device.id]
+    fun cloudStateForDeviceId(deviceId: String?): CloudSettingsState? {
+        if (deviceId.isNullOrBlank()) return null
+        return cloudSettingsByDeviceId[deviceId]
     }
 
-    fun openCloudDialog(
-        initialKey: String,
-        selectableChoices: List<CloudDeviceChoice>
-    ) {
-        dialogSelectedKey = initialKey
+    fun closeDialog() {
+        showDeviceSettingsDialog = false
+        dialogSelectedKey = null
+        dialogBusy = false
+        dialogErrorKey = null
+    }
+
+    fun openCurrentDeviceDialog(currentSettingsJson: String) {
+        dialogSelectedKey = CURRENT_DEVICE_DIALOG_KEY
         dialogErrorKey = null
         dialogBusy = false
-        val initialChoice = selectableChoices.firstOrNull { it.key == initialKey }
-        val initialRecord = cloudStateForChoice(initialChoice)?.record
+        dialogJson = currentSettingsJson
+        showDeviceSettingsDialog = true
+    }
+
+    fun openServerDeviceDialog(deviceId: String) {
+        dialogSelectedKey = deviceId
+        dialogErrorKey = null
+        dialogBusy = false
+        val initialRecord = cloudStateForDeviceId(deviceId)?.record
         dialogJson = initialRecord?.let { settingsToPrettyJson(it.settings) } ?: "{}"
         showDeviceSettingsDialog = true
     }
@@ -90,15 +96,6 @@ internal fun rememberAccountDevicesState(
         state.devicesLoading = true
         state.devicesErrorKey = null
         try {
-            if (connected && activeAddress.isNotEmpty()) {
-                runCatching {
-                    accountVm.ensureDevice(
-                        address = activeAddress,
-                        alias = activeAlias.ifBlank { null }
-                    )
-                }.onFailure { e -> state.devicesErrorKey = e.message }
-            }
-
             val list = accountVm.fetchDevices()
             state.devices = list
             cacheDevices(settingsStore, list)
@@ -153,72 +150,6 @@ internal fun rememberAccountDevicesState(
     return state
 }
 
-@Composable
-internal fun rememberSelectableCloudChoices(
-    devices: List<DeviceOut>,
-    connected: Boolean,
-    activeAddress: String,
-    activeAlias: String
-): List<CloudDeviceChoice> {
-    return remember(devices, connected, activeAddress, activeAlias) {
-        val serverChoices =
-            devices.sortedWith(
-                compareBy<DeviceOut>(
-                    { !(connected && it.address.equals(activeAddress, ignoreCase = true)) },
-                    { (it.alias ?: it.address).lowercase() }
-                )
-            ).map { device ->
-                CloudDeviceChoice(
-                    device = device,
-                    address = device.address,
-                    alias = device.alias,
-                    isConnectedDevice = connected && device.address.equals(
-                        activeAddress,
-                        ignoreCase = true
-                    )
-                )
-            }
-
-        val localOnlyChoice =
-            if (connected && activeAddress.isNotBlank() && serverChoices.none {
-                    it.address.equals(activeAddress, ignoreCase = true)
-                }
-            ) {
-                CloudDeviceChoice(
-                    device = null,
-                    address = activeAddress,
-                    alias = activeAlias.ifBlank { null },
-                    isConnectedDevice = true
-                )
-            } else {
-                null
-            }
-
-        buildList {
-            if (localOnlyChoice != null) add(localOnlyChoice)
-            addAll(serverChoices)
-        }
-    }
-}
-
-internal suspend fun resolveCloudChoice(
-    choice: CloudDeviceChoice,
-    accountVm: AccountViewModel,
-    state: AccountDevicesUiState,
-    settingsStore: AppSettingsStore
-): DeviceOut {
-    val existing = choice.device
-    if (existing != null && existing.id.isNotBlank()) return existing
-
-    val ensured = accountVm.ensureDevice(
-        address = choice.address,
-        alias = choice.alias
-    )
-    mergeDeviceIntoList(state, settingsStore, ensured)
-    state.dialogSelectedKey = ensured.id
-    return ensured
-}
-
 internal suspend fun refreshCloudSettingsState(
     device: DeviceOut,
     force: Boolean,
@@ -251,10 +182,22 @@ internal suspend fun mergeDeviceIntoList(
 ) {
     val updated =
         (state.devices.filterNot {
-            it.id == device.id || it.address.equals(device.address, ignoreCase = true)
+            it.id == device.id
         } + device).sortedBy { (it.alias ?: it.address).lowercase() }
 
     state.devices = updated
+    cacheDevices(settingsStore, updated)
+}
+
+internal suspend fun removeDeviceFromList(
+    state: AccountDevicesUiState,
+    settingsStore: AppSettingsStore,
+    deviceId: String
+) {
+    val updated = state.devices.filterNot { it.id == deviceId }
+    state.devices = updated
+    state.cloudSettingsByDeviceId =
+        state.cloudSettingsByDeviceId.toMutableMap().apply { remove(deviceId) }
     cacheDevices(settingsStore, updated)
 }
 

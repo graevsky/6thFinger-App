@@ -48,12 +48,12 @@
     <string name="settings_english">Английский</string>
     <string name="settings_close">Закрыть</string>
     <string name="settings_links">Ссылки</string>
-    <string name="settings_link_guide">Инструкция</string>
-    <string name="settings_link_app">Приложение</string>
-    <string name="settings_link_esp32_firmware">Прошивка ESP32</string>
-    <string name="settings_link_backend">Backend</string>
-    <string name="start_guide_title">Краткая инструкция</string>
-    <string name="start_guide_subtitle">Открыть пошаговую инструкцию</string>
+    <string name="settings_link_guide">Сайт проекта</string>
+    <string name="settings_link_app">Гайд по протезу</string>
+    <string name="settings_link_esp32_firmware">Гайд по приложению</string>
+    <string name="settings_link_backend">Гайд по серверу</string>
+    <string name="start_guide_title">Сайт проекта</string>
+    <string name="start_guide_subtitle">Открыть prothesis.ru</string>
     <string name="settings_account">Настройки аккаунта</string>
     <string name="settings_password_change">Сменить пароль</string>
     <string name="settings_theme">Тема</string>
@@ -275,17 +275,21 @@
 
     <!-- Prosthesis Cloud -->
     <string name="prosthesis_settings">Настройки протеза</string>
-    <string name="prosthesis_settings_descr">Настройки вашего протеза</string>
-    <string name="prosthesis_settings_dialog_hint">Синхронизация настроек протеза</string>
-    <string name="prosthesis_pull">Загрузить настройки</string>
-    <string name="prosthesis_push">Отправить настройки</string>
-    <string name="prosthesis_no_devices">Нет зарегистрированных протезов</string>
+    <string name="prosthesis_settings_descr">Текущий протез и настройки протезов на сервере</string>
+    <string name="prosthesis_settings_dialog_hint">Выберите протез и управляйте его настройками в облаке</string>
+    <string name="prosthesis_pull">Загрузить с сервера в протез</string>
+    <string name="prosthesis_push">Сохранить текущие настройки на сервер</string>
+    <string name="prosthesis_no_devices">На сервере пока нет сохранённых протезов</string>
     <string name="prosthesis_not_connected_title">Протез не подключен</string>
     <string name="prosthesis_not_connected_message">Подключите протез, чтобы получить настройки.</string>
     <string name="prosthesis_no_settings_on_server">Для этого протеза ещё нет сохранённых настроек на сервере.</string>
     <string name="prosthesis_connected">Подключен</string>
+    <string name="prosthesis_current_title">Текущий протез</string>
+    <string name="prosthesis_current_connect_first">Сначала подключите протез, чтобы использовать этот блок.</string>
+    <string name="prosthesis_server_title">Протезы на сервере</string>
+    <string name="prosthesis_server_login_required">Войдите в аккаунт, чтобы увидеть протезы, сохранённые на сервере.</string>
     <string name="prosthesis_settings_for_device">Настройки протеза: %1$s</string>
-    <string name="prosthesis_connect_hint">Подключите протез, чтобы можно было получить настройки с сервера.</string>
+    <string name="prosthesis_connect_hint">Подключение нужно только для загрузки настроек с сервера в протез. Сохранить текущие настройки на сервер можно и без подключения.</string>
     <string name="device">Устройство</string>
     <string name="alias">Имя</string>
     <string name="no_active">Нет активного устройства</string>
@@ -293,6 +297,12 @@
     <string name="prosthesis_preview">Просмотр настроек</string>
     <string name="prosthesis_target_device">Целевой протез</string>
     <string name="prosthesis_select_target">Выберите протез</string>
+    <string name="prosthesis_server_status_label">Статус на сервере</string>
+    <string name="prosthesis_server_status_sign_in">Войдите, чтобы проверить</string>
+    <string name="prosthesis_server_status_not_saved">Не сохранён на сервере</string>
+    <string name="prosthesis_server_status_device_only">Протез найден на сервере, но настройки ещё не сохранены</string>
+    <string name="prosthesis_server_status_outdated">На сервере устаревшая копия</string>
+    <string name="prosthesis_server_settings_saved">Сохранено на сервере</string>
     <string name="prosthesis_server_settings_saved_version">Сохранено на сервере • v%1$d</string>
     <string name="prosthesis_server_settings_missing">На сервере нет сохранённых настроек</string>
     <string name="prosthesis_server_status_unknown">Статус сервера недоступен</string>
@@ -300,7 +310,17 @@
     <string name="prosthesis_connected_device">Подключённый протез</string>
     <string name="prosthesis_address">Адрес</string>
     <string name="prosthesis_version">Версия</string>
+    <string name="prosthesis_version_missing">Не сохранено</string>
+    <string name="prosthesis_version_outdated">Не синхронизировано</string>
     <string name="prosthesis_updated_at">Обновлено</string>
+    <string name="prosthesis_updated_at_unknown">Неизвестно</string>
+    <string name="prosthesis_guest_message">Чтобы посмотреть и синхронизировать настройки протеза с сервером, войдите в аккаунт или зарегистрируйтесь.</string>
+    <string name="prosthesis_delete_device">Удалить протез с сервера</string>
+    <string name="prosthesis_pull_server_device_to_connected">Загрузить настройки протеза "%1$s" в протез "%2$s"</string>
+    <string name="prosthesis_push_connected_to_server_device">Сохранить настройки протеза "%1$s" на сервер для протеза "%2$s"</string>
+    <string name="prosthesis_push_current_device">Загрузить настройки на сервер</string>
+    <string name="prosthesis_pull_current_device">Получить настройки с сервера</string>
+    <string name="prosthesis_pull_requires_exact_match">Чтобы получить настройки с сервера, там уже должен существовать протез с таким же именем и MAC-адресом.</string>
 
     <!-- Post-Registration Email -->
     <string name="postreg_email_title">Добавить почту</string>
@@ -371,6 +391,7 @@
     <string name="err_failed_load_devices">Не удалось загрузить устройства</string>
     <string name="err_failed_pull_settings">Не удалось получить настройки</string>
     <string name="err_failed_push_settings">Не удалось отправить настройки</string>
+    <string name="err_failed_delete_device">Не удалось удалить протез</string>
     <string name="err_email_in_use">Эта почта уже привязана к другому аккаунту</string>
     <string name="err_email_mismatch">Почта не совпадает с почтой аккаунта</string>
     <string name="err_email_not_set">Почта не задана</string>

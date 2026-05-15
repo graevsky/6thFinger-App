@@ -38,6 +38,9 @@ internal class BleDeviceStateCoordinator(
     private val _lastAppliedSettings = MutableStateFlow(_uiSettings.value)
     val lastAppliedSettings: StateFlow<EspSettings> = _lastAppliedSettings
 
+    private val _activeSettingsUpdatedAtMillis = MutableStateFlow<Long?>(null)
+    val activeSettingsUpdatedAtMillis: StateFlow<Long?> = _activeSettingsUpdatedAtMillis
+
     private val _pendingBoardApply = MutableStateFlow(false)
     val pendingBoardApply: StateFlow<Boolean> = _pendingBoardApply
 
@@ -61,6 +64,7 @@ internal class BleDeviceStateCoordinator(
                 if (fromBoard != null) {
                     _uiSettings.value = fromBoard
                     _lastAppliedSettings.value = fromBoard
+                    _activeSettingsUpdatedAtMillis.value = System.currentTimeMillis()
                     _pendingBoardApply.value = false
 
                     if (address.isNotEmpty()) {
@@ -99,6 +103,7 @@ internal class BleDeviceStateCoordinator(
             }
         }
 
+        _activeSettingsUpdatedAtMillis.value = System.currentTimeMillis()
         scope.launch { settingsStore.set(activeAddress, next) }
     }
 
@@ -110,6 +115,7 @@ internal class BleDeviceStateCoordinator(
 
         if (ok) {
             _lastAppliedSettings.value = config
+            _activeSettingsUpdatedAtMillis.value = System.currentTimeMillis()
             _pendingBoardApply.value = false
             scope.launch { settingsStore.set(activeAddress, config) }
         }
@@ -119,10 +125,12 @@ internal class BleDeviceStateCoordinator(
 
     fun resetToDefaults() {
         _uiSettings.value = EspSettings()
+        _activeSettingsUpdatedAtMillis.value = System.currentTimeMillis()
     }
 
     fun applySettingsFromCloud(settings: EspSettings) {
         _uiSettings.value = settings
+        _activeSettingsUpdatedAtMillis.value = System.currentTimeMillis()
         _pendingBoardApply.value = true
     }
 }

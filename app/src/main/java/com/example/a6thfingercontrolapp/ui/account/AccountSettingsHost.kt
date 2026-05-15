@@ -60,19 +60,19 @@ internal fun AccountSettingsHost(
     val links = listOf(
         SettingsLink(
             title = stringResource(R.string.settings_link_guide),
-            url = BuildConfig.APP_GUIDE_URL
+            url = BuildConfig.PROJECT_LANDING_URL
         ),
         SettingsLink(
             title = stringResource(R.string.settings_link_app),
-            url = BuildConfig.APP_REPOSITORY_URL
+            url = BuildConfig.PROSTHESIS_GUIDE_URL
         ),
         SettingsLink(
             title = stringResource(R.string.settings_link_esp32_firmware),
-            url = BuildConfig.ESP32_FIRMWARE_URL
+            url = BuildConfig.APP_GUIDE_URL
         ),
         SettingsLink(
             title = stringResource(R.string.settings_link_backend),
-            url = BuildConfig.BACKEND_REPOSITORY_URL
+            url = BuildConfig.BACKEND_GUIDE_URL
         )
     )
 

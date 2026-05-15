@@ -89,6 +89,9 @@ class AuthRepository private constructor(context: Context) {
     suspend fun listDevices(): List<DeviceOut> =
         cloudService.listDevices()
 
+    suspend fun createDevice(address: String, alias: String?): DeviceOut =
+        cloudService.createDevice(address, alias)
+
     suspend fun pushDeviceSettings(
         deviceId: String,
         settings: EspSettings
@@ -97,6 +100,9 @@ class AuthRepository private constructor(context: Context) {
 
     suspend fun getDeviceSettingsRecord(deviceId: String): DeviceSettingsRecord? =
         cloudService.getDeviceSettingsRecord(deviceId)
+
+    suspend fun deleteDevice(deviceId: String) =
+        cloudService.deleteDevice(deviceId)
 
     suspend fun ensureDevice(address: String, alias: String?): DeviceOut =
         cloudService.ensureDevice(address, alias)

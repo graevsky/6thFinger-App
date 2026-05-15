@@ -12,17 +12,21 @@ import com.example.a6thfingercontrolapp.R
 import com.example.a6thfingercontrolapp.account.AccountViewModel
 import com.example.a6thfingercontrolapp.ble.settings.EspSettings
 import com.example.a6thfingercontrolapp.data.AppSettingsStore
-import com.example.a6thfingercontrolapp.ui.account.dialogs.DeviceSettingsDialog
+import com.example.a6thfingercontrolapp.data.DeviceSettingsRecord
+import com.example.a6thfingercontrolapp.network.DeviceOut
+import com.example.a6thfingercontrolapp.ui.account.dialogs.ConnectedDeviceDialog
+import com.example.a6thfingercontrolapp.ui.account.dialogs.ServerDeviceDialog
 import kotlinx.coroutines.launch
 
 /**
- * Device settings dialog host.
+ * Account prosthesis dialogs host.
  */
 @Composable
 internal fun AccountDeviceSettingsHost(
     state: AccountDevicesUiState,
-    selectableChoices: List<CloudDeviceChoice>,
-    connected: Boolean,
+    devices: List<DeviceOut>,
+    connectedDevice: ConnectedDeviceSummary?,
+    isLoggedIn: Boolean,
     currentSettings: EspSettings,
     accountVm: AccountViewModel,
     settingsStore: AppSettingsStore,
@@ -34,50 +38,85 @@ internal fun AccountDeviceSettingsHost(
 
     val errFailedPullSettings = stringResource(R.string.err_failed_pull_settings)
     val errFailedPushSettings = stringResource(R.string.err_failed_push_settings)
+    val errFailedDeleteDevice = stringResource(R.string.err_failed_delete_device)
 
-    val dialogSelectedChoice = selectableChoices.firstOrNull { it.key == state.dialogSelectedKey }
-    val dialogSelectedState = state.cloudStateForChoice(dialogSelectedChoice)
-    val dialogErrorText = uiErrorTextOrRaw(state.dialogErrorKey ?: dialogSelectedState?.errorKey)
+    val selectedServerDevice = devices.firstOrNull { it.id == state.dialogSelectedKey }
+    val selectedServerState = state.cloudStateForDeviceId(selectedServerDevice?.id)
+    val dialogErrorText = uiErrorTextOrRaw(state.dialogErrorKey ?: selectedServerState?.errorKey)
 
-    if (state.showDeviceSettingsDialog && dialogSelectedChoice != null) {
-        DeviceSettingsDialog(
-            devices = selectableChoices,
-            selectedKey = dialogSelectedChoice.key,
-            selectedState = dialogSelectedState,
+    fun closeDialog() {
+        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+        state.closeDialog()
+    }
+
+    fun updateCloudRecord(deviceId: String, record: DeviceSettingsRecord) {
+        state.cloudSettingsByDeviceId =
+            state.cloudSettingsByDeviceId.toMutableMap().apply {
+                put(
+                    deviceId,
+                    CloudSettingsState(
+                        checked = true,
+                        record = record,
+                        errorKey = null
+                    )
+                )
+            }
+    }
+
+    if (state.showDeviceSettingsDialog && state.dialogSelectedKey == CURRENT_DEVICE_DIALOG_KEY) {
+        ConnectedDeviceDialog(
+            isLoggedIn = isLoggedIn,
+            device = connectedDevice,
             json = state.dialogJson,
             isBusy = state.dialogBusy,
-            isPullEnabled = connected,
+            canPullFromServer = connectedDevice?.matchedServerDevice != null &&
+                    connectedDevice.matchedServerState?.record != null,
             error = dialogErrorText,
-            onDismiss = {
-                haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
-                state.showDeviceSettingsDialog = false
-            },
-            onSelectedKeyChange = { key ->
-                state.dialogSelectedKey = key
-                state.dialogErrorKey = null
-                val choice = selectableChoices.firstOrNull { it.key == key }
-                val record = state.cloudStateForChoice(choice)?.record
-                state.dialogJson = record?.let { settingsToPrettyJson(it.settings) } ?: "{}"
-            },
-            onPreviewClick = {
-                val choice = dialogSelectedChoice
-                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+            onDismiss = { closeDialog() },
+            onPushToServer = {
+                val currentDevice = connectedDevice ?: return@ConnectedDeviceDialog
+                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                 scope.launch {
                     state.dialogBusy = true
                     state.dialogErrorKey = null
                     try {
-                        val device = resolveCloudChoice(choice, accountVm, state, settingsStore)
+                        val targetDevice = currentDevice.matchedServerDevice ?: accountVm.createDevice(
+                            address = currentDevice.address,
+                            alias = currentDevice.cloudAlias
+                        ).also {
+                            mergeDeviceIntoList(state, settingsStore, it)
+                        }
+
+                        val record = accountVm.pushDeviceSettings(targetDevice.id, currentSettings)
+                        updateCloudRecord(targetDevice.id, record)
+                        state.dialogJson = settingsToPrettyJson(currentSettings)
+                    } catch (e: Exception) {
+                        state.dialogErrorKey = e.message ?: errFailedPushSettings
+                    } finally {
+                        state.dialogBusy = false
+                    }
+                }
+            },
+            onPullFromServer = {
+                val currentDevice = connectedDevice ?: return@ConnectedDeviceDialog
+                val matchedDevice = currentDevice.matchedServerDevice ?: return@ConnectedDeviceDialog
+                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                scope.launch {
+                    state.dialogBusy = true
+                    state.dialogErrorKey = null
+                    try {
                         val result = refreshCloudSettingsState(
-                            device = device,
+                            device = matchedDevice,
                             force = true,
                             accountVm = accountVm,
                             state = state
                         )
                         val record = result.record
                         if (record != null) {
-                            state.dialogJson = settingsToPrettyJson(record.settings)
+                            onApplyPulledSettings(record.settings)
+                            state.closeDialog()
+                            onOpenControl()
                         } else {
-                            state.dialogJson = "{}"
                             state.dialogErrorKey = "prosthesis_no_settings_on_server"
                         }
                     } catch (e: Exception) {
@@ -86,12 +125,42 @@ internal fun AccountDeviceSettingsHost(
                         state.dialogBusy = false
                     }
                 }
+            }
+        )
+    }
+
+    if (state.showDeviceSettingsDialog && selectedServerDevice != null) {
+        ServerDeviceDialog(
+            isLoggedIn = isLoggedIn,
+            device = selectedServerDevice,
+            cloudState = selectedServerState,
+            connectedDevice = connectedDevice,
+            json = state.dialogJson,
+            isBusy = state.dialogBusy,
+            error = dialogErrorText,
+            onDismiss = { closeDialog() },
+            onDeleteDevice = {
+                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                scope.launch {
+                    state.dialogBusy = true
+                    state.dialogErrorKey = null
+                    try {
+                        accountVm.deleteDevice(selectedServerDevice.id)
+                        removeDeviceFromList(state, settingsStore, selectedServerDevice.id)
+                        state.closeDialog()
+                    } catch (e: Exception) {
+                        state.dialogErrorKey = e.message ?: errFailedDeleteDevice
+                    } finally {
+                        state.dialogBusy = false
+                    }
+                }
             },
-            onPullClick = {
-                if (!connected) {
+            onPullToConnected = {
+                val currentDevice = connectedDevice
+                if (currentDevice == null) {
                     haptic.performHapticFeedback(HapticFeedbackType.Reject)
                     state.showConnectWarning = true
-                    return@DeviceSettingsDialog
+                    return@ServerDeviceDialog
                 }
 
                 haptic.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -99,24 +168,16 @@ internal fun AccountDeviceSettingsHost(
                     state.dialogBusy = true
                     state.dialogErrorKey = null
                     try {
-                        val device =
-                            resolveCloudChoice(
-                                dialogSelectedChoice,
-                                accountVm,
-                                state,
-                                settingsStore
-                            )
                         val result = refreshCloudSettingsState(
-                            device = device,
+                            device = selectedServerDevice,
                             force = true,
                             accountVm = accountVm,
                             state = state
                         )
                         val record = result.record
                         if (record != null) {
-                            state.dialogJson = settingsToPrettyJson(record.settings)
                             onApplyPulledSettings(record.settings)
-                            state.showDeviceSettingsDialog = false
+                            state.closeDialog()
                             onOpenControl()
                         } else {
                             state.dialogErrorKey = "prosthesis_no_settings_on_server"
@@ -128,32 +189,24 @@ internal fun AccountDeviceSettingsHost(
                     }
                 }
             },
-            onPushClick = {
+            onPushFromConnected = {
+                val currentDevice = connectedDevice
+                if (currentDevice == null) {
+                    haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                    state.showConnectWarning = true
+                    return@ServerDeviceDialog
+                }
+
                 haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                 scope.launch {
                     state.dialogBusy = true
                     state.dialogErrorKey = null
                     try {
-                        val device =
-                            resolveCloudChoice(
-                                dialogSelectedChoice,
-                                accountVm,
-                                state,
-                                settingsStore
-                            )
-                        val record = accountVm.pushDeviceSettings(device.id, currentSettings)
-                        state.cloudSettingsByDeviceId =
-                            state.cloudSettingsByDeviceId.toMutableMap().apply {
-                                put(
-                                    device.id,
-                                    CloudSettingsState(
-                                        checked = true,
-                                        record = record,
-                                        errorKey = null
-                                    )
-                                )
-                            }
-                        state.dialogSelectedKey = device.id
+                        val record = accountVm.pushDeviceSettings(
+                            deviceId = selectedServerDevice.id,
+                            settings = currentSettings
+                        )
+                        updateCloudRecord(selectedServerDevice.id, record)
                         state.dialogJson = settingsToPrettyJson(record.settings)
                     } catch (e: Exception) {
                         state.dialogErrorKey = e.message ?: errFailedPushSettings

@@ -48,12 +48,12 @@
     <string name="settings_english">English</string>
     <string name="settings_close">Close</string>
     <string name="settings_links">Links</string>
-    <string name="settings_link_guide">Guide</string>
-    <string name="settings_link_app">App</string>
-    <string name="settings_link_esp32_firmware">ESP32 firmware</string>
-    <string name="settings_link_backend">Backend</string>
-    <string name="start_guide_title">Quick start guide</string>
-    <string name="start_guide_subtitle">Open step-by-step instructions</string>
+    <string name="settings_link_guide">Project website</string>
+    <string name="settings_link_app">Prosthesis guide</string>
+    <string name="settings_link_esp32_firmware">App guide</string>
+    <string name="settings_link_backend">Server guide</string>
+    <string name="start_guide_title">Project website</string>
+    <string name="start_guide_subtitle">Open prothesis.ru</string>
     <string name="settings_account">Account settings</string>
     <string name="settings_password_change">Change password</string>
     <string name="settings_theme">Theme</string>
@@ -275,17 +275,21 @@
 
     <!-- Prosthesis Cloud -->
     <string name="prosthesis_settings">Prosthesis Settings</string>
-    <string name="prosthesis_settings_descr">Settings for your prosthesis</string>
-    <string name="prosthesis_settings_dialog_hint">Choose the prosthesis record on the server</string>
-    <string name="prosthesis_pull">Load device settings</string>
-    <string name="prosthesis_push">Upload device settings</string>
-    <string name="prosthesis_no_devices">No prostheses registered</string>
+    <string name="prosthesis_settings_descr">Current prosthesis and server prosthesis settings</string>
+    <string name="prosthesis_settings_dialog_hint">Choose a prosthesis and manage its cloud settings</string>
+    <string name="prosthesis_pull">Load from server into prosthesis</string>
+    <string name="prosthesis_push">Save current settings to server</string>
+    <string name="prosthesis_no_devices">No prostheses saved on the server</string>
     <string name="prosthesis_not_connected_title">Prosthesis is not connected</string>
     <string name="prosthesis_not_connected_message">Connect a prosthesis first to load server settings into it</string>
     <string name="prosthesis_no_settings_on_server">Device does not have any saved settings</string>
     <string name="prosthesis_connected">Connected</string>
+    <string name="prosthesis_current_title">Current prosthesis</string>
+    <string name="prosthesis_current_connect_first">Connect a prosthesis first to use this block.</string>
+    <string name="prosthesis_server_title">Prostheses on server</string>
+    <string name="prosthesis_server_login_required">Sign in to view prostheses saved on the server.</string>
     <string name="prosthesis_settings_for_device">Device settings: %1$s</string>
-    <string name="prosthesis_connect_hint">Connecting is required only for loading settings from the server into the prosthesis. Uploading local settings to the cloud is available for any selected prosthesis record.</string>
+    <string name="prosthesis_connect_hint">Connect the prosthesis only if you want to load cloud settings into it. Saving the current settings to the server does not require a connection.</string>
     <string name="device">Device</string>
     <string name="alias">Alias</string>
     <string name="no_active">No active devices found</string>
@@ -293,6 +297,12 @@
     <string name="prosthesis_preview">View settings</string>
     <string name="prosthesis_target_device">Target prosthesis</string>
     <string name="prosthesis_select_target">Choose prosthesis</string>
+    <string name="prosthesis_server_status_label">Server status</string>
+    <string name="prosthesis_server_status_sign_in">Sign in to check</string>
+    <string name="prosthesis_server_status_not_saved">Not saved on server</string>
+    <string name="prosthesis_server_status_device_only">Device found on server, settings are not saved</string>
+    <string name="prosthesis_server_status_outdated">Server copy is outdated</string>
+    <string name="prosthesis_server_settings_saved">Saved on server</string>
     <string name="prosthesis_server_settings_saved_version">Saved on server • v%1$d</string>
     <string name="prosthesis_server_settings_missing">No saved settings on server</string>
     <string name="prosthesis_server_status_unknown">Server status unavailable</string>
@@ -300,7 +310,17 @@
     <string name="prosthesis_connected_device">Connected prosthesis</string>
     <string name="prosthesis_address">Address</string>
     <string name="prosthesis_version">Version</string>
+    <string name="prosthesis_version_missing">Not saved</string>
+    <string name="prosthesis_version_outdated">Not synced</string>
     <string name="prosthesis_updated_at">Updated</string>
+    <string name="prosthesis_updated_at_unknown">Unknown</string>
+    <string name="prosthesis_guest_message">Sign in or create an account to view and sync prosthesis settings from the server.</string>
+    <string name="prosthesis_delete_device">Delete prosthesis from server</string>
+    <string name="prosthesis_pull_server_device_to_connected">Load settings of "%1$s" into "%2$s"</string>
+    <string name="prosthesis_push_connected_to_server_device">Save settings of "%1$s" to server device "%2$s"</string>
+    <string name="prosthesis_push_current_device">Upload current prosthesis settings to server</string>
+    <string name="prosthesis_pull_current_device">Get settings from server</string>
+    <string name="prosthesis_pull_requires_exact_match">To get settings from the server, a prosthesis with the same alias and MAC address must already exist there.</string>
 
     <!-- Post-Registration Email -->
     <string name="postreg_email_title">Add email</string>
@@ -371,6 +391,7 @@
     <string name="err_failed_load_devices">Failed to load devices</string>
     <string name="err_failed_pull_settings">Failed to pull settings</string>
     <string name="err_failed_push_settings">Failed to push settings</string>
+    <string name="err_failed_delete_device">Failed to delete prosthesis</string>
     <string name="err_email_in_use">This email is already linked to another account</string>
     <string name="err_email_mismatch">Email does not match the account email</string>
     <string name="err_email_not_set">Email is not set</string>

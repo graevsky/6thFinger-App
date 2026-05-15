@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -18,38 +17,33 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.a6thfingercontrolapp.R
-import com.example.a6thfingercontrolapp.network.DeviceOut
-import com.example.a6thfingercontrolapp.ui.account.CloudSettingsState
 import com.example.a6thfingercontrolapp.ui.account.ConnectedDeviceSummary
-import com.example.a6thfingercontrolapp.ui.account.formatCloudUpdatedAt
+import com.example.a6thfingercontrolapp.ui.account.currentDeviceVersionText
+import com.example.a6thfingercontrolapp.ui.account.formatLocalUpdatedAt
 
 /**
- * Dialog for a prosthesis stored on the server.
+ * Dialog for the currently connected prosthesis.
  */
 @Composable
-internal fun ServerDeviceDialog(
+internal fun ConnectedDeviceDialog(
     isLoggedIn: Boolean,
-    device: DeviceOut,
-    cloudState: CloudSettingsState?,
-    connectedDevice: ConnectedDeviceSummary?,
+    device: ConnectedDeviceSummary?,
     json: String,
     isBusy: Boolean,
+    canPullFromServer: Boolean,
     error: String?,
     onDismiss: () -> Unit,
-    onDeleteDevice: () -> Unit,
-    onPullToConnected: () -> Unit,
-    onPushFromConnected: () -> Unit
+    onPushToServer: () -> Unit,
+    onPullFromServer: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    val deviceName = device.alias?.takeIf { it.isNotBlank() } ?: device.address
-    val connectedName = connectedDevice?.displayName
 
     AlertDialog(
         onDismissRequest = {
             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.VirtualKey)
             onDismiss()
         },
-        title = { Text(text = deviceName) },
+        title = { Text(text = stringResource(R.string.prosthesis_current_title)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -63,23 +57,38 @@ internal fun ServerDeviceDialog(
                     return@Column
                 }
 
+                val currentDevice = device ?: run {
+                    Text(
+                        text = stringResource(R.string.prosthesis_current_connect_first),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    return@Column
+                }
+                val updatedAtText = formatLocalUpdatedAt(currentDevice.updatedAtMillis)
+
                 Text(
-                    text = "${stringResource(R.string.prosthesis_address)}: ${device.address}",
+                    text = "${stringResource(R.string.alias)}: ${currentDevice.displayName}",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text(
-                    text = "${stringResource(R.string.prosthesis_version)}: ${
-                        cloudState?.record?.version?.toString()
-                            ?: stringResource(R.string.prosthesis_version_missing)
-                    }",
+                    text = "${stringResource(R.string.prosthesis_address)}: ${currentDevice.address}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = "${stringResource(R.string.ble_status)}: ${stringResource(R.string.prosthesis_connected)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = "${stringResource(R.string.prosthesis_version)}: ${currentDeviceVersionText(currentDevice)}",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text(
                     text = "${stringResource(R.string.prosthesis_updated_at)}: ${
-                        cloudState?.record?.updatedAt
-                            ?.takeIf { it.isNotBlank() }
-                            ?.let(::formatCloudUpdatedAt)
-                            ?: stringResource(R.string.prosthesis_updated_at_unknown)
+                        if (updatedAtText.isBlank()) {
+                            stringResource(R.string.prosthesis_updated_at_unknown)
+                        } else {
+                            updatedAtText
+                        }
                     }",
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -94,9 +103,9 @@ internal fun ServerDeviceDialog(
                         .height(200.dp)
                 )
 
-                if (connectedDevice == null) {
+                if (!canPullFromServer) {
                     Text(
-                        text = stringResource(R.string.prosthesis_current_connect_first),
+                        text = stringResource(R.string.prosthesis_pull_requires_exact_match),
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -119,50 +128,23 @@ internal fun ServerDeviceDialog(
                 Button(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isBusy,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    ),
                     onClick = {
                         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
-                        onDeleteDevice()
+                        onPushToServer()
                     }
                 ) {
-                    Text(stringResource(R.string.prosthesis_delete_device))
+                    Text(stringResource(R.string.prosthesis_push_current_device))
                 }
 
                 OutlinedButton(
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isBusy && connectedDevice != null && cloudState?.record != null,
+                    enabled = !isBusy && canPullFromServer,
                     onClick = {
                         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
-                        onPullToConnected()
+                        onPullFromServer()
                     }
                 ) {
-                    Text(
-                        stringResource(
-                            R.string.prosthesis_pull_server_device_to_connected,
-                            deviceName,
-                            connectedName ?: stringResource(R.string.prosthesis_current_title)
-                        )
-                    )
-                }
-
-                Button(
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isBusy && connectedDevice != null,
-                    onClick = {
-                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
-                        onPushFromConnected()
-                    }
-                ) {
-                    Text(
-                        stringResource(
-                            R.string.prosthesis_push_connected_to_server_device,
-                            connectedName ?: stringResource(R.string.prosthesis_current_title),
-                            deviceName
-                        )
-                    )
+                    Text(stringResource(R.string.prosthesis_pull_current_device))
                 }
             }
         },

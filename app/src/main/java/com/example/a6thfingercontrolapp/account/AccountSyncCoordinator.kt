@@ -86,6 +86,9 @@ class AccountSyncCoordinator(
     suspend fun fetchDevices(): List<DeviceOut> =
         runProtected { repo.listDevices() }
 
+    suspend fun createDevice(address: String, alias: String?): DeviceOut =
+        runProtected { repo.createDevice(address, alias) }
+
     suspend fun fetchDeviceSettingsRecord(deviceId: String): DeviceSettingsRecord? =
         runProtected { repo.getDeviceSettingsRecord(deviceId) }
 
@@ -93,6 +96,9 @@ class AccountSyncCoordinator(
         deviceId: String,
         settings: EspSettings
     ): DeviceSettingsRecord = runProtected { repo.pushDeviceSettings(deviceId, settings) }
+
+    suspend fun deleteDevice(deviceId: String) =
+        runProtected { repo.deleteDevice(deviceId) }
 
     suspend fun ensureDevice(address: String, alias: String?): DeviceOut =
         runProtected { repo.ensureDevice(address, alias) }
